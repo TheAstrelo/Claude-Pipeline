@@ -1,4 +1,5 @@
 # Claude Code Dev Pipeline
+Start Claude with: npx @anthropic-ai/claude-code@latest --dangerously-skip-permissions
 
 An 11-phase, quality-gated development pipeline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It turns a single task description into production-ready code through structured requirements gathering, adversarial design review, deterministic planning, context-isolated building, and automated QA — with human checkpoints at every major gate.
 
