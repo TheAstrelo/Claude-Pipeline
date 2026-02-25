@@ -22,5 +22,72 @@
         ]
       }
     ]
+  },
+  "pipeline": {
+    "defaultProfile": "standard",
+    "profiles": {
+      "yolo": {
+        "skip": [3, 5, 7, 8, 9, 10],
+        "gateMode": "soft",
+        "maxRetries": 1,
+        "tokenBudget": 20000
+      },
+      "standard": {
+        "skip": [],
+        "gateMode": "mixed",
+        "maxRetries": 2,
+        "tokenBudget": 40000
+      },
+      "paranoid": {
+        "skip": [],
+        "gateMode": "hard",
+        "maxRetries": 3,
+        "tokenBudget": 60000
+      }
+    },
+    "validation": {
+      "hardGatePhases": [0, 3, 11],
+      "softGatePhases": [1, 2, 4, 5],
+      "noGatePhases": [6, 7, 8, 9, 10]
+    },
+    "cache": {
+      "enabled": true,
+      "maxAge": "7d",
+      "types": ["security", "templates"]
+    },
+    "tokenLimits": {
+      "phase0": 3000,
+      "phase1": 4000,
+      "phase2": 6000,
+      "phase3": 4000,
+      "phase4": 5000,
+      "phase5": 3000,
+      "phase6Step": 2000,
+      "qaPhase": 3000
+    },
+    "preCheck": {
+      "neverSkip": true,
+      "searchDirs": ["src/pages/api", "src/features", "src/lib", "src/domain"],
+      "maxWebSearches": 3
+    },
+    "slimAgents": true,
+    "agentMapping": {
+      "slim": {
+        "requirements-crystallizer": "requirements-slim",
+        "architect": "architect-slim",
+        "adversarial-coordinator": "adversarial-slim",
+        "atomic-planner": "planner-slim",
+        "builder": "builder-slim",
+        "security-auditor": "security-slim"
+      },
+      "full": {
+        "requirements-crystallizer": "requirements-crystallizer",
+        "architect": "architect",
+        "adversarial-coordinator": "adversarial-coordinator",
+        "atomic-planner": "atomic-planner",
+        "builder": "builder",
+        "security-auditor": "security-auditor"
+      }
+    }
   }
 }
