@@ -1,0 +1,36 @@
+{
+  "framework": "nextjs",
+  "version": "14+",
+  "rules": {
+    "imports": {
+      "database": "import pool from '@infrastructure/database/connection'",
+      "auth": "import { requireAuth, AuthenticatedRequest } from '@infrastructure/auth/middleware'",
+      "admin": "import { requireAdmin } from '@infrastructure/auth/middleware'"
+    },
+    "patterns": {
+      "api_handler": "async function handler(req: AuthenticatedRequest, res: NextApiResponse)",
+      "export_auth": "export default requireAuth(handler)",
+      "export_admin": "export default requireAdmin(handler)",
+      "user_id": "const userId = req.userId!",
+      "method_check": "if (req.method !== 'GET')"
+    },
+    "forbidden": {
+      "sql_interpolation": "\\`.*\\$\\{.*\\}.*\\`",
+      "user_id_from_body": "req.body.userId",
+      "do_alias": "AS do",
+      "raw_css": "style={{",
+      "localStorage_token": "localStorage.*token"
+    },
+    "required": {
+      "api_routes": ["requireAuth OR requireAdmin"],
+      "database_queries": ["parameterized ($1, $2)"],
+      "error_handling": ["try/catch", "return res.status(500)"]
+    },
+    "conventions": {
+      "grid": "<Grid size={{ xs: 12 }}>",
+      "grid_wrong": "<Grid item xs={12}>",
+      "theme_colors": "theme.palette.*",
+      "numeric_display": "parseFloat(String(value)).toFixed(1)"
+    }
+  }
+}

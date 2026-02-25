@@ -13,9 +13,12 @@ PROFILE="${PROFILE:-standard}"
 GATE_MODE="${GATE_MODE:-mixed}"
 SESSION=".claude/artifacts/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$SESSION"
+
+# Initialize cache
+bash "$CLAUDE_PROJECT_DIR/.claude/hooks/cache.sh" init
 ```
 
-Load settings from `lib/config.md` and `lib/validator.md`.
+Load settings from `lib/config.md`, `lib/validator.md`, and `lib/cache.md`.
 
 ---
 
@@ -74,6 +77,19 @@ Output: `brief.md`
 Agent: `architect-slim` | Budget: 6000 tokens
 Input: `brief.md` summary
 Output: `design.md`
+
+**Cache Check:**
+```bash
+# Check for matching design pattern
+PATTERN=$(extract_pattern_from_brief "$SESSION/brief.md")  # rest-api, auth-jwt, etc.
+CACHE_RESULT=$(bash .claude/hooks/cache.sh check patterns "$PATTERN")
+
+if [[ "$CACHE_RESULT" == HIT:* ]]; then
+  PATTERN_FILE="${CACHE_RESULT#HIT:}"
+  # Include cached pattern in agent context (saves ~1500 tokens)
+  echo "Using cached pattern: $PATTERN"
+fi
+```
 
 **Validators:**
 ```
@@ -159,6 +175,20 @@ Output: `build-report.md`
 
 Run in parallel. Budget: 3000 tokens each.
 
+**Cache Check (QA Rules):**
+```bash
+# Detect framework and load cached QA rules
+FRAMEWORK=$(detect_framework)  # nextjs, react, express
+CACHE_RESULT=$(bash .claude/hooks/cache.sh check qa-rules "$FRAMEWORK")
+
+if [[ "$CACHE_RESULT" == HIT:* ]]; then
+  QA_RULES="${CACHE_RESULT#HIT:}"
+  echo "[CACHED] Using QA rules for $FRAMEWORK"
+  echo "Tokens saved: ~1000"
+  # Load rules into QA agent context
+fi
+```
+
 | Phase | Agent | Validators |
 |-------|-------|------------|
 | 7 | denoiser | Auto-fix, no validation |
@@ -172,6 +202,26 @@ Run in parallel. Budget: 3000 tokens each.
 ---
 
 ## Phase 11: Security (HARD gate)
+
+**Cache Check:**
+```bash
+# Check if security scan is cached (by lockfile hash)
+CACHE_RESULT=$(bash .claude/hooks/cache.sh check security)
+
+if [[ "$CACHE_RESULT" == HIT:* ]]; then
+  CACHED_SCAN="${CACHE_RESULT#HIT:}"
+  echo "[CACHED] Using security scan from $CACHED_SCAN"
+  echo "Tokens saved: ~3000"
+  # Use cached findings instead of running full scan
+  cp "$CACHED_SCAN" "$SESSION/security-cached.json"
+  # Only scan NEW/CHANGED files not in cache
+else
+  echo "[MISS] Running full security scan"
+  # Run full scan, then save to cache
+  # After scan completes:
+  bash .claude/hooks/cache.sh save security "$SESSION/security-scan.json"
+fi
+```
 
 **Validators:**
 ```
@@ -195,18 +245,22 @@ Task: {task}
 Session: {session}
 Tokens used: {count}
 
+Cache:
+  Hits: 3 (pattern: rest-api, qa-rules: nextjs, security: lockfile)
+  Tokens saved: ~5500
+
 Phases:
 0. Pre-Check     [AUTO]  → BUILD_NEW
 1. Requirements  [AUTO]  validators: 3/3 ✓
-2. Design        [WARN]  validators: 3/4 ✓ (paths_exist: 1 missing)
+2. Design        [AUTO]  validators: 4/4 ✓  [CACHED: rest-api pattern]
 3. Adversarial   [AUTO]  validators: 4/4 ✓
 4. Planning      [AUTO]  validators: 5/5 ✓
 5. Drift         [AUTO]  validators: 3/3 ✓
 6. Build         [AUTO]  validators: 3/3 ✓
-7-10. QA         [AUTO]  auto-fixed: 2 issues
-11. Security     [AUTO]  validators: 5/5 ✓
+7-10. QA         [AUTO]  auto-fixed: 2 issues  [CACHED: nextjs rules]
+11. Security     [AUTO]  validators: 5/5 ✓  [CACHED: lockfile unchanged]
 
-Validation: 29/30 passed (1 SOFT fail)
+Validation: 30/30 passed
 Files changed: {list}
 Warnings: {any}
 ```

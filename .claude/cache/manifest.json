@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "created": "2024-01-01T00:00:00Z",
+  "entries": {
+    "pat_rest-api": {
+      "type": "pattern",
+      "created": "2024-01-01T00:00:00Z",
+      "hits": 0,
+      "artifact": "patterns/rest-api.md"
+    },
+    "pat_auth-jwt": {
+      "type": "pattern",
+      "created": "2024-01-01T00:00:00Z",
+      "hits": 0,
+      "artifact": "patterns/auth-jwt.md"
+    },
+    "pat_crud-endpoint": {
+      "type": "pattern",
+      "created": "2024-01-01T00:00:00Z",
+      "hits": 0,
+      "artifact": "patterns/crud-endpoint.md"
+    },
+    "qa_nextjs": {
+      "type": "qa-rules",
+      "created": "2024-01-01T00:00:00Z",
+      "hits": 0,
+      "artifact": "qa-rules/nextjs.json"
+    }
+  },
+  "stats": {
+    "total_hits": 0,
+    "tokens_saved_estimate": 0
+  }
+}
