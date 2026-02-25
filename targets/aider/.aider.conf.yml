@@ -1,0 +1,12 @@
+# AI Development Pipeline — Aider Configuration
+# Copy this file + CONVENTIONS.md + pipeline/ to your project root.
+
+# Load pipeline conventions as read-only context
+read:
+  - CONVENTIONS.md
+  - pipeline/phases.md
+
+# Recommended settings for pipeline usage
+auto-commits: true
+auto-lint: true
+auto-test: true
