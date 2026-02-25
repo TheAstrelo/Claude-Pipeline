@@ -1,291 +1,238 @@
-# Claude Code Dev Pipeline
-Start Claude with: npx @anthropic-ai/claude-code@latest --dangerously-skip-permissions
+# Claude Code Auto-Pipeline
 
-An 11-phase, quality-gated development pipeline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It turns a single task description into production-ready code through structured requirements gathering, adversarial design review, deterministic planning, context-isolated building, and automated QA — with human checkpoints at every major gate.
+An automated, token-efficient development pipeline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). One command transforms a task description into production-ready code — with intelligent caching, pre-flight checks, and configurable automation levels.
 
+```bash
+/auto-pipeline "add user authentication with JWT"
 ```
-/dev-pipeline Add a notes feature to the company detail view
+
+**Perfect for vibe coders** who want Claude to handle the entire development flow with minimal intervention.
+
+> **Looking for the manual workflow?** See the [`full-workflow-legacy`](https://github.com/TheAstrelo/Claude-Pipeline/tree/full-workflow-legacy) branch for the original 11-phase pipeline with human checkpoints.
+
+---
+
+## Features
+
+| Feature | Benefit |
+|---------|---------|
+| **3 Profiles** | `yolo` (fast), `standard` (balanced), `paranoid` (thorough) |
+| **Pre-Check Phase** | Finds existing code/libraries before building |
+| **Slim Agents** | 60-84% fewer tokens than standard agents |
+| **Output Validation** | Objective checks replace self-reported confidence |
+| **Caching** | Security scans, patterns, QA rules cached across runs |
+| **Auto-Recovery** | Retries failures before pausing |
+
+---
+
+## Quick Start
+
+### 1. Copy to your project
+
+```bash
+git clone https://github.com/TheAstrelo/Claude-Pipeline.git
+cp -r Claude-Pipeline/.claude/ /path/to/your/project/
 ```
 
-That one command kicks off the entire flow below.
+### 2. Start Claude Code
+
+```bash
+npx @anthropic-ai/claude-code@latest
+```
+
+### 3. Run the pipeline
+
+```bash
+# Fast prototyping
+/auto-pipeline --profile=yolo "add a logout button"
+
+# Balanced (default)
+/auto-pipeline "implement user dashboard"
+
+# Full oversight
+/auto-pipeline --profile=paranoid "payment integration"
+```
+
+---
+
+## Profiles
+
+| Profile | Skips | Gate Mode | Use Case |
+|---------|-------|-----------|----------|
+| `yolo` | Phases 3,5,7-10 | Only critical fails pause | Prototypes, experiments |
+| `standard` | None | Critical pauses, others warn | Normal development |
+| `paranoid` | None | Any issue pauses | Production, sensitive code |
+
+```bash
+/auto-pipeline --profile=yolo "quick prototype"
+/auto-pipeline --profile=paranoid "handle payments"
+```
 
 ---
 
 ## How It Works
 
 ```
-  YOU                          CLAUDE CODE
-   |                               |
-   |  /dev-pipeline <task>         |
-   |------------------------------>|
-   |                               |
-   |   Phase 1: Requirements       |  Asks clarifying questions,
-   |   brief.md                    |  explores codebase for context
-   |<------------------------------|
-   |                               |
-   |  "continue" / feedback        |
-   |------------------------------>|
-   |                               |
-   |   Phase 2: Design             |  Researches live docs,
-   |   design.md                   |  cites sources for decisions
-   |<------------------------------|
-   |                               |
-   |  "continue" / feedback        |
-   |------------------------------>|
-   |                               |
-   |   Phase 3: Adversarial Review |  3 critic perspectives attack
-   |   critique.md                 |  the design for weaknesses
-   |<------------------------------|
-   |                               |
-   |  "continue" / "revise"        |  Can loop back to Phase 2
-   |------------------------------>|
-   |                               |
-   |   Phase 4: Planning           |  Atomic steps with exact
-   |   plan.md                     |  BEFORE/AFTER code snippets
-   |<------------------------------|
-   |                               |
-   |  "continue" / feedback        |
-   |------------------------------>|
-   |                               |
-   |   Phase 5: Drift Detection    |  Compares plan vs design
-   |   drift-report.md             |  for missing coverage
-   |<------------------------------|
-   |                               |
-   |  "continue" / "fix-plan"      |  Can loop back to Phase 4
-   |------------------------------>|
-   |                               |
-   |   Phase 6: Build              |  Executes plan step-by-step
-   |   build-report.md             |  with context isolation
-   |<------------------------------|
-   |                               |
-   |  "continue"                   |
-   |------------------------------>|
-   |                               |
-   |   Phases 7-11: QA Pipeline    |  Runs automatically:
-   |   qa-report.md                |  Denoise -> Quality Fit ->
-   |                               |  Quality Behavior ->
-   |                               |  Quality Docs -> Security
-   |<------------------------------|
-   |                               |
-   |   Final Report                |
-   |<------------------------------|
+┌─────────────────────────────────────────────────────────────────┐
+│                        /auto-pipeline                           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 0: Pre-Check (NEVER SKIPPED)                             │
+│  • Searches codebase for existing implementations               │
+│  • Checks package.json for installed libraries                  │
+│  • Recommends: EXTEND_EXISTING | USE_LIBRARY | BUILD_NEW        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: Requirements                                          │
+│  • Extracts requirements from task                              │
+│  • Minimal Q&A (max 3 questions if truly ambiguous)             │
+│  Output: brief.md                                               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 2: Design                      [CACHE: patterns]         │
+│  • Creates technical design with citations                      │
+│  • Uses cached patterns (rest-api, auth-jwt, crud-endpoint)     │
+│  Output: design.md                                              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 3: Adversarial Review          [HARD GATE]               │
+│  • Single-pass critique from 3 angles                           │
+│  • Auto-retry on REVISE_DESIGN (max 1)                          │
+│  Output: critique.md                                            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 4: Planning                                              │
+│  • Deterministic steps with BEFORE/AFTER code                   │
+│  • Max 8 steps                                                  │
+│  Output: plan.md                                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 5: Drift Detection                                       │
+│  • Verifies plan covers all requirements                        │
+│  • Auto-fix on <90% coverage                                    │
+│  Output: drift-report.md                                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 6: Build                                                 │
+│  • Executes plan step-by-step                                   │
+│  • Context isolation per step                                   │
+│  • Auto-retry on failure (max 2 per step)                       │
+│  Output: build-report.md + code changes                         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phases 7-11: QA Pipeline (parallel)  [CACHE: qa-rules]         │
+│  7. Denoise — remove debug artifacts                            │
+│  8. Quality Fit — types, lint                                   │
+│  9. Quality Behavior — tests                                    │
+│  10. Quality Docs — Swagger, JSDoc                              │
+│  11. Security — OWASP scan            [CACHE: security] [HARD]  │
+│  Output: qa-report.md                                           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                         ✅ Done
 ```
-
-After each artifact-producing phase, the pipeline **pauses** and presents the output. You say `"continue"` to advance, or give feedback to revise. The QA phases (7-11) run back-to-back automatically.
 
 ---
 
-## Quick Start
+## Pre-Check Phase
 
-### 1. Copy the `.claude/` directory into your project
+Before building anything, the pipeline searches for existing solutions:
+
+```
+User: "add user authentication"
+
+Pre-Check runs:
+├── grep "auth" src/pages/api/     → finds /api/auth/login.ts
+├── grep "next-auth" package.json  → finds next-auth installed
+└── Recommendation: EXTEND_EXISTING
+
+Result: Pipeline extends existing auth instead of rebuilding
+```
+
+**Prevents duplicate work** — Claude won't rebuild what already exists.
+
+---
+
+## Caching
+
+Cache artifacts to save tokens across runs.
+
+| Cached | Key | Tokens Saved |
+|--------|-----|--------------|
+| Security scans | lockfile hash | ~3000/run |
+| Design patterns | pattern name | ~1500/run |
+| QA rules | framework | ~1000/run |
+
+### Commands
 
 ```bash
-# Clone this repo
-git clone https://github.com/TheAstrelo/Claude-Pipeline.git
-
-# Copy into your project
-cp -r Claude-Pipeline/.claude/ /path/to/your/project/.claude/
+/cache-stats    # View cache hits and savings
+/cache-clear    # Clear all or specific cache
+/cache-warm     # Pre-populate patterns
 ```
 
-### 2. Customize for your project
+### Pre-Cached Patterns
 
-The pipeline ships with example rules for a Next.js/TypeScript/PostgreSQL/MUI stack. You'll want to adapt these to your own stack:
+- `rest-api` — REST endpoint with auth, validation, errors
+- `auth-jwt` — JWT authentication flow
+- `crud-endpoint` — Full CRUD with soft delete
 
-| File | What to customize |
-|------|-------------------|
-| `.claude/rules/api.md` | Your API conventions (auth patterns, response formats, doc standards) |
-| `.claude/rules/database.md` | Your DB conventions (ORM/raw SQL, naming, migration patterns) |
-| `.claude/rules/react.md` | Your frontend conventions (component library, state management, file structure) |
-| `.claude/hooks/auto-format.sh` | Your formatter (prettier, biome, black, etc.) |
-| `.claude/hooks/protect-files.sh` | Files that should never be edited by AI (.env, lock files, CI config) |
-| `.claude/skills/` | Scaffolding templates for your project's common patterns |
+---
 
-### 3. Update your `CLAUDE.md`
+## Output-Based Validation
 
-Add the pipeline reference to your project's `CLAUDE.md` so Claude Code knows to use it. See the included [`CLAUDE.md`](CLAUDE.md) for a complete example. The key section is:
+**No more self-reported confidence.** Each phase is validated with objective checks:
 
-```markdown
-## Required Development Workflow
+```yaml
+Phase 3 (Adversarial):
+  ✓ has_verdict       → grep "APPROVED|REVISE"
+  ✓ no_high_severity  → ! grep "| HIGH |"
+  ✓ no_consensus      → no issues raised by 2+ critics
 
-**MANDATORY:** For any non-trivial task, you MUST use `/dev-pipeline`.
-
-### The Pipeline — `/dev-pipeline <task>`
-A single command that runs 11 phases automatically, pausing after each
-artifact-producing phase for user review.
+Result: All pass → AUTO | HARD fail → PAUSE | SOFT fail → WARN
 ```
 
-### 4. Run it
+### Gate Types
 
-Open Claude Code in your project and type:
-
-```
-/dev-pipeline <describe your task here>
-```
-
----
-
-## The 11 Phases
-
-### Phase 1: Requirements Crystallization (`/arm`)
-
-**Agent:** `requirements-crystallizer`
-**Artifact:** `brief.md`
-
-Transforms a fuzzy task description into a structured requirements brief through targeted Q&A. The agent explores your codebase first, then asks clarifying questions grouped by theme:
-
-- **Scope** — What's in/out?
-- **Behavior** — Edge cases, error states, user feedback?
-- **Constraints** — Performance, security, compatibility?
-- **Dependencies** — External APIs, database changes, affected features?
-
-Max 3 rounds of Q&A, then crystallizes into a brief with problem statement, success criteria, scope boundaries, and codebase context.
+| Gate | Phases | Behavior |
+|------|--------|----------|
+| HARD | 0, 3, 11 | Must pass or pipeline pauses |
+| SOFT | 1, 2, 4, 5 | Warn and proceed |
+| NONE | 6-10 | Auto-proceed, auto-fix |
 
 ---
 
-### Phase 2: Technical Design (`/design`)
+## Slim Agents
 
-**Agent:** `architect`
-**Artifact:** `design.md`
-**Requires:** `brief.md`
+Token-efficient versions of all agents:
 
-Creates a technical design grounded in two sources:
+| Agent | Reduction |
+|-------|-----------|
+| adversarial-slim | 78% |
+| planner-slim | 78% |
+| security-slim | 84% |
+| builder-slim | 82% |
+| requirements-slim | 76% |
+| architect-slim | 60% |
 
-1. **Live documentation** — Searches the web for current best practices, API patterns, and library docs. Every decision cites a URL.
-2. **Your codebase** — Analyzes existing patterns so the design is consistent with what you already have.
-
-Outputs component interfaces, data models, API contracts, and architectural decisions with documented alternatives.
-
----
-
-### Phase 3: Adversarial Review (`/ar`)
-
-**Agent:** `adversarial-coordinator`
-**Artifact:** `critique.md`
-**Requires:** `design.md`
-
-Attacks the design from 3 perspectives:
-
-| Critic | Focus |
-|--------|-------|
-| **Architect** | Scalability, coupling, consistency, performance |
-| **Skeptic** | Edge cases, error states, security, concurrency |
-| **Implementer** | Clarity, types, state management, testability |
-
-**Verdict rules:**
-- **REVISE_DESIGN** — Any HIGH severity issue, 3+ MEDIUM issues, or consensus issues (raised by 2+ critics)
-- **APPROVED** — No HIGH issues, fewer than 3 MEDIUM, all concerns LOW or mitigated
-
-If the verdict is REVISE_DESIGN, you can say `"revise"` to loop back to Phase 2 (max 2 cycles) or `"override"` to proceed anyway.
-
----
-
-### Phase 4: Deterministic Planning (`/plan`)
-
-**Agent:** `atomic-planner`
-**Artifact:** `plan.md`
-**Requires:** `design.md`, optionally `critique.md`
-
-Creates 5-8 atomic implementation steps. Every step includes:
-
-- **Exact file path** — Verified against your codebase
-- **Action** — MODIFY or CREATE
-- **BEFORE code** — Current state of the file
-- **AFTER code** — Complete, copy-pasteable replacement
-- **Dependencies** — Which steps must complete first
-- **Test case** — Concrete input, expected output
-- **Acceptance criteria** — Checkboxes for verification
-
-> **Key principle:** If the builder has to guess, the plan failed.
-
----
-
-### Phase 5: Drift Detection (`/pmatch`)
-
-**Agent:** `drift-detector`
-**Artifact:** `drift-report.md`
-**Requires:** `design.md` + `plan.md`
-
-Compares the plan against the design to catch:
-
-- **Missing coverage** — Design requirement not in plan
-- **Scope creep** — Plan step not justified by design
-- **Contradictions** — Plan conflicts with design
-- **Incomplete steps** — Plan step missing required detail
-
-If drift is detected, you can say `"fix-plan"` (back to Phase 4), `"fix-design"` (back to Phase 2), or `"override"`.
-
----
-
-### Phase 6: Build (`/build`)
-
-**Agent:** `builder`
-**Artifact:** `build-report.md` + actual code changes
-**Requires:** `plan.md`
-
-Executes the plan step-by-step with **context isolation** — each step only reads the files mentioned in that step, preventing context bleed between steps.
-
-For each step:
-1. Fresh read of only the relevant files
-2. Verify BEFORE code matches current state
-3. Apply AFTER code
-4. Verify acceptance criteria
-5. Log result
-
-After all steps: runs `npm run build` and `npx tsc --noEmit`.
-
-**If a step fails** (BEFORE mismatch, file not found), the builder **stops and reports** — it does not improvise fixes.
-
----
-
-### Phases 7-11: QA Pipeline (automatic)
-
-These run back-to-back without pausing, producing a combined `qa-report.md`.
-
-| Phase | Command | Agent | What it checks |
-|-------|---------|-------|----------------|
-| 7 | `/denoise` | denoiser | `console.log`, `debugger`, commented-out code, TODO artifacts |
-| 8 | `/qf` | quality-fit | TypeScript types, ESLint, project conventions |
-| 9 | `/qb` | quality-behavior | Build success, test results, behavior vs design spec |
-| 10 | `/qd` | quality-docs | Swagger on API routes, JSDoc on exports, type descriptions |
-| 11 | `/security-review` | security-auditor | SQL injection, XSS, auth bypass, multi-tenant leaks, hardcoded secrets |
-
----
-
-## Skip Options
-
-Not every task needs the full pipeline:
-
-| Flag | Skips | Use when |
-|------|-------|----------|
-| `--skip-arm` | Phase 1 (Requirements) | Requirements are already crystal clear |
-| `--skip-ar` | Phase 3 (Adversarial Review) | Small, low-risk change |
-| `--skip-pmatch` | Phase 5 (Drift Detection) | Quick iteration, you trust the plan |
-
-**Never skipped:** Phases 2, 4, 6, and QA (7-11).
-
-**Skip the entire pipeline** for truly trivial changes — single-line fixes, typos, exact step-by-step instructions from the user.
-
----
-
-## Running Phases Individually
-
-Each phase works as a standalone command. Useful for re-running a specific phase or building your own workflow:
-
-| Command | Phase | Creates | Needs |
-|---------|-------|---------|-------|
-| `/arm <task>` | Requirements | `brief.md` | Nothing (creates session) |
-| `/design` | Design | `design.md` | `brief.md` |
-| `/ar` | Adversarial Review | `critique.md` | `design.md` |
-| `/plan` | Planning | `plan.md` | `design.md` |
-| `/pmatch` | Drift Detection | `drift-report.md` | `design.md` + `plan.md` |
-| `/build` | Build | `build-report.md` | `plan.md` |
-| `/denoise` | Denoise | `qa-report.md` | `build-report.md` |
-| `/qf` | Quality Fit | `qa-report.md` | `build-report.md` |
-| `/qb` | Quality Behavior | `qa-report.md` | `build-report.md` |
-| `/qd` | Quality Docs | `qa-report.md` | `build-report.md` |
-| `/security-review` | Security Audit | `qa-report.md` | `build-report.md` |
-
-All artifacts are saved in `.claude/artifacts/{session}/` with a timestamped session directory.
+**Total savings: 40-60% per pipeline run**
 
 ---
 
@@ -293,200 +240,123 @@ All artifacts are saved in `.claude/artifacts/{session}/` with a timestamped ses
 
 ```
 .claude/
-├── commands/              # Slash commands (the user-facing interface)
-│   ├── dev-pipeline.md    # Main orchestrator — runs all 11 phases
-│   ├── arm.md             # Phase 1: Requirements crystallization
-│   ├── design.md          # Phase 2: Technical design
-│   ├── ar.md              # Phase 3: Adversarial review
-│   ├── plan.md            # Phase 4: Deterministic planning
-│   ├── plan-review.md     # Alternative: Plan + Codex review
-│   ├── pmatch.md          # Phase 5: Drift detection
-│   ├── build.md           # Phase 6: Build execution
-│   ├── denoise.md         # Phase 7: Debug artifact removal
-│   ├── qf.md              # Phase 8: Quality fit (types/lint)
-│   ├── qb.md              # Phase 9: Quality behavior (tests)
-│   ├── qd.md              # Phase 10: Quality docs (Swagger/JSDoc)
-│   └── security-review.md # Phase 11: Security audit
+├── commands/
+│   ├── auto-pipeline.md      # Main automated pipeline
+│   ├── pre-check.md          # Standalone pre-check
+│   ├── cache-stats.md        # View cache
+│   ├── cache-clear.md        # Clear cache
+│   └── ...                   # Individual phase commands
 │
-├── agents/                # Agent definitions (the brains behind each phase)
-│   ├── requirements-crystallizer.md
-│   ├── architect.md
-│   ├── adversarial-coordinator.md
-│   ├── atomic-planner.md
-│   ├── drift-detector.md
-│   ├── builder.md
-│   ├── denoiser.md
-│   ├── quality-fit.md
-│   ├── quality-behavior.md
-│   ├── quality-docs.md
-│   ├── security-auditor.md
-│   ├── clarifier.md       # General-purpose clarification
-│   ├── code-reviewer.md   # Standalone code review
-│   ├── implementer.md     # Standalone implementation
-│   ├── planner.md         # Standalone planning
-│   ├── plan-reviewer.md   # Plan quality review
-│   └── tester.md          # Standalone testing
+├── agents/
+│   ├── pre-check.md          # Pre-flight search agent
+│   ├── *-slim.md             # Token-efficient agents
+│   └── ...                   # Full agents (legacy)
 │
-├── rules/                 # Project convention rules (customize these)
-│   ├── api.md             # API route patterns and auth conventions
-│   ├── database.md        # SQL patterns, migration rules, naming
-│   └── react.md           # Frontend component and state conventions
+├── lib/
+│   ├── config.md             # Profiles and settings
+│   ├── validator.md          # Output validation rules
+│   └── cache.md              # Caching documentation
 │
-├── hooks/                 # Shell hooks that run on tool events
-│   ├── auto-format.sh     # Runs prettier after every file edit
-│   └── protect-files.sh   # Blocks edits to .env, lock files, CI config
+├── cache/
+│   ├── manifest.json         # Cache index
+│   ├── patterns/             # Design pattern cache
+│   ├── security/             # Security scan cache
+│   └── qa-rules/             # QA rules cache
 │
-├── skills/                # Scaffolding templates
-│   ├── new-migration/     # Generates a migration file with correct ID
-│   │   └── SKILL.md
-│   └── scaffold-api/      # Generates an authenticated API route
-│       └── SKILL.md
+├── hooks/
+│   ├── cache.sh              # Cache operations
+│   ├── auto-format.sh        # Post-edit formatting
+│   └── protect-files.sh      # File protection
 │
-├── settings.json          # Wires hooks to tool events
-└── artifacts/             # Session output (created at runtime)
-    └── {session}/         # Timestamped per-task
-        ├── brief.md
-        ├── design.md
-        ├── critique.md
-        ├── plan.md
-        ├── drift-report.md
-        ├── build-report.md
-        └── qa-report.md
+├── rules/                    # Project conventions
+└── artifacts/                # Per-session outputs
 ```
 
 ---
 
-## Customizing for Your Stack
+## Customization
 
 ### Rules
 
-The `.claude/rules/` files teach Claude your project's conventions. The QA phases check against these. Replace the contents with your own patterns:
+Edit `.claude/rules/` for your stack:
 
-**Example — switching from MUI to Tailwind:**
 ```markdown
-# react.md
-## Styling
-- Use Tailwind CSS utility classes, never inline styles
-- Use `cn()` helper for conditional classes
-- Dark mode: use `dark:` prefix, never hardcode colors
-```
-
-**Example — switching from PostgreSQL to Prisma:**
-```markdown
-# database.md
-## ORM
-- Use Prisma Client for all queries
-- Never write raw SQL
-- Always include `where: { userId }` for multi-tenant filtering
+# .claude/rules/api.md
+- Use Hono instead of Express
+- Return { data, error } shape
 ```
 
 ### Hooks
 
-The hooks in `.claude/hooks/` run as shell commands on tool events. Edit `settings.json` to configure when they fire:
+Edit `.claude/hooks/` for your tools:
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/protect-files.sh" }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/auto-format.sh" }]
-      }
-    ]
-  }
-}
+```bash
+# auto-format.sh
+bunx biome format --write "$FILE"
 ```
 
-### Skills
+### Patterns
 
-Skills are reusable scaffolding templates invoked as slash commands. Each skill lives in `.claude/skills/<name>/SKILL.md`. Create your own for repeated patterns in your codebase (new components, new test files, new services, etc.).
+Add custom patterns to `.claude/cache/patterns/`:
 
-### Agents
-
-The agent files in `.claude/agents/` define each agent's personality, process, and output format. You can modify them to change how strict the adversarial review is, what the builder checks, or what the security auditor scans for.
+```markdown
+# .claude/cache/patterns/my-pattern.md
+## Structure
+...
+## Template
+...
+```
 
 ---
 
-## Feedback Loops
+## Individual Commands
 
-The pipeline isn't linear — it has built-in feedback loops at quality gates:
+Run any phase standalone:
 
-```
-                    ┌─── "revise" ───┐
-                    v                |
-Requirements → Design → Adversarial Review → Planning → Drift Detection → Build → QA
-                    ^                                       |        ^        |
-                    |                                       |        |        |
-                    └──────── "fix-design" ─────────────────┘        |        |
-                                                                     |        |
-                                                    "fix-plan" ──────┘        |
-                                                                              |
-                                                    "override" at any gate ───┘
-```
-
-- **Phase 3 (Adversarial Review):** `"revise"` loops back to Phase 2. Max 2 cycles.
-- **Phase 5 (Drift Detection):** `"fix-plan"` loops to Phase 4, `"fix-design"` loops to Phase 2.
-- **Any gate:** `"override"` proceeds despite a failing verdict (logged in the artifacts).
+| Command | Purpose |
+|---------|---------|
+| `/pre-check <task>` | Search for existing solutions |
+| `/cache-stats` | View cache statistics |
+| `/cache-clear` | Clear cache |
+| `/arm <task>` | Requirements only |
+| `/design` | Design only |
+| `/ar` | Adversarial review only |
+| `/plan` | Planning only |
+| `/build` | Build only |
+| `/security-review` | Security scan only |
 
 ---
 
-## Example Session
+## Token Efficiency
 
+| Optimization | Savings |
+|--------------|---------|
+| Slim agents | 40-60% |
+| Phase skipping (yolo) | 30-40% |
+| Caching | 15-25% (compounding) |
+| Context isolation | 10-20% |
+
+**Example:**
 ```
-> /dev-pipeline Add a notes feature to the company detail view
+Original pipeline:     ~78k tokens
+With slim agents:      ~35k tokens
+With yolo profile:     ~18k tokens
+With caching:          ~15k tokens
+```
 
-Phase 1 Complete — Requirements crystallized.
-Artifact: .claude/artifacts/20260223-143022-add-notes-feature/brief.md
+---
 
-Review the brief above. Reply "continue" to proceed to Phase 2.
+## Legacy Pipeline
 
-> continue
+For the original manual 11-phase pipeline with human checkpoints at every gate:
 
-Phase 2 Complete — Technical design ready.
-Artifact: .claude/artifacts/20260223-143022-add-notes-feature/design.md
+```bash
+git checkout full-workflow-legacy
+```
 
-Review the design. Reply "continue" to proceed to Phase 3.
-
-> continue
-
-Phase 3 Complete — Adversarial review done.
-Verdict: REVISE_DESIGN (HIGH: missing XSS sanitization on note content)
-
-Reply "revise" to fix, or "override" to proceed.
-
-> revise
-
-Phase 2 (Revised) — Design updated with DOMPurify sanitization.
-Phase 3 (Re-review) — APPROVED.
-
-Reply "continue" to proceed to Phase 4.
-
-> continue
-
-... (continues through all phases)
-
-## Pipeline Complete
-| Phase | Verdict |
-|-------|---------|
-| 1. Requirements | CRYSTALLIZED |
-| 2. Design | READY_FOR_REVIEW |
-| 3. Adversarial Review | APPROVED |
-| 4. Planning | READY_FOR_BUILD |
-| 5. Drift Detection | ALIGNED |
-| 6. Build | SUCCESS |
-| 7. Denoise | CLEAN |
-| 8. Quality Fit | PASS |
-| 9. Quality Behavior | PASS |
-| 10. Quality Docs | PASS |
-| 11. Security | PASS |
-
-Status: COMPLETE
+Or use directly:
+```bash
+/dev-pipeline "your task"  # Manual checkpoints
 ```
 
 ---
@@ -494,11 +364,11 @@ Status: COMPLETE
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- A project with a `CLAUDE.md` that references the pipeline
-- Node.js (for the build/type-check steps — adapt the build commands in `build.md` and `qf.md` for your stack)
+- Node.js (for build/type-check steps)
+- Project with `CLAUDE.md`
 
 ---
 
 ## License
 
-MIT — use it, adapt it, make it yours.
+MIT — use it, adapt it, ship it.
