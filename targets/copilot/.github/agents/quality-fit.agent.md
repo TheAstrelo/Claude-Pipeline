@@ -1,5 +1,6 @@
 ---
 description: "Check type safety, lint compliance, and project convention adherence on changed files."
+model: "gpt-4o-mini"
 tools:
   - "terminal"
 ---

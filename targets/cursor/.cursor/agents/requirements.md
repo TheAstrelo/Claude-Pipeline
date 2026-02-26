@@ -1,7 +1,7 @@
 ---
 name: requirements
 description: Extract clear, testable requirements from a task description. Use when starting Phase 1 of the pipeline.
-model: inherit
+model: fast
 readonly: true
 ---
 

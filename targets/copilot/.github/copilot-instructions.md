@@ -31,6 +31,10 @@ Never trust self-reported confidence. Validate outputs by checking: required sec
 - CRITICAL → Always PAUSE (security)
 - EXTEND_EXISTING / USE_LIBRARY / BUILD_NEW → Phase 0 recommendation
 
+## Model Routing
+
+Use cheaper models for mechanical tasks. Only phases 2 (Design) and 3 (Adversarial) need a strong model. All other phases use fast/mini models. This gives ~70% cost reduction.
+
 ## Auto-Recovery
 
 - Phase 3 REVISE_DESIGN → retry Phase 2 with critique (max 1)

@@ -1,5 +1,6 @@
 ---
 description: "Verify implementation plan covers all design requirements. Catch missing coverage, scope creep, and contradictions."
+model: "gpt-4o-mini"
 ---
 
 # Drift Detection Agent

@@ -56,6 +56,24 @@ These flags in agent output have specific meanings:
 | USE_LIBRARY       | Use installed library                      | Feeds Phase 4      |
 | BUILD_NEW         | Build from scratch                         | Default path       |
 
+## Model Routing
+
+Use cheaper models for mechanical tasks, expensive models only for phases requiring deep reasoning.
+
+| Phase | Model | Reasoning |
+|-------|-------|-----------|
+| 0 Pre-Check | fast | Search + pattern matching |
+| 1 Requirements | fast | Structured extraction |
+| 2 Design | inherit (strong) | Architecture decisions |
+| 3 Adversarial | inherit (strong) | Critical thinking |
+| 4 Planning | fast | Translating design to steps |
+| 5 Drift | fast | Mechanical comparison |
+| 6 Build | fast | Applying diffs exactly |
+| 7-10 QA | fast | Commands + pattern matching |
+| 11 Security | fast | Pattern-based scanning |
+
+**10 fast, 2 strong — ~70% cost reduction.**
+
 ## Context Isolation
 
 - Each agent receives only its specified inputs, not the full conversation

@@ -57,6 +57,24 @@ Default profile is **standard**. Phase 0 and Phase 11 are NEVER skipped.
 | USE_LIBRARY       | Use installed library                 | Feeds planning    |
 | BUILD_NEW         | Build from scratch                    | Default path      |
 
+## Model Routing
+
+Use cheaper/faster models for mechanical tasks. Reserve expensive models only for deep reasoning.
+
+| Phase | Model Tier | Reasoning |
+|-------|-----------|-----------|
+| 0 Pre-Check | fast | Search + pattern matching |
+| 1 Requirements | fast | Structured extraction |
+| 2 Design | **strong** | Architecture decisions need deep reasoning |
+| 3 Adversarial | **strong** | Critical thinking, finding non-obvious flaws |
+| 4 Planning | fast | Translating design into steps |
+| 5 Drift | fast | Mechanical comparison |
+| 6 Build | fast | Applying diffs exactly |
+| 7-10 QA | fast | Commands + pattern matching |
+| 11 Security | fast | Pattern-based scanning |
+
+**10 fast, 2 strong — ~70% cost reduction.** Phases 2 and 3 should use Plan mode or the stronger model. All other phases can use Act mode with the faster model.
+
 ## Auto-Recovery
 
 Before pausing, try to self-correct:

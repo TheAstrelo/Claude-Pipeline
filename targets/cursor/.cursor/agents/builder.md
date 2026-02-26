@@ -1,7 +1,7 @@
 ---
 name: builder
 description: Execute implementation plan steps exactly as specified with no improvisation. Use for Phase 6 of the pipeline.
-model: inherit
+model: fast
 readonly: false
 ---
 

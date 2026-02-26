@@ -1,5 +1,6 @@
 ---
 description: "Scan changed files for security vulnerabilities: injection, XSS, auth gaps, hardcoded secrets."
+model: "gpt-4o-mini"
 ---
 
 # Security Agent (Phase 11)

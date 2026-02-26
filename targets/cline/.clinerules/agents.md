@@ -2,9 +2,11 @@
 
 When running the pipeline, adopt these roles for each phase. Each role has specific inputs, outputs, and constraints.
 
+**Model routing:** Phases marked `[fast]` can use the cheaper/faster model. Phases marked `[strong]` need the best available model for deep reasoning.
+
 ---
 
-## Phase 0: Pre-Check Agent
+## Phase 0: Pre-Check Agent [fast]
 
 **Goal:** Prevent duplicate work by searching for existing implementations.
 
@@ -26,7 +28,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 1: Requirements Agent
+## Phase 1: Requirements Agent [fast]
 
 **Goal:** Extract clear, testable requirements.
 
@@ -42,7 +44,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 2: Design Agent
+## Phase 2: Design Agent [strong]
 
 **Goal:** Create technical design with cited sources.
 
@@ -58,7 +60,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 3: Adversarial Agent
+## Phase 3: Adversarial Agent [strong]
 
 **Goal:** Critique design from 3 angles in one pass.
 
@@ -75,7 +77,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 4: Planning Agent
+## Phase 4: Planning Agent [fast]
 
 **Goal:** Convert design into deterministic executable steps.
 
@@ -90,7 +92,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 5: Drift Detection Agent
+## Phase 5: Drift Detection Agent [fast]
 
 **Goal:** Verify plan covers all design requirements.
 
@@ -106,7 +108,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phase 6: Builder Agent
+## Phase 6: Builder Agent [fast]
 
 **Goal:** Execute plan steps exactly. No improvisation.
 
@@ -129,7 +131,7 @@ When running the pipeline, adopt these roles for each phase. Each role has speci
 
 ---
 
-## Phases 7-10: QA Agents
+## Phases 7-10: QA Agents [fast]
 
 All QA agents read `build-report.md` for changed files. Output appends to `qa-report.md`.
 
@@ -143,7 +145,7 @@ All QA agents read `build-report.md` for changed files. Output appends to `qa-re
 
 ---
 
-## Phase 11: Security Agent
+## Phase 11: Security Agent [fast]
 
 **Goal:** Scan changed files for vulnerabilities.
 

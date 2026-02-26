@@ -6,6 +6,12 @@ read:
   - CONVENTIONS.md
   - pipeline/phases.md
 
+# Model routing: strong model for design/adversarial, fast model for everything else
+# Uncomment and set your preferred models:
+# model: claude-sonnet-4-20250514     # Strong model for phases 2,3
+# weak-model: gpt-4o-mini             # Fast model for phases 0,1,4-11
+# editor-model: gpt-4o-mini           # Fast model for applying edits
+
 # Recommended settings for pipeline usage
 auto-commits: true
 auto-lint: true

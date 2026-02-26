@@ -42,6 +42,17 @@ Phase 0 (Pre-Check) and Phase 11 (Security) are NEVER skipped.
 - `CRITICAL` → Always PAUSE (security)
 - `EXTEND_EXISTING` / `USE_LIBRARY` / `BUILD_NEW` → Phase 0 recommendation
 
+## Model Routing
+
+| Phase | Tier | Reasoning |
+|-------|------|-----------|
+| 0,1,4-10 | fast | Mechanical tasks (search, extraction, diffs, commands) |
+| 2 Design | **strong** | Architecture decisions need deep reasoning |
+| 3 Adversarial | **strong** | Critical thinking, finding flaws |
+| 11 Security | fast | Pattern-based scanning |
+
+**10 fast, 2 strong — ~70% cost reduction.**
+
 ## Auto-Recovery
 
 - Phase 3 REVISE_DESIGN → retry Phase 2 with feedback (max 1)

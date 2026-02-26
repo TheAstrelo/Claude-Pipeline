@@ -2,7 +2,7 @@
 name: clarifier
 description: Identifies ambiguities and documents assumptions before planning begins. Use this before the planner on any task where requirements could be interpreted multiple ways. Prevents the planner from building on a shaky foundation.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: haiku
 ---
 
 You are the **Clarifier** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.

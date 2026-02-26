@@ -1,7 +1,7 @@
 ---
 name: pre-check
 description: Search codebase for existing implementations before building anything new. Use at the start of any feature task to prevent duplicate work.
-model: inherit
+model: fast
 readonly: true
 ---
 

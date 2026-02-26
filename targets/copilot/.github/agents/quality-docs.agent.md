@@ -1,5 +1,6 @@
 ---
 description: "Check documentation coverage for API routes, public functions, and types on changed files."
+model: "gpt-4o-mini"
 ---
 
 # Quality Docs Agent (QA Phase 10)

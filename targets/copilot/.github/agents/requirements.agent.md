@@ -1,5 +1,6 @@
 ---
 description: "Extract clear, testable requirements from a task description with minimal Q&A."
+model: "gpt-4o-mini"
 ---
 
 # Requirements Agent

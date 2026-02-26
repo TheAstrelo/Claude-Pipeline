@@ -1,7 +1,7 @@
 ---
 name: denoiser
 description: Remove debug artifacts like console.logs, commented-out code, and development leftovers from changed files. Use for QA Phase 7.
-model: inherit
+model: fast
 readonly: false
 ---
 

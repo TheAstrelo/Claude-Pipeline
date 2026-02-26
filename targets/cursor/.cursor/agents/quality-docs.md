@@ -1,7 +1,7 @@
 ---
 name: quality-docs
 description: Check documentation coverage for API routes, public functions, and types on changed files. Use for QA Phase 10.
-model: inherit
+model: fast
 readonly: false
 ---
 

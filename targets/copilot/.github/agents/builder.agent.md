@@ -1,5 +1,6 @@
 ---
 description: "Execute implementation plan steps exactly as specified. No improvisation."
+model: "gpt-4o-mini"
 tools:
   - "terminal"
 ---

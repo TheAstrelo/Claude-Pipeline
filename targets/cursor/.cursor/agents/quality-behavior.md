@@ -1,7 +1,7 @@
 ---
 name: quality-behavior
 description: Verify code works correctly by running builds, tests, and checking behavior against design spec. Use for QA Phase 9.
-model: inherit
+model: fast
 readonly: false
 ---
 

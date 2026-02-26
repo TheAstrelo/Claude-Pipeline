@@ -31,6 +31,17 @@ Never trust self-reported confidence. Validate outputs by checking: required sec
 - `CRITICAL` → Always stop (security)
 - `EXTEND_EXISTING` / `USE_LIBRARY` / `BUILD_NEW` → Phase 0 recommendation
 
+## Model Routing
+
+Use cheaper models for mechanical phases. Only phases 2 (Design) and 3 (Adversarial Review) need the strong/architect model. All other phases can use the fast/weak model.
+
+| Phases | Tier | Aider Model |
+|--------|------|-------------|
+| 0,1,4-11 | fast | Use `--weak-model` or `gpt-4o-mini` |
+| 2,3 | strong | Use `--model` (main architect model) |
+
+When running in `--architect` mode, the architect model handles phases 2-3 naturally. Switch to the editor model for all other phases. **~70% cost reduction.**
+
 ## Auto-Recovery
 
 - Phase 3 REVISE_DESIGN → retry Phase 2 with critique feedback (max 1)

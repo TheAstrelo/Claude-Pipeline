@@ -1,5 +1,6 @@
 ---
 description: "Remove debug artifacts from changed files: console.logs, debugger statements, commented code, TODO markers."
+model: "gpt-4o-mini"
 ---
 
 # Denoiser Agent (QA Phase 7)

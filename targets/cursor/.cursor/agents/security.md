@@ -1,7 +1,7 @@
 ---
 name: security
 description: Scan changed files for security vulnerabilities including injection, XSS, auth gaps, and hardcoded secrets. Use for Phase 11 of the pipeline.
-model: inherit
+model: fast
 readonly: true
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: "Convert technical designs into deterministic implementation steps with BEFORE/AFTER code."
+model: "gpt-4o-mini"
 ---
 
 # Planning Agent

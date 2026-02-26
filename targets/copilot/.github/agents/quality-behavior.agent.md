@@ -1,5 +1,6 @@
 ---
 description: "Verify code works by running builds, tests, and checking behavior against design spec."
+model: "gpt-4o-mini"
 tools:
   - "terminal"
 ---

@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Convert a technical design into deterministic, executable implementation steps with BEFORE/AFTER code. Use for Phase 4 of the pipeline.
-model: inherit
+model: fast
 readonly: true
 ---
 

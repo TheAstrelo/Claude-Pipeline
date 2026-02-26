@@ -794,10 +794,11 @@ function run_pipeline(task, profile):
             load_cached_artifact(phase, cached)
             continue
 
-        # 3. Run agent
+        # 3. Run agent with appropriate model
         agent = get_agent(phase)
+        model = get_model_tier(phase)  # strong for 2,3; fast for all others
         inputs = gather_inputs(phase, context)
-        artifact = agent.run(inputs, budget=token_budget[phase])
+        artifact = agent.run(inputs, model=model, budget=token_budget[phase])
 
         # 4. Save artifact
         save_artifact(session, phase, artifact)
@@ -883,29 +884,85 @@ Agents communicate status through structured flags in their output. These are th
 
 ---
 
-## 11. Token Budgets
+## 11. Model Routing
 
-Recommended token limits per phase to prevent runaway costs:
+Not all phases require the same model capability. Use cheaper/faster models for mechanical tasks and reserve expensive models for phases that require deep reasoning.
 
-| Phase   | Budget      | Strategy                                  |
-|---------|-------------|-------------------------------------------|
-| 0       | 3,000       | Task + search results only                |
-| 1       | 4,000       | Task + relevant file snippets             |
-| 2       | 6,000       | Brief summary + cached patterns           |
-| 3       | 4,000       | Design decisions list only                |
-| 4       | 5,000       | Decisions + file paths + BEFORE code      |
-| 5       | 3,000       | Requirements list + step titles only      |
-| 6       | 2,000/step  | One step at a time (context isolation)    |
-| 7-11    | 3,000 each  | Changed files only                        |
+### 11.1 Model Tiers
 
-**Total estimated cost:**
-- Full pipeline (standard): ~35-45k tokens
-- Yolo pipeline: ~15-20k tokens
-- With caching: 15-25% reduction on repeat runs
+| Tier     | Description                          | Examples                                      |
+|----------|--------------------------------------|-----------------------------------------------|
+| `strong` | Best reasoning, architecture, critique | Claude Opus/Sonnet, GPT-4o, Gemini Pro       |
+| `fast`   | Quick, cheap, good at following instructions | Claude Haiku, GPT-4o-mini, Gemini Flash |
+
+### 11.2 Phase Assignments
+
+| Phase | Tier     | Reasoning                                              |
+|-------|----------|--------------------------------------------------------|
+| 0     | `fast`   | Codebase search + pattern matching. Mechanical.        |
+| 1     | `fast`   | Requirements extraction. Structured output.            |
+| 2     | `strong` | Architecture decisions require deep reasoning + trade-off analysis. |
+| 3     | `strong` | Adversarial critique requires finding non-obvious flaws. |
+| 4     | `fast`   | Translating design into steps. Design already did the thinking. |
+| 5     | `fast`   | Mechanical comparison: requirement → plan step mapping. |
+| 6     | `fast`   | Applying BEFORE/AFTER diffs. Following instructions exactly. |
+| 7     | `fast`   | Pattern matching: find console.logs, debugger statements. |
+| 8     | `fast`   | Running type checker + linter commands. Checking output. |
+| 9     | `fast`   | Running build + test commands. Checking output.        |
+| 10    | `fast`   | Checking for doc comment presence. Mechanical.         |
+| 11    | `fast`   | Pattern-based security scanning. Grep-style checks.   |
+
+**Result: 10 fast phases, 2 strong phases.**
+
+### 11.3 Why This Works
+
+The pipeline's validation gates are the safety net, not model intelligence. If a fast model produces a bad plan, drift detection (Phase 5) catches it. If a fast model misses a security pattern, the grep-based validators catch it. Strong models are only needed where output **cannot be objectively validated** — creative architecture and critical analysis.
+
+### 11.4 Cost Estimates
+
+| Configuration | Strong Phases | Fast Phases | Est. Cost/Run |
+|---------------|--------------|-------------|---------------|
+| All strong    | 12           | 0           | ~$0.80-1.20   |
+| Optimized     | 2            | 10          | ~$0.20-0.35   |
+| Yolo + optimized | 2         | 4 (6 skipped) | ~$0.10-0.18 |
+
+**~70% cost reduction** with model routing compared to using the strongest model for all phases.
+
+### 11.5 Tool-Specific Model Mapping
+
+| Tier     | Claude Code      | Cursor           | Copilot          | Aider                    |
+|----------|------------------|------------------|------------------|--------------------------|
+| `strong` | `sonnet` / `opus`| `inherit` (default) | `gpt-4o`      | `claude-sonnet-4-20250514` |
+| `fast`   | `haiku`          | `fast`           | `gpt-4o-mini`    | `gpt-4o-mini`            |
+
+Tools without per-agent model selection (Cline, Windsurf) can use the model routing table as guidance for which phases to run in Plan mode (strong) vs Act mode (fast).
 
 ---
 
-## 12. Implementing This Spec
+## 12. Token Budgets
+
+Recommended token limits per phase to prevent runaway costs:
+
+| Phase   | Model  | Budget      | Strategy                                  |
+|---------|--------|-------------|-------------------------------------------|
+| 0       | fast   | 3,000       | Task + search results only                |
+| 1       | fast   | 4,000       | Task + relevant file snippets             |
+| 2       | strong | 6,000       | Brief summary + cached patterns           |
+| 3       | strong | 4,000       | Design decisions list only                |
+| 4       | fast   | 5,000       | Decisions + file paths + BEFORE code      |
+| 5       | fast   | 3,000       | Requirements list + step titles only      |
+| 6       | fast   | 2,000/step  | One step at a time (context isolation)    |
+| 7-11    | fast   | 3,000 each  | Changed files only                        |
+
+**Total estimated cost:**
+- Full pipeline (standard, all strong): ~35-45k tokens, ~$0.80-1.20
+- Full pipeline (standard, model routing): ~35-45k tokens, ~$0.20-0.35
+- Yolo pipeline (model routing): ~15-20k tokens, ~$0.10-0.18
+- With caching: 15-25% additional reduction on repeat runs
+
+---
+
+## 13. Implementing This Spec
 
 This specification is tool-agnostic. To implement it for a specific AI coding tool:
 
@@ -925,6 +982,7 @@ This specification is tool-agnostic. To implement it for a specific AI coding to
 - [ ] Orchestrator that runs phases in sequence
 - [ ] Validator checks for each phase
 - [ ] Gate logic with profile support
+- [ ] Model routing (strong for phases 2,3; fast for all others)
 - [ ] Artifact storage (session directories)
 - [ ] Cache system (optional but recommended)
 - [ ] Auto-recovery loops (Phase 3 ↔ 2, Phase 5 ↔ 4)

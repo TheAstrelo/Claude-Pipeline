@@ -1,7 +1,7 @@
 ---
 name: quality-fit
 description: Check code quality for type safety, lint compliance, and project conventions on changed files. Use for QA Phase 8.
-model: inherit
+model: fast
 readonly: false
 ---
 

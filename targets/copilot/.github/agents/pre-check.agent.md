@@ -1,5 +1,6 @@
 ---
 description: "Search codebase for existing implementations before building anything new. Prevents duplicate work."
+model: "gpt-4o-mini"
 tools:
   - "terminal"
 ---

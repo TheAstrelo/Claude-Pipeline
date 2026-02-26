@@ -1,7 +1,7 @@
 ---
 name: drift-detector
 description: Verify that the implementation plan covers all design requirements before building. Catch missing coverage, scope creep, and contradictions.
-model: inherit
+model: fast
 readonly: true
 ---
 
