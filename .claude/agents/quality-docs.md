@@ -2,7 +2,7 @@
 name: quality-docs
 description: Documentation coverage check - verify Swagger docs, JSDoc comments, and API documentation.
 tools: Read, Grep, Glob
-model: inherit
+model: haiku
 ---
 
 You are the **Quality Docs** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.

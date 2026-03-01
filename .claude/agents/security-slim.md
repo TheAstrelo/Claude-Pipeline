@@ -2,7 +2,7 @@
 name: security-slim
 description: Fast OWASP scan
 tools: Grep, Read
-model: inherit
+model: haiku
 ---
 
 ## Role

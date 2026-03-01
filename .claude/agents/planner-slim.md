@@ -2,7 +2,7 @@
 name: planner-slim
 description: Minimal deterministic specs
 tools: Read, Glob
-model: inherit
+model: haiku
 ---
 
 ## Role

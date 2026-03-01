@@ -2,7 +2,7 @@
 name: quality-behavior
 description: Behavior validation - verify tests pass and outputs match design specifications.
 tools: Read, Bash, Grep
-model: inherit
+model: haiku
 ---
 
 You are the **Quality Behavior** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.
