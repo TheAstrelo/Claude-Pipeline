@@ -17,6 +17,8 @@ An automated, token-efficient development pipeline for [Claude Code](https://doc
 | Feature | Benefit |
 |---------|---------|
 | **3 Profiles** | `yolo` (fast), `standard` (balanced), `paranoid` (thorough) |
+| **Model Allocation** | Haiku/Sonnet/Opus strategically assigned by phase complexity |
+| **Continuation Planning** | Large tasks auto-split into phases (>8 steps) |
 | **Pre-Check Phase** | Finds existing code/libraries before building |
 | **Slim Agents** | 60-84% fewer tokens than standard agents |
 | **Output Validation** | Objective checks replace self-reported confidence |
@@ -79,7 +81,7 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 0: Pre-Check (NEVER SKIPPED)                             │
+│  Phase 0: Pre-Check [HAIKU]           (NEVER SKIPPED)           │
 │  • Searches codebase for existing implementations               │
 │  • Checks package.json for installed libraries                  │
 │  • Recommends: EXTEND_EXISTING | USE_LIBRARY | BUILD_NEW        │
@@ -87,7 +89,7 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 1: Requirements                                          │
+│  Phase 1: Requirements [SONNET]                                 │
 │  • Extracts requirements from task                              │
 │  • Minimal Q&A (max 3 questions if truly ambiguous)             │
 │  Output: brief.md                                               │
@@ -95,7 +97,7 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 2: Design                      [CACHE: patterns]         │
+│  Phase 2: Design [OPUS]               [CACHE: patterns]         │
 │  • Creates technical design with citations                      │
 │  • Uses cached patterns (rest-api, auth-jwt, crud-endpoint)     │
 │  Output: design.md                                              │
@@ -103,7 +105,7 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 3: Adversarial Review          [HARD GATE]               │
+│  Phase 3: Adversarial Review [OPUS]   [HARD GATE]               │
 │  • Single-pass critique from 3 angles                           │
 │  • Auto-retry on REVISE_DESIGN (max 1)                          │
 │  Output: critique.md                                            │
@@ -111,15 +113,16 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 4: Planning                                              │
+│  Phase 4: Planning [SONNET]                                     │
 │  • Deterministic steps with BEFORE/AFTER code                   │
-│  • Max 8 steps                                                  │
+│  • Max 8 steps per phase                                        │
+│  • If >8 steps needed → NEEDS_CONTINUATION (auto-splits)        │
 │  Output: plan.md                                                │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 5: Drift Detection                                       │
+│  Phase 5: Drift Detection [HAIKU]                               │
 │  • Verifies plan covers all requirements                        │
 │  • Auto-fix on <90% coverage                                    │
 │  Output: drift-report.md                                        │
@@ -127,7 +130,7 @@ npx @anthropic-ai/claude-code@latest
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 6: Build                                                 │
+│  Phase 6: Build [SONNET]                                        │
 │  • Executes plan step-by-step                                   │
 │  • Context isolation per step                                   │
 │  • Auto-retry on failure (max 2 per step)                       │
@@ -137,11 +140,11 @@ npx @anthropic-ai/claude-code@latest
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Phases 7-11: QA Pipeline (parallel)  [CACHE: qa-rules]         │
-│  7. Denoise — remove debug artifacts                            │
-│  8. Quality Fit — types, lint                                   │
-│  9. Quality Behavior — tests                                    │
-│  10. Quality Docs — Swagger, JSDoc                              │
-│  11. Security — OWASP scan            [CACHE: security] [HARD]  │
+│  7. Denoise [HAIKU] — remove debug artifacts                    │
+│  8. Quality Fit [HAIKU] — types, lint                           │
+│  9. Quality Behavior [SONNET] — tests                           │
+│  10. Quality Docs [HAIKU] — Swagger, JSDoc                      │
+│  11. Security [OPUS] — OWASP scan     [CACHE: security] [HARD]  │
 │  Output: qa-report.md                                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -196,6 +199,77 @@ Cache artifacts to save tokens across runs.
 
 ---
 
+## Model Allocation
+
+Strategic model selection based on task complexity:
+
+| Model | Phases | Tasks | Cost |
+|-------|--------|-------|------|
+| **Haiku** | 0, 5, 7, 8, 10 | Search, validation, pattern matching | $0.25/1M |
+| **Sonnet** | 1, 4, 6, 9 | Reasoning, code generation | $3/1M |
+| **Opus** | 2, 3, 11 | Architecture, critique, security | $15/1M |
+
+### Why This Matters
+
+- **Haiku** is 60x cheaper than Opus — perfect for deterministic tasks
+- **Opus** catches subtle design flaws and security issues — worth the cost
+- **Sonnet** handles the balanced middle ground efficiently
+
+### Cost Per Run
+
+```
+Optimized allocation:  ~$0.20/run
+  ├─ Haiku phases:     ~8k tokens  = $0.002
+  ├─ Sonnet phases:    ~15k tokens = $0.045
+  └─ Opus phases:      ~10k tokens = $0.150
+
+vs. All Sonnet:        ~$0.23/run (lower quality on critical phases)
+vs. All Opus:          ~$1.17/run (overkill for simple tasks)
+```
+
+---
+
+## Continuation Planning
+
+For tasks requiring more than 8 steps, the pipeline automatically splits into phases:
+
+```
+User: /auto-pipeline "add full auth with JWT, OAuth, password reset"
+
+Phase 4 (Planning) detects 14 steps needed:
+├── Verdict: NEEDS_CONTINUATION
+├── Phase 1 of 3: Core JWT + refresh tokens (6 steps)
+├── Phase 2 of 3: OAuth provider setup (5 steps)
+└── Phase 3 of 3: Frontend components (3 steps)
+
+Pipeline:
+1. Builds Phase 1 → QA → Security
+2. Prompts: "Phase 1 complete. Continue to Phase 2? [y/n]"
+3. Loops until all phases complete
+```
+
+### Rules
+
+- Each phase is independently testable
+- Max 8 steps per phase
+- All remaining phases documented upfront
+- Full QA pipeline runs after each phase
+
+### Output
+
+```
+Pipeline Complete [MULTI-PHASE: 3 of 3]
+
+Build Phases:
+  Phase 1/3: Core JWT + refresh tokens  ✓ (Steps 1-6)
+  Phase 2/3: OAuth provider setup       ✓ (Steps 1-5)
+  Phase 3/3: Frontend components        ✓ (Steps 1-3)
+
+Total steps executed: 14 (across 3 phases)
+```
+
+---
+
 ## Output-Based Validation
 
 **No more self-reported confidence.** Each phase is validated with objective checks:
@@ -221,18 +295,24 @@ Result: All pass → AUTO | HARD fail → PAUSE | SOFT fail → WARN
 
 ## Slim Agents
 
-Token-efficient versions of all agents:
+Token-efficient versions of all agents with strategic model assignment:
 
-| Agent | Reduction |
-|-------|-----------|
-| adversarial-slim | 78% |
-| planner-slim | 78% |
-| security-slim | 84% |
-| builder-slim | 82% |
-| requirements-slim | 76% |
-| architect-slim | 60% |
+| Agent | Model | Token Reduction |
+|-------|-------|-----------------|
+| pre-check | Haiku | — |
+| requirements-slim | Sonnet | 76% |
+| architect-slim | **Opus** | 60% |
+| adversarial-slim | **Opus** | 78% |
+| planner-slim | Sonnet | 78% |
+| drift-detector | Haiku | — |
+| builder-slim | Sonnet | 82% |
+| denoiser | Haiku | — |
+| quality-fit | Haiku | — |
+| quality-behavior | Sonnet | — |
+| quality-docs | Haiku | — |
+| security-slim | **Opus** | 84% |
 
-**Total savings: 40-60% per pipeline run**
+**Total savings: 40-60% per pipeline run + optimized model costs**
 
 ---
 
@@ -247,13 +327,22 @@ Token-efficient versions of all agents:
 │   ├── cache-clear.md        # Clear cache
 │   └── ...                   # Individual phase commands
 │
-├── agents/
-│   ├── pre-check.md          # Pre-flight search agent
-│   ├── *-slim.md             # Token-efficient agents
-│   └── ...                   # Full agents (legacy)
+├── agents/                   # Model assignments in frontmatter
+│   ├── pre-check.md          # [haiku] Pre-flight search
+│   ├── requirements-slim.md  # [sonnet] Requirements extraction
+│   ├── architect-slim.md     # [opus] Technical design
+│   ├── adversarial-slim.md   # [opus] Design critique
+│   ├── planner-slim.md       # [sonnet] Step planning
+│   ├── drift-detector.md     # [haiku] Plan verification
+│   ├── builder-slim.md       # [sonnet] Code execution
+│   ├── denoiser.md           # [haiku] Debug removal
+│   ├── quality-fit.md        # [haiku] Lint/conventions
+│   ├── quality-behavior.md   # [sonnet] Tests/behavior
+│   ├── quality-docs.md       # [haiku] Documentation
+│   └── security-slim.md      # [opus] Security scan
 │
 ├── lib/
-│   ├── config.md             # Profiles and settings
+│   ├── config.md             # Profiles, budgets, model allocation
 │   ├── validator.md          # Output validation rules
 │   └── cache.md              # Caching documentation
 │
@@ -327,21 +416,33 @@ Run any phase standalone:
 
 ---
 
-## Token Efficiency
+## Token & Cost Efficiency
 
-| Optimization | Savings |
-|--------------|---------|
-| Slim agents | 40-60% |
-| Phase skipping (yolo) | 30-40% |
-| Caching | 15-25% (compounding) |
-| Context isolation | 10-20% |
+| Optimization | Token Savings | Cost Impact |
+|--------------|---------------|-------------|
+| Slim agents | 40-60% | Direct reduction |
+| Model allocation | — | 60x cheaper on Haiku phases |
+| Phase skipping (yolo) | 30-40% | Fewer API calls |
+| Caching | 15-25% | Compounding savings |
+| Context isolation | 10-20% | Smaller per-step context |
 
-**Example:**
+**Token Example:**
 ```
 Original pipeline:     ~78k tokens
 With slim agents:      ~35k tokens
 With yolo profile:     ~18k tokens
 With caching:          ~15k tokens
+```
+
+**Cost Example (standard profile):**
+```
+Single-phase task:     ~$0.20/run
+Multi-phase task:      ~$0.18/phase (QA cached after first)
+
+Breakdown:
+  Haiku phases:        $0.002 (search, validation, docs)
+  Sonnet phases:       $0.045 (requirements, planning, build)
+  Opus phases:         $0.150 (design, critique, security)
 ```
 
 ---
