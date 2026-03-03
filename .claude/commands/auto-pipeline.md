@@ -127,11 +127,43 @@ Output: `plan.md`
 
 **Validators:**
 ```
-✓ has_steps         → grep -c "### Step" ≥ 1 (HARD)
-✓ has_before_after  → steps count = "**Before:**" count
-✓ max_8_steps       → grep -c "### Step" ≤ 8
-✓ paths_verified    → MODIFY files exist (HARD)
-✓ no_detail_flag    → ! grep "NEEDS_DETAIL" (HARD)
+✓ has_steps                    → grep -c "### Step" ≥ 1 (HARD)
+✓ has_before_after             → steps count = "**Before:**" count
+✓ max_8_steps_per_phase        → grep -c "### Step" ≤ 8
+✓ continuation_has_remaining   → if NEEDS_CONTINUATION, has "## Remaining Work" (HARD)
+✓ continuation_phases_doc      → if NEEDS_CONTINUATION, remaining phases listed
+✓ paths_verified               → MODIFY files exist (HARD)
+✓ no_detail_flag               → ! grep "NEEDS_DETAIL" (HARD)
+✓ valid_verdict                → READY | NEEDS_DETAIL | NEEDS_CONTINUATION (HARD)
+```
+
+**On NEEDS_CONTINUATION:**
+```
+1. Notify user: "Task requires X phases. Starting Phase 1 of X."
+2. Display phase breakdown from "Remaining Work" table
+3. Proceed to Phase 5 (Drift) → Phase 6 (Build) for current phase
+4. After Phase 6 completes, prompt: "Phase 1 complete. Continue to Phase 2? [y/n]"
+5. If yes: Loop back to Phase 4 with context:
+   - Previous phases completed
+   - Remaining Work for Phase 2
+   - Design constraints preserved
+6. Repeat until all phases complete
+```
+
+**Phase Continuation Context:**
+```markdown
+# Continuation Context
+
+## Completed Phases
+- Phase 1: [summary] — Steps 1-N ✓
+
+## Current Phase: 2 of X
+
+## Remaining Work
+[From previous plan.md]
+
+## Design Reference
+[Original design.md — do not modify]
 ```
 
 ---
@@ -238,6 +270,7 @@ fi
 
 ## Final Output
 
+**Single-Phase Task:**
 ```
 Pipeline Complete [PROFILE: standard]
 
@@ -261,6 +294,35 @@ Phases:
 11. Security     [AUTO]  validators: 5/5 ✓  [CACHED: lockfile unchanged]
 
 Validation: 30/30 passed
+Files changed: {list}
+Warnings: {any}
+```
+
+**Multi-Phase Task (NEEDS_CONTINUATION):**
+```
+Pipeline Complete [PROFILE: standard] [MULTI-PHASE: 3 of 3]
+
+Task: {task}
+Session: {session}
+Tokens used: {count}
+
+Build Phases:
+  Phase 1/3: Database + API endpoints    ✓ (Steps 1-6)
+  Phase 2/3: Auth middleware + JWT       ✓ (Steps 1-5)
+  Phase 3/3: Frontend components         ✓ (Steps 1-4)
+
+Pipeline Summary:
+0. Pre-Check     [AUTO]  → BUILD_NEW
+1. Requirements  [AUTO]  validators: 3/3 ✓
+2. Design        [AUTO]  validators: 4/4 ✓
+3. Adversarial   [AUTO]  validators: 4/4 ✓
+4. Planning      [CONT]  3 phases identified
+   ├─ Phase 1    [AUTO]  6 steps → Build ✓ → QA ✓
+   ├─ Phase 2    [AUTO]  5 steps → Build ✓ → QA ✓
+   └─ Phase 3    [AUTO]  4 steps → Build ✓ → QA ✓
+11. Security     [AUTO]  validators: 5/5 ✓
+
+Total steps executed: 15 (across 3 phases)
 Files changed: {list}
 Warnings: {any}
 ```

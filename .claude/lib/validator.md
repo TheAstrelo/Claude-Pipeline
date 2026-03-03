@@ -132,8 +132,28 @@ validators:
       [ "$steps" -eq "$befores" ]
     fail: SOFT
 
-  - name: max_8_steps
+  - name: max_8_steps_per_phase
     check: grep -c "### Step" plan.md | [ $(cat) -le 8 ]
+    fail: SOFT
+
+  - name: continuation_has_remaining_work
+    check: |
+      # If NEEDS_CONTINUATION, must have Remaining Work table
+      if grep -q "NEEDS_CONTINUATION" plan.md; then
+        grep -q "## Remaining Work" plan.md
+      else
+        true  # Not a continuation, skip check
+      fi
+    fail: HARD
+
+  - name: continuation_phases_documented
+    check: |
+      # If NEEDS_CONTINUATION, remaining phases must have descriptions
+      if grep -q "NEEDS_CONTINUATION" plan.md; then
+        grep -A10 "## Remaining Work" plan.md | grep -c "| [0-9]" | [ $(cat) -ge 1 ]
+      else
+        true  # Not a continuation, skip check
+      fi
     fail: SOFT
 
   - name: paths_verified
@@ -146,6 +166,10 @@ validators:
 
   - name: no_detail_flag
     check: ! grep "NEEDS_DETAIL" plan.md
+    fail: HARD
+
+  - name: valid_verdict
+    check: grep -E "Verdict:.*(READY|NEEDS_DETAIL|NEEDS_CONTINUATION)" plan.md
     fail: HARD
 ```
 

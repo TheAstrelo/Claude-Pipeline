@@ -17,7 +17,9 @@ Read `design.md` decisions + file paths.
 # Plan: [Title]
 
 ## Confidence: [0-100]
-## Verdict: [READY | NEEDS_DETAIL]
+## Verdict: [READY | NEEDS_DETAIL | NEEDS_CONTINUATION]
+
+## Phase: 1 of N
 
 ## Steps
 
@@ -43,10 +45,20 @@ Read `design.md` decisions + file paths.
 **Test:** [input] → [expected output]
 
 ### Step 2: ...
+
+## Remaining Work (if NEEDS_CONTINUATION)
+| Phase | Description | Est. Steps |
+|-------|-------------|------------|
+| 2 | [What Phase 2 will cover] | ~N |
+| 3 | [What Phase 3 will cover] | ~N |
 ```
 
 ## Rules
-- Max 8 steps
+- Max 8 steps per phase
+- If task requires >8 steps, set Verdict: NEEDS_CONTINUATION
+- Break into logical phases (e.g., "backend first, then frontend")
+- Document all phases in "Remaining Work" table
+- Each phase should be independently buildable/testable
 - BEFORE/AFTER: only changed lines + 2 lines context
 - No full file dumps
 - Verify paths with Glob before referencing

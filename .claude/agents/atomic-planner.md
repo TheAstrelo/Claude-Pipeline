@@ -72,7 +72,9 @@ Write to `.claude/artifacts/current/plan.md`:
 ```markdown
 # Implementation Plan: [Task Title]
 
-## Verdict: [READY_FOR_BUILD | NEEDS_DETAIL]
+## Verdict: [READY_FOR_BUILD | NEEDS_DETAIL | NEEDS_CONTINUATION]
+
+## Phase: 1 of N
 
 ## Summary
 [1-2 sentence overview]
@@ -118,11 +120,24 @@ npx tsc --noEmit
 
 ## Rollback Plan
 [How to undo changes if something goes wrong]
+
+## Remaining Work (if NEEDS_CONTINUATION)
+| Phase | Description | Est. Steps |
+|-------|-------------|------------|
+| 2 | [What Phase 2 will cover] | ~N |
+| 3 | [What Phase 3 will cover] | ~N |
+
+**Phase Boundaries:**
+- Phase 1: [Summary of current phase scope]
+- Phase 2: [Summary of next phase scope]
 ```
 
 ## Rules
 
-- **~5 steps per agent** — If more than 8 steps, consider splitting into phases.
+- **Max 8 steps per phase** — If more than 8 steps required, set Verdict: NEEDS_CONTINUATION.
+- **Phased execution** — Break large tasks into logical phases (e.g., "database + backend" then "frontend").
+- **Each phase must be independently testable** — Don't split mid-feature; each phase should leave the system in a working state.
+- **Document all remaining phases** — The Remaining Work table must list ALL future phases with descriptions and estimated step counts.
 - **No file conflicts** — Each file is only modified in ONE step. If multiple changes needed, batch them.
 - **Complete code** — AFTER sections must be complete, copy-pasteable code, not pseudocode or descriptions.
 - **Verify paths** — Use `Glob` to confirm files exist before referencing them.
