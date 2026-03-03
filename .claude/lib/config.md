@@ -71,6 +71,57 @@ See `lib/validator.md` for full validator definitions.
 | 6 | 2000/step | One step at a time |
 | 7-11 | 3000 | Changed files only |
 
+## Model Allocation
+
+Strategic model selection by phase complexity:
+
+| Phase | Agent | Model | Rationale |
+|-------|-------|-------|-----------|
+| 0 | pre-check | haiku | Search + grep operations, simple recommendation |
+| 1 | requirements-slim | sonnet | Needs reasoning but structured output |
+| 2 | architect-slim | **opus** | Architectural decisions, trade-off analysis |
+| 3 | adversarial-slim | **opus** | Multi-perspective critique, finding subtle flaws |
+| 4 | planner-slim | sonnet | BEFORE/AFTER code generation |
+| 5 | drift-detector | haiku | Document comparison, deterministic |
+| 6 | builder-slim | sonnet | Step execution, follows plan exactly |
+| 7 | denoiser | haiku | Pattern matching (find/remove) |
+| 8 | quality-fit | haiku | Lint/type checks, convention matching |
+| 9 | quality-behavior | sonnet | Test analysis, behavior verification |
+| 10 | quality-docs | haiku | JSDoc presence checks |
+| 11 | security-slim | **opus** | Detecting subtle vulnerabilities |
+
+### Model Cost Comparison
+
+```
+Haiku:  $0.25 / 1M tokens  (60x cheaper than Opus)
+Sonnet: $3.00 / 1M tokens  (5x cheaper than Opus)
+Opus:   $15.00 / 1M tokens (most capable)
+```
+
+### Estimated Cost Per Run
+
+```
+All Sonnet:          ~$0.23/run
+Optimized allocation: ~$0.20/run (with higher quality on critical phases)
+
+Breakdown:
+  Haiku phases:  ~8k tokens  = $0.002
+  Sonnet phases: ~15k tokens = $0.045
+  Opus phases:   ~10k tokens = $0.15
+```
+
+### When to Override
+
+Use `model: opus` override for:
+- Security-sensitive features (payments, auth)
+- Complex architectural decisions
+- High-stakes production code
+
+Use `model: haiku` override for:
+- Simple search/validation tasks
+- High-volume batch operations
+- Cost-sensitive prototyping
+
 ## Usage
 
 ```bash

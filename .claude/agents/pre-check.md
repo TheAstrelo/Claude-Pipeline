@@ -2,7 +2,7 @@
 name: pre-check
 description: Research existing solutions before building anything new
 tools: Grep, Glob, Read, WebSearch
-model: inherit
+model: haiku
 ---
 
 ## Role

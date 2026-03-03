@@ -2,7 +2,7 @@
 name: adversarial-slim
 description: Single-pass design critique
 tools: Read, Grep
-model: inherit
+model: opus
 ---
 
 ## Role

@@ -2,7 +2,7 @@
 name: architect-slim
 description: Token-efficient design agent
 tools: Read, Grep, Glob, WebFetch
-model: inherit
+model: opus
 ---
 
 ## Role
