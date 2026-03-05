@@ -1,29 +1,51 @@
-# Claude Code Auto-Pipeline
+# AI Development Pipeline
 
-An automated, token-efficient development pipeline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). One command transforms a task description into production-ready code — with intelligent caching, pre-flight checks, and configurable automation levels.
+A structured, multi-phase development workflow for AI coding tools. One command takes a task from idea to production-ready code — with design reviews, adversarial critique, drift detection, and automated QA.
 
 ```bash
 /auto-pipeline "add user authentication with JWT"
 ```
 
-**Perfect for vibe coders** who want Claude to handle the entire development flow with minimal intervention.
-
-> **Looking for the manual workflow?** See the [`full-workflow-legacy`](https://github.com/TheAstrelo/Claude-Pipeline/tree/full-workflow-legacy) branch for the original 11-phase pipeline with human checkpoints.
+Works with **Claude Code, Cursor, Cline, Windsurf, GitHub Copilot, and Aider**.
 
 ---
 
-## Features
+## The Problem
 
-| Feature | Benefit |
-|---------|---------|
-| **3 Profiles** | `yolo` (fast), `standard` (balanced), `paranoid` (thorough) |
-| **Model Allocation** | Haiku/Sonnet/Opus strategically assigned by phase complexity |
-| **Continuation Planning** | Large tasks auto-split into phases (>8 steps) |
-| **Pre-Check Phase** | Finds existing code/libraries before building |
-| **Slim Agents** | 60-84% fewer tokens than standard agents |
-| **Output Validation** | Objective checks replace self-reported confidence |
-| **Caching** | Security scans, patterns, QA rules cached across runs |
-| **Auto-Recovery** | Retries failures before pausing |
+AI coding tools are brilliant but impulsive. Tell one "add login to my app" and it starts writing code immediately — no requirements gathering, no design review, no security check. The result? Hallucinated architectures, missed edge cases, scope creep, and vulnerabilities that slip into production.
+
+## The Solution
+
+This pipeline makes AI follow the same process a senior engineering team would:
+
+1. **Understand** what you're actually asking for
+2. **Design** a solution backed by real documentation
+3. **Critique** the design from three different angles — before writing a single line of code
+4. **Plan** every file change in advance with exact before/after diffs
+5. **Verify** the plan matches the design (nothing lost, nothing added)
+6. **Build** step by step, following the plan exactly
+7. **Check** the result — types, tests, docs, and security
+
+Every phase produces a readable artifact. Every design decision cites a source. Every critique issue has a fix. Full traceability from task to code.
+
+---
+
+## The Simple Explanation
+
+Imagine you hire a contractor to renovate your kitchen.
+
+A **bad contractor** shows up, starts ripping out cabinets, and figures it out as they go.
+
+A **good contractor**:
+1. Asks what you need — how do you cook? what's your budget?
+2. Draws up blueprints based on actual building codes
+3. Has an inspector review the blueprints before any work starts
+4. Creates a step-by-step work order — plumbing first, then electrical, then cabinets
+5. Double-checks the work order matches the blueprints
+6. Builds it, following the plan exactly
+7. Does a final inspection — safe? up to code? clean?
+
+This pipeline is the "good contractor" process, but for AI writing software.
 
 ---
 
@@ -36,34 +58,119 @@ git clone https://github.com/TheAstrelo/Claude-Pipeline.git
 cp -r Claude-Pipeline/.claude/ /path/to/your/project/
 ```
 
-### 2. Start Claude Code
+### 2. Start your AI tool
 
 ```bash
+# Claude Code
 npx @anthropic-ai/claude-code@latest
+
+# Or open in Cursor, Cline, Windsurf, Copilot, or Aider
+# See "Tool-Specific Setup" below
 ```
 
 ### 3. Run the pipeline
 
 ```bash
-# Fast prototyping
+# Fast prototyping — skip reviews, just build
 /auto-pipeline --profile=yolo "add a logout button"
 
-# Balanced (default)
+# Balanced (default) — full pipeline
 /auto-pipeline "implement user dashboard"
 
-# Full oversight
+# Full oversight — pause on any issue
 /auto-pipeline --profile=paranoid "payment integration"
 ```
 
 ---
 
+## How It Works
+
+### The 12 Phases
+
+```
+Task Description
+       │
+       ▼
+┌─────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Phase 0    │───▶│  Phase 1     │───▶│  Phase 2     │
+│  Pre-Check  │    │  Requirements│    │  Design      │
+│  [HARD]     │    │  [SOFT]      │    │  [SOFT]      │
+└─────────────┘    └──────────────┘    └──────────────┘
+                                              │
+       ┌──────────────────────────────────────┘
+       ▼
+┌─────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Phase 3    │───▶│  Phase 4     │───▶│  Phase 5     │
+│  Adversarial│    │  Planning    │    │  Drift Check │
+│  [HARD]     │    │  [SOFT]      │    │  [SOFT]      │
+└─────────────┘    └──────────────┘    └──────────────┘
+                                              │
+       ┌──────────────────────────────────────┘
+       ▼
+┌─────────────┐    ┌──────────────────────────────────┐
+│  Phase 6    │───▶│  Phases 7-10                      │
+│  Build      │    │  7: Denoise    8: Quality Fit     │
+│  [NONE]     │    │  9: Behavior  10: Docs            │
+└─────────────┘    └──────────────────────────────────┘
+                                    │
+                                    ▼
+                          ┌──────────────┐
+                          │  Phase 11    │
+                          │  Security    │
+                          │  [HARD]      │
+                          └──────────────┘
+                                    │
+                                    ▼
+                                  Done
+```
+
+| Phase | What It Does | Why It Matters |
+|-------|-------------|----------------|
+| **0. Pre-Check** | Searches your codebase for existing code and libraries | Prevents rebuilding what already exists |
+| **1. Requirements** | Extracts testable success criteria from your task | Turns a vague idea into a concrete spec |
+| **2. Design** | Creates architecture decisions citing real documentation | Decisions are traceable, not hallucinated |
+| **3. Adversarial Review** | Three critics stress-test the design (Architect, Skeptic, Implementer) | Catches security gaps and edge cases before code is written |
+| **4. Planning** | Produces exact BEFORE/AFTER code for every file change | Every change is deterministic — no improvisation |
+| **5. Drift Detection** | Verifies the plan covers every design requirement | Nothing from the design gets lost or added |
+| **6. Build** | Executes the plan step by step with verification | No YOLO code dumps |
+| **7. Denoise** | Removes `console.log`, `debugger`, commented-out code | Clean production code |
+| **8. Quality Fit** | Type checking, linting, convention compliance | Code matches project standards |
+| **9. Quality Behavior** | Runs build + tests, verifies behavior | Code actually works as designed |
+| **10. Quality Docs** | Checks Swagger/JSDoc coverage | API documentation stays current |
+| **11. Security** | OWASP scan: injection, XSS, auth bypass, secrets | Vulnerabilities caught before merge |
+
+### Gates
+
+Each phase has a gate that decides what happens next:
+
+| Gate | Behavior | Assigned To |
+|------|----------|-------------|
+| **HARD** | Must pass or pipeline pauses for your review | Phases 0, 3, 11 |
+| **SOFT** | Warns and proceeds | Phases 1, 2, 4, 5 |
+| **NONE** | Always proceeds, auto-fixes when possible | Phases 6-10 |
+
+Gates use **objective validation** (does the artifact contain the required sections? do referenced files exist? are there fewer than 3 medium-severity issues?) — not self-reported confidence scores.
+
+### Feedback Loops
+
+The pipeline tries to fix itself before asking you to intervene:
+
+| Failure | Recovery | Max Retries |
+|---------|----------|-------------|
+| Design has critical issues (Phase 3) | Loop back to Phase 2 with critique feedback | 1 |
+| Plan misses design requirements (Phase 5) | Loop back to Phase 4 to add missing steps | 1 |
+| Build step fails (Phase 6) | Retry the step with error context | 2 per step |
+| QA finds issues (Phases 7-10) | Auto-fix inline | 1 |
+
+---
+
 ## Profiles
 
-| Profile | Skips | Gate Mode | Use Case |
-|---------|-------|-----------|----------|
-| `yolo` | Phases 3,5,7-10 | Only critical fails pause | Prototypes, experiments |
-| `standard` | None | Critical pauses, others warn | Normal development |
-| `paranoid` | None | Any issue pauses | Production, sensitive code |
+| Profile | What Gets Skipped | When To Use |
+|---------|-------------------|-------------|
+| **yolo** | Reviews, drift check, most QA | Prototyping, experiments, "just make it work" |
+| **standard** | Nothing | Normal development (default) |
+| **paranoid** | Nothing, and any issue pauses | Production code, payments, auth, sensitive features |
 
 ```bash
 /auto-pipeline --profile=yolo "quick prototype"
@@ -72,329 +179,64 @@ npx @anthropic-ai/claude-code@latest
 
 ---
 
-## How It Works
+## Tool-Agnostic
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        /auto-pipeline                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 0: Pre-Check [HAIKU]           (NEVER SKIPPED)           │
-│  • Searches codebase for existing implementations               │
-│  • Checks package.json for installed libraries                  │
-│  • Recommends: EXTEND_EXISTING | USE_LIBRARY | BUILD_NEW        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 1: Requirements [SONNET]                                 │
-│  • Extracts requirements from task                              │
-│  • Minimal Q&A (max 3 questions if truly ambiguous)             │
-│  Output: brief.md                                               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 2: Design [OPUS]               [CACHE: patterns]         │
-│  • Creates technical design with citations                      │
-│  • Uses cached patterns (rest-api, auth-jwt, crud-endpoint)     │
-│  Output: design.md                                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 3: Adversarial Review [OPUS]   [HARD GATE]               │
-│  • Single-pass critique from 3 angles                           │
-│  • Auto-retry on REVISE_DESIGN (max 1)                          │
-│  Output: critique.md                                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 4: Planning [SONNET]                                     │
-│  • Deterministic steps with BEFORE/AFTER code                   │
-│  • Max 8 steps per phase                                        │
-│  • If >8 steps needed → NEEDS_CONTINUATION (auto-splits)        │
-│  Output: plan.md                                                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 5: Drift Detection [HAIKU]                               │
-│  • Verifies plan covers all requirements                        │
-│  • Auto-fix on <90% coverage                                    │
-│  Output: drift-report.md                                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 6: Build [SONNET]                                        │
-│  • Executes plan step-by-step                                   │
-│  • Context isolation per step                                   │
-│  • Auto-retry on failure (max 2 per step)                       │
-│  Output: build-report.md + code changes                         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Phases 7-11: QA Pipeline (parallel)  [CACHE: qa-rules]         │
-│  7. Denoise [HAIKU] — remove debug artifacts                    │
-│  8. Quality Fit [HAIKU] — types, lint                           │
-│  9. Quality Behavior [SONNET] — tests                           │
-│  10. Quality Docs [HAIKU] — Swagger, JSDoc                      │
-│  11. Security [OPUS] — OWASP scan     [CACHE: security] [HARD]  │
-│  Output: qa-report.md                                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                         ✅ Done
-```
+The pipeline is defined in a single [specification](PIPELINE-SPEC.md) (990 lines) that is independent of any AI tool. It's then implemented natively for each:
+
+| Tool | Location | Setup |
+|------|----------|-------|
+| **Claude Code** | `.claude/` | `cp -r .claude/ your-project/` |
+| **Cursor** | `targets/cursor/` | `cp -r targets/cursor/.cursor/ your-project/` |
+| **Cline** | `targets/cline/` | `cp -r targets/cline/.clinerules/ your-project/` |
+| **Windsurf** | `targets/windsurf/` | Copy windsurf config to your project |
+| **GitHub Copilot** | `targets/copilot/` | `cp -r targets/copilot/.github/ your-project/` |
+| **Aider** | `targets/aider/` | Copy aider config to your project |
+| **Codex** | `targets/codex/` | Copy codex config to your project |
+
+Same 12 phases, same gates, same validation rules, same artifact structure — just mapped to each tool's native format.
 
 ---
 
-## Pre-Check Phase
+## Cost Efficiency
 
-Before building anything, the pipeline searches for existing solutions:
+### Model Routing
 
-```
-User: "add user authentication"
+Only 2 of 12 phases need the expensive model. The rest use fast/cheap models:
 
-Pre-Check runs:
-├── grep "auth" src/pages/api/     → finds /api/auth/login.ts
-├── grep "next-auth" package.json  → finds next-auth installed
-└── Recommendation: EXTEND_EXISTING
+| Phase | Model Tier | Why |
+|-------|-----------|-----|
+| Design (2), Adversarial Review (3) | **Strong** | Architecture and critique require deep reasoning |
+| All other phases (0,1,4-11) | **Fast** | Mechanical tasks — search, plan, build, scan |
 
-Result: Pipeline extends existing auth instead of rebuilding
-```
+**Result: ~70% cost reduction** compared to using the strongest model for everything.
 
-**Prevents duplicate work** — Claude won't rebuild what already exists.
+### Token Efficiency
 
----
-
-## Caching
-
-Cache artifacts to save tokens across runs.
-
-| Cached | Key | Tokens Saved |
-|--------|-----|--------------|
-| Security scans | lockfile hash | ~3000/run |
-| Design patterns | pattern name | ~1500/run |
-| QA rules | framework | ~1000/run |
-
-### Commands
-
-```bash
-/cache-stats    # View cache hits and savings
-/cache-clear    # Clear all or specific cache
-/cache-warm     # Pre-populate patterns
-```
-
-### Pre-Cached Patterns
-
-- `rest-api` — REST endpoint with auth, validation, errors
-- `auth-jwt` — JWT authentication flow
-- `crud-endpoint` — Full CRUD with soft delete
+| Optimization | Savings |
+|-------------|---------|
+| Slim agents (included) | 40-60% fewer tokens per agent |
+| Phase skipping (yolo profile) | 30-40% fewer phases |
+| Caching (security, patterns, QA rules) | 15-25% on repeat runs |
+| Context isolation (each phase gets only what it needs) | 10-20% |
 
 ---
 
-## Model Allocation
+## Artifacts
 
-Strategic model selection based on task complexity:
+Every pipeline run produces artifacts in `.claude/artifacts/{session}/`:
 
-| Model | Phases | Tasks | Cost |
-|-------|--------|-------|------|
-| **Haiku** | 0, 5, 7, 8, 10 | Search, validation, pattern matching | $0.25/1M |
-| **Sonnet** | 1, 4, 6, 9 | Reasoning, code generation | $3/1M |
-| **Opus** | 2, 3, 11 | Architecture, critique, security | $15/1M |
+| File | Phase | Contents |
+|------|-------|----------|
+| `pre-check.md` | 0 | Existing code found, library recommendations |
+| `brief.md` | 1 | Problem statement, success criteria, scope |
+| `design.md` | 2 | Architecture decisions with source citations |
+| `critique.md` | 3 | Issues from 3 critic angles, verdict |
+| `plan.md` | 4 | Step-by-step BEFORE/AFTER code changes |
+| `drift-report.md` | 5 | Coverage matrix, missing/extra items |
+| `build-report.md` | 6 | Step results, build/type check status |
+| `qa-report.md` | 7-11 | Denoise, lint, tests, docs, security results |
 
-### Why This Matters
-
-- **Haiku** is 60x cheaper than Opus — perfect for deterministic tasks
-- **Opus** catches subtle design flaws and security issues — worth the cost
-- **Sonnet** handles the balanced middle ground efficiently
-
-### Cost Per Run
-
-```
-Optimized allocation:  ~$0.20/run
-  ├─ Haiku phases:     ~8k tokens  = $0.002
-  ├─ Sonnet phases:    ~15k tokens = $0.045
-  └─ Opus phases:      ~10k tokens = $0.150
-
-vs. All Sonnet:        ~$0.23/run (lower quality on critical phases)
-vs. All Opus:          ~$1.17/run (overkill for simple tasks)
-```
-
----
-
-## Continuation Planning
-
-For tasks requiring more than 8 steps, the pipeline automatically splits into phases:
-
-```
-User: /auto-pipeline "add full auth with JWT, OAuth, password reset"
-
-Phase 4 (Planning) detects 14 steps needed:
-├── Verdict: NEEDS_CONTINUATION
-├── Phase 1 of 3: Core JWT + refresh tokens (6 steps)
-├── Phase 2 of 3: OAuth provider setup (5 steps)
-└── Phase 3 of 3: Frontend components (3 steps)
-
-Pipeline:
-1. Builds Phase 1 → QA → Security
-2. Prompts: "Phase 1 complete. Continue to Phase 2? [y/n]"
-3. Loops until all phases complete
-```
-
-### Rules
-
-- Each phase is independently testable
-- Max 8 steps per phase
-- All remaining phases documented upfront
-- Full QA pipeline runs after each phase
-
-### Output
-
-```
-Pipeline Complete [MULTI-PHASE: 3 of 3]
-
-Build Phases:
-  Phase 1/3: Core JWT + refresh tokens  ✓ (Steps 1-6)
-  Phase 2/3: OAuth provider setup       ✓ (Steps 1-5)
-  Phase 3/3: Frontend components        ✓ (Steps 1-3)
-
-Total steps executed: 14 (across 3 phases)
-```
-
----
-
-## Output-Based Validation
-
-**No more self-reported confidence.** Each phase is validated with objective checks:
-
-```yaml
-Phase 3 (Adversarial):
-  ✓ has_verdict       → grep "APPROVED|REVISE"
-  ✓ no_high_severity  → ! grep "| HIGH |"
-  ✓ no_consensus      → no issues raised by 2+ critics
-
-Result: All pass → AUTO | HARD fail → PAUSE | SOFT fail → WARN
-```
-
-### Gate Types
-
-| Gate | Phases | Behavior |
-|------|--------|----------|
-| HARD | 0, 3, 11 | Must pass or pipeline pauses |
-| SOFT | 1, 2, 4, 5 | Warn and proceed |
-| NONE | 6-10 | Auto-proceed, auto-fix |
-
----
-
-## Slim Agents
-
-Token-efficient versions of all agents with strategic model assignment:
-
-| Agent | Model | Token Reduction |
-|-------|-------|-----------------|
-| pre-check | Haiku | — |
-| requirements-slim | Sonnet | 76% |
-| architect-slim | **Opus** | 60% |
-| adversarial-slim | **Opus** | 78% |
-| planner-slim | Sonnet | 78% |
-| drift-detector | Haiku | — |
-| builder-slim | Sonnet | 82% |
-| denoiser | Haiku | — |
-| quality-fit | Haiku | — |
-| quality-behavior | Sonnet | — |
-| quality-docs | Haiku | — |
-| security-slim | **Opus** | 84% |
-
-**Total savings: 40-60% per pipeline run + optimized model costs**
-
----
-
-## File Structure
-
-```
-.claude/
-├── commands/
-│   ├── auto-pipeline.md      # Main automated pipeline
-│   ├── pre-check.md          # Standalone pre-check
-│   ├── cache-stats.md        # View cache
-│   ├── cache-clear.md        # Clear cache
-│   └── ...                   # Individual phase commands
-│
-├── agents/                   # Model assignments in frontmatter
-│   ├── pre-check.md          # [haiku] Pre-flight search
-│   ├── requirements-slim.md  # [sonnet] Requirements extraction
-│   ├── architect-slim.md     # [opus] Technical design
-│   ├── adversarial-slim.md   # [opus] Design critique
-│   ├── planner-slim.md       # [sonnet] Step planning
-│   ├── drift-detector.md     # [haiku] Plan verification
-│   ├── builder-slim.md       # [sonnet] Code execution
-│   ├── denoiser.md           # [haiku] Debug removal
-│   ├── quality-fit.md        # [haiku] Lint/conventions
-│   ├── quality-behavior.md   # [sonnet] Tests/behavior
-│   ├── quality-docs.md       # [haiku] Documentation
-│   └── security-slim.md      # [opus] Security scan
-│
-├── lib/
-│   ├── config.md             # Profiles, budgets, model allocation
-│   ├── validator.md          # Output validation rules
-│   └── cache.md              # Caching documentation
-│
-├── cache/
-│   ├── manifest.json         # Cache index
-│   ├── patterns/             # Design pattern cache
-│   ├── security/             # Security scan cache
-│   └── qa-rules/             # QA rules cache
-│
-├── hooks/
-│   ├── cache.sh              # Cache operations
-│   ├── auto-format.sh        # Post-edit formatting
-│   └── protect-files.sh      # File protection
-│
-├── rules/                    # Project conventions
-└── artifacts/                # Per-session outputs
-```
-
----
-
-## Customization
-
-### Rules
-
-Edit `.claude/rules/` for your stack:
-
-```markdown
-# .claude/rules/api.md
-- Use Hono instead of Express
-- Return { data, error } shape
-```
-
-### Hooks
-
-Edit `.claude/hooks/` for your tools:
-
-```bash
-# auto-format.sh
-bunx biome format --write "$FILE"
-```
-
-### Patterns
-
-Add custom patterns to `.claude/cache/patterns/`:
-
-```markdown
-# .claude/cache/patterns/my-pattern.md
-## Structure
-...
-## Template
-...
-```
+These are your audit trail. Every design decision is traceable to a source. Every code change is traceable to a plan step. Every plan step is traceable to a design requirement.
 
 ---
 
@@ -402,36 +244,51 @@ Add custom patterns to `.claude/cache/patterns/`:
 
 Run any phase standalone:
 
-| Command | Purpose |
-|---------|---------|
-| `/pre-check <task>` | Search for existing solutions |
-| `/cache-stats` | View cache statistics |
-| `/cache-clear` | Clear cache |
-| `/arm <task>` | Requirements only |
-| `/design` | Design only |
-| `/ar` | Adversarial review only |
-| `/plan` | Planning only |
-| `/build` | Build only |
-| `/security-review` | Security scan only |
+| Command | Phase | What It Does |
+|---------|-------|-------------|
+| `/pre-check <task>` | 0 | Search for existing solutions |
+| `/arm <task>` | 1 | Requirements crystallization |
+| `/design` | 2 | Technical design |
+| `/ar` | 3 | Adversarial review |
+| `/plan` | 4 | Implementation planning |
+| `/pmatch` | 5 | Drift detection |
+| `/build` | 6 | Execute the plan |
+| `/denoise` | 7 | Remove debug artifacts |
+| `/qf` | 8 | Quality fit check |
+| `/qb` | 9 | Quality behavior check |
+| `/qd` | 10 | Quality docs check |
+| `/security-review` | 11 | Security audit |
 
 ---
 
-## Token & Cost Efficiency
+## Customization
 
-| Optimization | Token Savings | Cost Impact |
-|--------------|---------------|-------------|
-| Slim agents | 40-60% | Direct reduction |
-| Model allocation | — | 60x cheaper on Haiku phases |
-| Phase skipping (yolo) | 30-40% | Fewer API calls |
-| Caching | 15-25% | Compounding savings |
-| Context isolation | 10-20% | Smaller per-step context |
+### Rules
 
-**Token Example:**
+Add project-specific conventions in `.claude/rules/`:
+
+```markdown
+# .claude/rules/api.md
+- Use Hono instead of Express
+- Return { data, error } shape
 ```
-Original pipeline:     ~78k tokens
-With slim agents:      ~35k tokens
-With yolo profile:     ~18k tokens
-With caching:          ~15k tokens
+
+### Cached Patterns
+
+Add reusable design patterns in `.claude/cache/patterns/`:
+
+- `rest-api.md` — REST endpoint with auth, validation, errors
+- `auth-jwt.md` — JWT authentication flow
+- `crud-endpoint.md` — Full CRUD with soft delete
+- Add your own for repeated patterns in your codebase
+
+### Hooks
+
+Add formatting or protection hooks in `.claude/hooks/`:
+
+```bash
+# auto-format.sh — runs after edits
+bunx biome format --write "$FILE"
 ```
 
 **Cost Example (standard profile):**
@@ -447,29 +304,81 @@ Breakdown:
 
 ---
 
-## Legacy Pipeline
+## Demo
 
-For the original manual 11-phase pipeline with human checkpoints at every gate:
+A ready-to-run demo is included in `demo/`:
+
+- **Starter project:** A tiny Express API (4 files)
+- **Task:** "Add user authentication with JWT"
+- **Expected output:** Example artifacts showing what each phase produces
 
 ```bash
-git checkout full-workflow-legacy
+cp -r demo/starter-project/ /tmp/pipeline-demo/
+cd /tmp/pipeline-demo/
+npm install
+
+# Run with your preferred tool
+/auto-pipeline --profile=yolo "add user authentication with JWT"
 ```
 
-Or use directly:
-```bash
-/dev-pipeline "your task"  # Manual checkpoints
+See [`demo/README.md`](demo/README.md) for the full walkthrough.
+
+---
+
+## File Structure
+
 ```
+Claude-Pipeline/
+├── PIPELINE-SPEC.md              # Tool-agnostic specification (990 lines)
+├── README.md                     # You are here
+│
+├── .claude/                      # Claude Code implementation
+│   ├── commands/                 # Slash commands (/auto-pipeline, /dev-pipeline, etc.)
+│   ├── agents/                   # 12 agent definitions + slim variants
+│   ├── lib/                      # Profiles, validators, cache config
+│   ├── cache/                    # Cached patterns, security scans, QA rules
+│   ├── hooks/                    # Auto-format, file protection
+│   ├── rules/                    # Project conventions (api, database, react)
+│   └── artifacts/                # Per-session output
+│
+├── targets/                      # Implementations for other tools
+│   ├── cursor/                   # Cursor agent definitions
+│   ├── cline/                    # Cline rules and workflows
+│   ├── windsurf/                 # Windsurf workflow config
+│   ├── copilot/                  # GitHub Copilot agents
+│   ├── codex/                    # OpenAI Codex config
+│   └── aider/                    # Aider conversation config
+│
+└── demo/                         # Demo kit
+    ├── starter-project/          # Tiny Express app (4 files)
+    └── expected-output/          # Example artifacts for "add JWT auth"
+```
+
+---
+
+## Implementing for a New Tool
+
+The [pipeline specification](PIPELINE-SPEC.md) is tool-agnostic. To add support for a new AI coding tool:
+
+1. **Map agent roles** to the tool's agent/prompt system (12 roles, each with defined inputs/outputs/tools)
+2. **Map validation** to the tool's capabilities (shell scripts, inline checks, or prompt instructions)
+3. **Map the orchestrator** to the tool's workflow system (slash command, master prompt, or script)
+4. **Map caching** to the tool's storage (filesystem, database, or in-memory)
+5. **Map gates** to the tool's interaction model (PAUSE = ask user, WARN = log, AUTO = silent)
+6. **Map model routing** to the tool's model selection (strong for phases 2-3, fast for everything else)
+
+See `targets/` for reference implementations.
 
 ---
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- Node.js (for build/type-check steps)
-- Project with `CLAUDE.md`
+- An AI coding tool (Claude Code, Cursor, Cline, Windsurf, Copilot, Codex, or Aider)
+- Node.js (for build/type-check steps in QA phases)
+- A project to run it on
 
 ---
 
 ## License
 
-MIT — use it, adapt it, ship it.
+MIT
