@@ -1,0 +1,164 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  min-height: 100vh;
+}
+
+.header {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #2a2a3e;
+}
+.header h1 { font-size: 18px; font-weight: 600; }
+.header .session { font-size: 13px; color: #888; }
+.header .status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot.connected { background: #4caf50; }
+.status-dot.disconnected { background: #f44336; }
+
+.progress-bar-container {
+  padding: 12px 24px;
+}
+.progress-bar {
+  height: 6px;
+  background: #2a2a3e;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.progress-label {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 12px 24px 24px;
+}
+@media (max-width: 900px) {
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 500px) {
+  .card-grid { grid-template-columns: 1fr; }
+}
+
+.agent-card {
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+  position: relative;
+}
+
+.card-idle { background: #2a2a3e; }
+.card-running {
+  background: #3d3520;
+  box-shadow: 0 0 12px rgba(255, 183, 0, 0.15);
+  animation: pulse 2s ease-in-out infinite;
+}
+.card-complete {
+  background: #1a3d2a;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.1);
+}
+.card-failed {
+  background: #3d1a1a;
+  box-shadow: 0 0 8px rgba(244, 67, 54, 0.15);
+}
+.card-skipped { background: #1e1e2e; opacity: 0.6; }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 183, 0, 0.15); }
+  50% { box-shadow: 0 0 20px rgba(255, 183, 0, 0.3); }
+}
+
+.card-phase-badge {
+  position: absolute;
+  top: 8px; right: 10px;
+  font-size: 11px;
+  color: #666;
+  font-weight: 600;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-status-icon { font-size: 16px; }
+
+.card-verdict {
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.verdict-pass { color: #66bb6a; }
+.verdict-warn { color: #ffa726; }
+.verdict-fail { color: #ef5350; }
+.verdict-unknown { color: #888; }
+
+.card-elapsed {
+  font-size: 11px;
+  color: #666;
+  margin-top: auto;
+}
+
+.card-artifact {
+  font-size: 11px;
+  color: #5c6bc0;
+}
+
+/* Spinner for running state */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid #ffa726;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.waiting-message {
+  text-align: center;
+  padding: 60px 24px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Artifact handoff animation */
+.artifact-handoff {
+  position: fixed;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #5c6bc0;
+  pointer-events: none;
+  z-index: 1000;
+  transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+  opacity: 1;
+}
+.artifact-handoff.done { opacity: 0; }
