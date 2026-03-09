@@ -233,97 +233,7 @@ Then re-run Phase 3 (max 1 retry). If still REVISE_DESIGN after retry, PAUSE.
 
 ## Phase 4: Planning (SOFT gate)
 
-<<<<<<< Updated upstream
-Agent: `planner-slim` | Budget: 5000 tokens
-Input: Design decisions + file paths
-Output: `plan.md`
-
-**Validators:**
-```
-✓ has_steps                    → grep -c "### Step" ≥ 1 (HARD)
-✓ has_before_after             → steps count = "**Before:**" count
-✓ max_8_steps_per_phase        → grep -c "### Step" ≤ 8
-✓ continuation_has_remaining   → if NEEDS_CONTINUATION, has "## Remaining Work" (HARD)
-✓ continuation_phases_doc      → if NEEDS_CONTINUATION, remaining phases listed
-✓ paths_verified               → MODIFY files exist (HARD)
-✓ no_detail_flag               → ! grep "NEEDS_DETAIL" (HARD)
-✓ valid_verdict                → READY | NEEDS_DETAIL | NEEDS_CONTINUATION (HARD)
-```
-
-**On NEEDS_CONTINUATION:**
-```
-1. Notify user: "Task requires X phases. Starting Phase 1 of X."
-2. Display phase breakdown from "Remaining Work" table
-3. Proceed to Phase 5 (Drift) → Phase 6 (Build) for current phase
-4. After Phase 6 completes, prompt: "Phase 1 complete. Continue to Phase 2? [y/n]"
-5. If yes: Loop back to Phase 4 with context:
-   - Previous phases completed
-   - Remaining Work for Phase 2
-   - Design constraints preserved
-6. Repeat until all phases complete
-```
-
-**Phase Continuation Context:**
-```markdown
-# Continuation Context
-
-## Completed Phases
-- Phase 1: [summary] — Steps 1-N ✓
-
-## Current Phase: 2 of X
-
-## Remaining Work
-[From previous plan.md]
-
-## Design Reference
-[Original design.md — do not modify]
-```
-
----
-
-## Phase 5: Drift (SOFT gate)
-
-Agent: `drift-detector` | Budget: 3000 tokens
-Input: Requirements list + step titles
-Output: `drift-report.md`
-
-**Validators:**
-```
-✓ has_verdict       → grep -E "ALIGNED|DRIFT" (HARD)
-✓ coverage_ok       → coverage % ≥ 90
-✓ no_drift          → ! grep "DRIFT_DETECTED"
-```
-
-**On DRIFT_DETECTED:** Auto-add missing steps (max 1 retry)
-
----
-
-## Phase 6: Build (NONE gate, but HARD on blocked)
-
-Agent: `builder-slim` | Budget: 2000 tokens/step
-Input: One step at a time
-Output: `build-report.md`
-
-**Validators:**
-```
-✓ no_blocked        → ! grep "BLOCKED" (HARD)
-✓ build_passes      → grep "Build:.*PASS"
-✓ types_pass        → grep "Types:.*PASS"
-```
-
-**On step failure:** Auto-retry fix (max 2 per step)
-**On BLOCKED:** Pause — plan needs update
-
----
-
-## Phases 7-11: QA (NONE gate, auto-fix)
-
-Run in parallel. Budget: 3000 tokens each.
-
-**Cache Check (QA Rules):**
-=======
 **Spawn subprocess:**
->>>>>>> Stashed changes
 ```bash
 DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
 
@@ -562,12 +472,8 @@ no_secrets         → ! grep -i "Hardcoded" $SESSION/qa-report.md  (HARD)
 
 ## Final Output
 
-<<<<<<< Updated upstream
-**Single-Phase Task:**
-=======
 After all phases, present the summary:
 
->>>>>>> Stashed changes
 ```
 Pipeline Complete [PROFILE: $PROFILE]
 
@@ -591,35 +497,6 @@ Phases:
 Validators: N passed, N failed
 Warnings: [list or none]
 Artifacts: $SESSION/
-```
-
-**Multi-Phase Task (NEEDS_CONTINUATION):**
-```
-Pipeline Complete [PROFILE: standard] [MULTI-PHASE: 3 of 3]
-
-Task: {task}
-Session: {session}
-Tokens used: {count}
-
-Build Phases:
-  Phase 1/3: Database + API endpoints    ✓ (Steps 1-6)
-  Phase 2/3: Auth middleware + JWT       ✓ (Steps 1-5)
-  Phase 3/3: Frontend components         ✓ (Steps 1-4)
-
-Pipeline Summary:
-0. Pre-Check     [AUTO]  → BUILD_NEW
-1. Requirements  [AUTO]  validators: 3/3 ✓
-2. Design        [AUTO]  validators: 4/4 ✓
-3. Adversarial   [AUTO]  validators: 4/4 ✓
-4. Planning      [CONT]  3 phases identified
-   ├─ Phase 1    [AUTO]  6 steps → Build ✓ → QA ✓
-   ├─ Phase 2    [AUTO]  5 steps → Build ✓ → QA ✓
-   └─ Phase 3    [AUTO]  4 steps → Build ✓ → QA ✓
-11. Security     [AUTO]  validators: 5/5 ✓
-
-Total steps executed: 15 (across 3 phases)
-Files changed: {list}
-Warnings: {any}
 ```
 
 ---

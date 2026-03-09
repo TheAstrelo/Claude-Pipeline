@@ -2,7 +2,7 @@
 name: requirements-slim
 description: Fast requirements extraction
 tools: Grep, Glob
-model: sonnet
+model: haiku
 ---
 
 ## Role

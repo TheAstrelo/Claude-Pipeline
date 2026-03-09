@@ -1,0 +1,88 @@
+---
+description: AI development pipeline configuration — profiles, gates, validation rules, and flag vocabulary for the auto-pipeline workflow
+globs:
+alwaysApply: true
+---
+
+# Pipeline Configuration
+
+## Profiles
+
+When running `/auto-pipeline`, the profile controls which phases run and how strictly gates are enforced.
+
+| Profile    | Skipped Phases     | Gate Behavior                        | Max Retries |
+|------------|--------------------|------------------------------------- |-------------|
+| yolo       | 3, 5, 7, 8, 9, 10 | Only HARD failures pause             | 1           |
+| standard   | None               | HARD pauses, SOFT warns              | 2           |
+| paranoid   | None               | Any failure pauses                   | 3           |
+
+Phase 0 (Pre-Check) and Phase 11 (Security) are NEVER skipped.
+
+## Gate Types
+
+| Type | Phases           | Behavior                                    |
+|------|------------------|---------------------------------------------|
+| HARD | 0, 3, 11         | Must pass or pipeline pauses for human       |
+| SOFT | 1, 2, 4, 5       | Warn and proceed (or pause in paranoid)      |
+| NONE | 6, 7, 8, 9, 10   | Always proceed, auto-fix if possible         |
+
+## Validation Principle
+
+**Never trust self-reported confidence.** Validate outputs with objective checks:
+- Check for required sections in artifacts
+- Check for absence of failure flags
+- Check that referenced file paths exist on disk
+- Count thresholds (e.g., coverage >= 90%, issues < 3)
+
+## Flag Vocabulary
+
+These flags in agent output have specific meanings:
+
+| Flag              | Meaning                                    | Gate Effect        |
+|-------------------|--------------------------------------------|-------------------|
+| NEEDS_INPUT       | Requirements ambiguous, need human Q&A     | HARD fail          |
+| NEEDS_RESEARCH    | Cannot find docs for a decision            | HARD fail          |
+| NEEDS_DETAIL      | Plan step lacks specificity                | HARD fail          |
+| APPROVED          | Design passes adversarial review           | Pass               |
+| REVISE_DESIGN     | Design has critical issues                 | HARD + retry loop  |
+| ALIGNED           | Plan covers all design requirements        | Pass               |
+| DRIFT_DETECTED    | Plan misses design requirements            | SOFT + retry loop  |
+| BLOCKED           | Build step cannot proceed                  | HARD fail          |
+| SUCCESS           | Build completed all steps                  | Pass               |
+| PARTIAL           | Build completed some steps                 | SOFT fail          |
+| FAILED            | Build could not complete                   | SOFT fail          |
+| CRITICAL          | Security vulnerability found               | Always PAUSE       |
+| EXTEND_EXISTING   | Extend existing code                       | Feeds Phase 2      |
+| USE_LIBRARY       | Use installed library                      | Feeds Phase 4      |
+| BUILD_NEW         | Build from scratch                         | Default path       |
+
+## Model Routing
+
+Use cheaper models for mechanical tasks, expensive models only for phases requiring deep reasoning.
+
+| Phase | Model | Reasoning |
+|-------|-------|-----------|
+| 0 Pre-Check | fast | Search + pattern matching |
+| 1 Requirements | fast | Structured extraction |
+| 2 Design | inherit (strong) | Architecture decisions |
+| 3 Adversarial | inherit (strong) | Critical thinking |
+| 4 Planning | fast | Translating design to steps |
+| 5 Drift | fast | Mechanical comparison |
+| 6 Build | fast | Applying diffs exactly |
+| 7-10 QA | fast | Commands + pattern matching |
+| 11 Security | fast | Pattern-based scanning |
+
+**10 fast, 2 strong — ~70% cost reduction.**
+
+## Context Isolation
+
+- Each agent receives only its specified inputs, not the full conversation
+- The build agent works one step at a time (per-step isolation)
+- QA agents scan only files changed during the build phase
+- Pass summaries downstream, not full artifacts
+
+## Artifact Storage
+
+All pipeline artifacts go in `.pipeline/artifacts/{session}/`:
+- `pre-check.md`, `brief.md`, `design.md`, `critique.md`
+- `plan.md`, `drift-report.md`, `build-report.md`, `qa-report.md`

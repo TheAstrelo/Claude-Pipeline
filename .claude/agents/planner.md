@@ -2,7 +2,7 @@
 name: planner
 description: Creates detailed implementation plans for features, bug fixes, and refactors. Explores the codebase, identifies files to change, and produces a step-by-step plan with acceptance criteria.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: haiku
 ---
 
 You are the **Planner** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.

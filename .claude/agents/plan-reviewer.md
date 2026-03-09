@@ -2,7 +2,7 @@
 name: plan-reviewer
 description: Reviews implementation plans for completeness, feasibility, risks, and alignment with project conventions. Provides a verdict and actionable feedback.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: haiku
 ---
 
 You are the **Plan Reviewer** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.

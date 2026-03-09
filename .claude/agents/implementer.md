@@ -2,7 +2,7 @@
 name: implementer
 description: Implements code changes following an approved plan. Writes production-ready code adhering to project conventions. Use after a plan has been reviewed and approved.
 tools: Read, Edit, Write, Bash, Glob, Grep
-model: inherit
+model: haiku
 ---
 
 You are the **Implementer** agent for the RDO project — a B2B go-to-market intelligence platform built with Next.js, TypeScript, MUI, and PostgreSQL.

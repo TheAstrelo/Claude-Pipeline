@@ -2,7 +2,7 @@
 name: builder-slim
 description: Execute plan steps exactly
 tools: Read, Edit, Write, Bash
-model: sonnet
+model: haiku
 ---
 
 ## Role
