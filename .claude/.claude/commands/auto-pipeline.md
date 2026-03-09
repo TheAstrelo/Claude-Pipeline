@@ -32,15 +32,16 @@ touch "$SESSION/pipeline-state.jsonl"
 ```
 
 Parse flags from `$ARGUMENTS`:
-- `--profile=yolo` → SKIP_PHASES=(4 7 9 10 11 12 13 15 16), GATE_MODE=soft
-  # yolo skips: AR(4), Drift(7), Denoise(9), QFit(10), QBehavior(11), QDocs(12), PerfCheck(13), TechDebt(15), RollbackPlan(16)
+- `--profile=yolo` → SKIP_PHASES=(3 5 8 10 11 12 13 14 15 17 18), GATE_MODE=soft
+  # yolo skips: Cost(3), AR(5), Drift(8), Denoise(10), QFit(11), QBehavior(12), QDocs(13), PerfCheck(14), A11y(15), TechDebt(17), RollbackPlan(18)
 - `--profile=standard` → SKIP_PHASES=(), GATE_MODE=mixed
 - `--profile=paranoid` → SKIP_PHASES=(), GATE_MODE=hard
 - `--skip-research` → add 1 to SKIP_PHASES
 - `--skip-arm` → add 2 to SKIP_PHASES
-- `--skip-ar` → add 4 to SKIP_PHASES
-- `--skip-tests` → add 6 to SKIP_PHASES
-- `--skip-pmatch` → add 7 to SKIP_PHASES
+- `--skip-cost` → add 3 to SKIP_PHASES
+- `--skip-ar` → add 5 to SKIP_PHASES
+- `--skip-tests` → add 7 to SKIP_PHASES
+- `--skip-pmatch` → add 8 to SKIP_PHASES
 
 Remaining text after flags = TASK.
 
@@ -196,7 +197,50 @@ no_ambiguity      → ! grep "NEEDS_INPUT" $SESSION/brief.md  (HARD)
 
 ---
 
-## Phase 3: Design (SOFT gate)
+## Phase 3: Cost Estimate (SOFT gate)
+
+Skip if `--skip-cost` or in SKIP_PHASES. If skipped, emit:
+```bash
+echo '{"phase":3,"name":"Cost Estimate","status":"skipped","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+```
+
+**Spawn subprocess:**
+```bash
+BRIEF=$(cat "$SESSION/brief.md" 2>/dev/null || echo "No brief available")
+
+PROMPT="You are the Cost Estimator Agent. Your task: $TASK
+
+Requirements brief:
+$BRIEF
+
+Estimate API costs, infrastructure impact, and database growth for this feature. Check Serper (\$0.001/search), Groq, HubSpot, Redis usage patterns in the codebase.
+
+Write output to $SESSION/cost-estimate.md with:
+## Verdict: [ACCEPTABLE | REVIEW_COSTS | EXPENSIVE]
+## Summary (1-2 sentences)
+## API Cost Breakdown (table: Service | Cost/Call | Calls/User/Day | Monthly at 100u | Monthly at 1000u)
+## Infrastructure Impact (DB growth, cache impact, query load)
+## Cost Projections (table: Scale | API | Infra | Total for 100/500/1000 users)
+## Cost Optimization Suggestions
+## Comparison to Existing Features"
+
+echo '{"phase":3,"name":"Cost Estimate","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/cost-estimate.md.raw"
+[[ ! -f "$SESSION/cost-estimate.md" ]] && [[ -f "$SESSION/cost-estimate.md.raw" ]] && cp "$SESSION/cost-estimate.md.raw" "$SESSION/cost-estimate.md"
+VERDICT=$(head -5 "$SESSION/cost-estimate.md.raw" | grep -oE '(ACCEPTABLE|REVIEW_COSTS|EXPENSIVE)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
+echo '{"phase":3,"name":"Cost Estimate","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"cost-estimate.md"}' >> "$SESSION/pipeline-state.jsonl"
+```
+
+**Validators:**
+```
+has_verdict        → grep -iE "ACCEPTABLE|REVIEW_COSTS|EXPENSIVE" $SESSION/cost-estimate.md
+has_projections    → grep -i "Cost Projections" $SESSION/cost-estimate.md
+no_expensive       → ! grep "EXPENSIVE" $SESSION/cost-estimate.md  (SOFT)
+```
+
+---
+
+## Phase 4: Design (SOFT gate)
 
 **Spawn subprocess:**
 ```bash
@@ -221,11 +265,11 @@ Write output to $SESSION/design.md with:
 
 Every decision must cite a source. If docs can't be found, output NEEDS_RESEARCH."
 
-echo '{"phase":3,"name":"Design","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":4,"name":"Design","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/design.md.raw"
 [[ ! -f "$SESSION/design.md" ]] && [[ -f "$SESSION/design.md.raw" ]] && cp "$SESSION/design.md.raw" "$SESSION/design.md"
 VERDICT=$(head -5 "$SESSION/design.md.raw" | grep -oE '(APPROVED|NEEDS_RESEARCH)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":3,"name":"Design","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"design.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":4,"name":"Design","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"design.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -237,7 +281,7 @@ no_research_gap    → ! grep "NEEDS_RESEARCH" $SESSION/design.md  (HARD)
 
 ---
 
-## Phase 4: Adversarial Review (HARD gate)
+## Phase 5: Adversarial Review (HARD gate)
 
 Skip if `--skip-ar` or in SKIP_PHASES. If skipped, emit:
 ```bash
@@ -263,11 +307,11 @@ Write output to $SESSION/critique.md with:
 
 Rules: Any HIGH -> REVISE_DESIGN. 3+ MEDIUM -> REVISE_DESIGN. Any consensus -> REVISE_DESIGN."
 
-echo '{"phase":4,"name":"Adversarial Review","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":5,"name":"Adversarial Review","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/critique.md.raw"
 [[ ! -f "$SESSION/critique.md" ]] && [[ -f "$SESSION/critique.md.raw" ]] && cp "$SESSION/critique.md.raw" "$SESSION/critique.md"
 VERDICT=$(head -5 "$SESSION/critique.md.raw" | grep -oE '(APPROVED|REVISE_DESIGN)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":4,"name":"Adversarial Review","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"critique.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":5,"name":"Adversarial Review","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"critique.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -295,11 +339,11 @@ Address all HIGH and consensus issues. Write the revised design to $SESSION/desi
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/design.md.raw"
 [[ ! -f "$SESSION/design.md" ]] && [[ -f "$SESSION/design.md.raw" ]] && cp "$SESSION/design.md.raw" "$SESSION/design.md"
 ```
-Then re-run Phase 3 (max 1 retry). If still REVISE_DESIGN after retry, PAUSE.
+Then re-run Phase 4 (max 1 retry). If still REVISE_DESIGN after retry, PAUSE.
 
 ---
 
-## Phase 5: Planning (SOFT gate)
+## Phase 6: Planning (SOFT gate)
 
 **Spawn subprocess:**
 ```bash
@@ -323,11 +367,11 @@ Then for each step:
 
 Max 8 steps. All MODIFY paths must exist on disk."
 
-echo '{"phase":5,"name":"Planning","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":6,"name":"Planning","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/plan.md.raw"
 [[ ! -f "$SESSION/plan.md" ]] && [[ -f "$SESSION/plan.md.raw" ]] && cp "$SESSION/plan.md.raw" "$SESSION/plan.md"
 VERDICT=$(head -5 "$SESSION/plan.md.raw" | grep -oE '(READY|NEEDS_DETAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":5,"name":"Planning","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"plan.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":6,"name":"Planning","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"plan.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -339,7 +383,7 @@ no_detail_flag     → ! grep "NEEDS_DETAIL" $SESSION/plan.md  (HARD)
 
 ---
 
-## Phase 6: Test Planning (SOFT gate)
+## Phase 7: Test Planning (SOFT gate)
 
 Skip if `--skip-tests` or in SKIP_PHASES. If skipped, emit:
 ```bash
@@ -371,11 +415,11 @@ Write output to $SESSION/test-plan.md with:
 ## Compilation Check
 ## Coverage Gaps"
 
-echo '{"phase":6,"name":"Test Planning","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":7,"name":"Test Planning","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/test-plan.md.raw"
 [[ ! -f "$SESSION/test-plan.md" ]] && [[ -f "$SESSION/test-plan.md.raw" ]] && cp "$SESSION/test-plan.md.raw" "$SESSION/test-plan.md"
 VERDICT=$(head -5 "$SESSION/test-plan.md.raw" | grep -oE '(READY|INCOMPLETE)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":6,"name":"Test Planning","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"test-plan.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":7,"name":"Test Planning","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"test-plan.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -387,7 +431,7 @@ has_coverage_goal  → grep -iE "coverage|critical path|edge case" $SESSION/test
 
 ---
 
-## Phase 7: Drift Detection (SOFT gate)
+## Phase 8: Drift Detection (SOFT gate)
 
 Skip if `--skip-pmatch` or in SKIP_PHASES. If skipped, emit:
 ```bash
@@ -414,11 +458,11 @@ Write output to $SESSION/drift-report.md with:
 ## Scope Creep
 ## Summary (Requirements: N, Covered: N, Missing: N, Coverage: N%)"
 
-echo '{"phase":7,"name":"Drift Detection","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":8,"name":"Drift Detection","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/drift-report.md.raw"
 [[ ! -f "$SESSION/drift-report.md" ]] && [[ -f "$SESSION/drift-report.md.raw" ]] && cp "$SESSION/drift-report.md.raw" "$SESSION/drift-report.md"
 VERDICT=$(head -5 "$SESSION/drift-report.md.raw" | grep -oE '(ALIGNED|DRIFT_DETECTED)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":7,"name":"Drift Detection","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"drift-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":8,"name":"Drift Detection","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"drift-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -445,11 +489,11 @@ Add steps for any MISSING requirements. Keep existing steps. Write updated plan 
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/plan.md.raw"
 [[ ! -f "$SESSION/plan.md" ]] && [[ -f "$SESSION/plan.md.raw" ]] && cp "$SESSION/plan.md.raw" "$SESSION/plan.md"
 ```
-Then re-run Phase 7 (max 1 retry). If still drifting, PAUSE.
+Then re-run Phase 8 (max 1 retry). If still drifting, PAUSE.
 
 ---
 
-## Phase 8: Build (NONE gate, HARD on blocked)
+## Phase 9: Build (NONE gate, HARD on blocked)
 
 **Spawn subprocess:**
 ```bash
@@ -472,11 +516,11 @@ Write output to $SESSION/build-report.md with:
 ## Verification (Build: PASS/FAIL, Types: PASS/FAIL)
 ## Files Changed (list)"
 
-echo '{"phase":8,"name":"Build","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":9,"name":"Build","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/build-report.md.raw"
 [[ ! -f "$SESSION/build-report.md" ]] && [[ -f "$SESSION/build-report.md.raw" ]] && cp "$SESSION/build-report.md.raw" "$SESSION/build-report.md"
 VERDICT=$(head -5 "$SESSION/build-report.md.raw" | grep -oE '(SUCCESS|PARTIAL|FAILED)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":8,"name":"Build","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"build-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":9,"name":"Build","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"build-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -488,11 +532,11 @@ types_pass         → grep -E "Types:.*PASS|Types.*PASS" $SESSION/build-report.
 
 ---
 
-## Phases 9-16: QA (NONE gate, auto-fix)
+## Phases 10-19: QA (NONE gate, auto-fix)
 
 Run sequentially. Each is a separate subprocess. No pauses.
 
-### Phase 9: Denoise
+### Phase 10: Denoise
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -507,13 +551,13 @@ Preserve: console.error with component prefix, explanatory comments, license hea
 
 Append results to $SESSION/qa-report.md with a ## Denoise section."
 
-echo '{"phase":9,"name":"Denoise","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":10,"name":"Denoise","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-denoise.raw"
 VERDICT=$(head -5 "$SESSION/qa-denoise.raw" | grep -oE '(CLEAN|CLEANED)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":9,"name":"Denoise","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":10,"name":"Denoise","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
-### Phase 10: Quality Fit
+### Phase 11: Quality Fit
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -525,13 +569,13 @@ $BUILD_REPORT
 
 Run type checker and linter on changed files. Check project conventions. Auto-fix violations. Append results to $SESSION/qa-report.md with a ## Quality Fit section."
 
-echo '{"phase":10,"name":"Quality Fit","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":11,"name":"Quality Fit","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-fit.raw"
 VERDICT=$(head -5 "$SESSION/qa-fit.raw" | grep -oE '(PASS|WARN|FAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":10,"name":"Quality Fit","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":11,"name":"Quality Fit","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
-### Phase 11: Quality Behavior
+### Phase 12: Quality Behavior
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -555,13 +599,13 @@ $TEST_PLAN
 
 Run build, run tests, verify behavior matches design. Append results to $SESSION/qa-report.md with a ## Quality Behavior section."
 
-echo '{"phase":11,"name":"Quality Behavior","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":12,"name":"Quality Behavior","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-behavior.raw"
 VERDICT=$(head -5 "$SESSION/qa-behavior.raw" | grep -oE '(PASS|WARN|FAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":11,"name":"Quality Behavior","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":12,"name":"Quality Behavior","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
-### Phase 12: Quality Docs
+### Phase 13: Quality Docs
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -573,15 +617,15 @@ $BUILD_REPORT
 
 Check: API route docs (required), public function docs (recommended), type docs (nice-to-have). Append results to $SESSION/qa-report.md with a ## Quality Docs section."
 
-echo '{"phase":12,"name":"Quality Docs","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":13,"name":"Quality Docs","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-docs.raw"
 VERDICT=$(head -5 "$SESSION/qa-docs.raw" | grep -oE '(PASS|WARN|FAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":12,"name":"Quality Docs","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":13,"name":"Quality Docs","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 ---
 
-### Phase 13: Performance Check
+### Phase 14: Performance Check
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -598,15 +642,43 @@ Append findings to $SESSION/qa-report.md with:
 **Verdict:** [PASS | WARN | FAIL]
 (N+1 Detection, Unbounded Queries, Missing Indexes, Memory Leaks, Bundle Size, Blocking Ops tables + Summary)"
 
-echo '{"phase":13,"name":"Perf Check","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":14,"name":"Perf Check","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-perf.raw"
 VERDICT=$(head -5 "$SESSION/qa-perf.raw" | grep -oE '(PASS|WARN|FAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":13,"name":"Perf Check","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":14,"name":"Perf Check","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 ---
 
-## Phase 14: Security (HARD gate, NEVER SKIP)
+### Phase 15: Accessibility Check
+
+```bash
+BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+
+PROMPT="You are the Accessibility Auditor Agent. Scan changed UI files for WCAG 2.1 AA issues.
+
+Build report:
+$BUILD_REPORT
+
+If no .tsx files changed, append 'No UI changes — skipped' and exit with PASS.
+
+Scan for: missing alt text, onClick without keyboard handlers, missing aria-labels on interactive elements, hardcoded colors bypassing theme, form inputs without labels, semantic HTML misuse.
+
+Append findings to $SESSION/qa-report.md with:
+## Accessibility Audit
+**Verdict:** [PASS | WARN | FAIL]
+**Standard:** WCAG 2.1 Level AA
+(Alt Text, Keyboard Nav, ARIA, Contrast, Forms, Semantics tables + Summary)"
+
+echo '{"phase":15,"name":"A11y Check","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-a11y.raw"
+VERDICT=$(head -5 "$SESSION/qa-a11y.raw" | grep -oE '(PASS|WARN|FAIL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
+echo '{"phase":15,"name":"A11y Check","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+```
+
+---
+
+## Phase 16: Security (HARD gate, NEVER SKIP)
 
 **Spawn subprocess:**
 ```bash
@@ -626,11 +698,11 @@ Append findings to $SESSION/qa-report.md with:
 
 CRITICAL = injection or secrets. FAIL = XSS or auth bypass. PASS = all clear."
 
-echo '{"phase":14,"name":"Security","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":16,"name":"Security","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-security.raw"
 [[ ! -f "$SESSION/qa-report.md" ]] && echo "Security scan produced no qa-report.md" >&2
 VERDICT=$(head -5 "$SESSION/qa-security.raw" | grep -oE '(PASS|FAIL|CRITICAL)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":14,"name":"Security","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":16,"name":"Security","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 **Validators:**
@@ -646,7 +718,7 @@ no_secrets         → ! grep -i "Hardcoded" $SESSION/qa-report.md  (HARD)
 
 ---
 
-### Phase 15: Tech Debt
+### Phase 17: Tech Debt
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -667,13 +739,13 @@ Append findings to $SESSION/qa-report.md with:
 **Verdict:** [CLEAN | DEBT_LOGGED]
 (Debt Items, Design Deviations, Type Safety Issues, Recommended Cleanup tables)"
 
-echo '{"phase":15,"name":"Tech Debt","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":17,"name":"Tech Debt","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-debt.raw"
 VERDICT=$(head -5 "$SESSION/qa-debt.raw" | grep -oE '(CLEAN|DEBT_LOGGED)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":15,"name":"Tech Debt","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":17,"name":"Tech Debt","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"qa-report.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
-### Phase 16: Rollback Plan
+### Phase 18: Rollback Plan
 
 ```bash
 BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
@@ -695,11 +767,45 @@ Write output to $SESSION/rollback-plan.md with:
 ## Post-Rollback Verification
 ## Warnings"
 
-echo '{"phase":16,"name":"Rollback Plan","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":18,"name":"Rollback Plan","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
 echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/rollback-plan.md.raw"
 [[ ! -f "$SESSION/rollback-plan.md" ]] && [[ -f "$SESSION/rollback-plan.md.raw" ]] && cp "$SESSION/rollback-plan.md.raw" "$SESSION/rollback-plan.md"
 VERDICT=$(head -5 "$SESSION/rollback-plan.md.raw" | grep -oE '(LOW|MEDIUM|HIGH|IRREVERSIBLE)' | head -1); [ -z "$VERDICT" ] && VERDICT="UNKNOWN"
-echo '{"phase":16,"name":"Rollback Plan","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"rollback-plan.md"}' >> "$SESSION/pipeline-state.jsonl"
+echo '{"phase":18,"name":"Rollback Plan","status":"complete","verdict":"'"$VERDICT"'","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"rollback-plan.md"}' >> "$SESSION/pipeline-state.jsonl"
+```
+
+### Phase 19: Changelog
+
+```bash
+BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+BRIEF=$(cat "$SESSION/brief.md" 2>/dev/null || echo "")
+DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "")
+
+PROMPT="You are the Changelog Generator Agent. Generate release notes from build artifacts.
+
+Build report:
+$BUILD_REPORT
+
+Brief:
+$BRIEF
+
+Design:
+$DESIGN
+
+Run git log --oneline for recent commits. Categorize changes as Feature/Enhancement/Fix/Internal.
+
+Write output to $SESSION/changelog.md with:
+# Changelog: [Task Title]
+## Date: [YYYY-MM-DD]
+## User-Facing Changes (New Features, Improvements, Bug Fixes)
+## Developer Notes (Technical Changes, New API Endpoints, Database Changes, Config Changes)
+## Migration Notes
+## Commit Summary"
+
+echo '{"phase":19,"name":"Changelog","status":"running","verdict":null,"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":null}' >> "$SESSION/pipeline-state.jsonl"
+echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/changelog.md.raw"
+[[ ! -f "$SESSION/changelog.md" ]] && [[ -f "$SESSION/changelog.md.raw" ]] && cp "$SESSION/changelog.md.raw" "$SESSION/changelog.md"
+echo '{"phase":19,"name":"Changelog","status":"complete","verdict":"DONE","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","artifact":"changelog.md"}' >> "$SESSION/pipeline-state.jsonl"
 ```
 
 ---
@@ -718,20 +824,23 @@ Phases:
  0. Pre-Check        [result]
  1. Research          [result]
  2. Requirements     [result]
- 3. Design           [result]
- 4. Adversarial      [result]
- 5. Planning         [result]
- 6. Test Planning    [result]
- 7. Drift Detection  [result]
- 8. Build            [result]
- 9. Denoise          [result]
-10. Quality Fit      [result]
-11. Quality Behavior [result]
-12. Quality Docs     [result]
-13. Perf Check       [result]
-14. Security         [result]
-15. Tech Debt        [result]
-16. Rollback Plan    [result]
+ 3. Cost Estimate    [result]
+ 4. Design           [result]
+ 5. Adversarial      [result]
+ 6. Planning         [result]
+ 7. Test Planning    [result]
+ 8. Drift Detection  [result]
+ 9. Build            [result]
+10. Denoise          [result]
+11. Quality Fit      [result]
+12. Quality Behavior [result]
+13. Quality Docs     [result]
+14. Perf Check       [result]
+15. A11y Check       [result]
+16. Security         [result]
+17. Tech Debt        [result]
+18. Rollback Plan    [result]
+19. Changelog        [result]
 
 Validators: N passed, N failed
 Warnings: [list or none]
@@ -744,7 +853,7 @@ Artifacts: $SESSION/
 
 | Profile | Skips | Gate Mode | Use Case |
 |---------|-------|-----------|----------|
-| yolo | 4,7,9-12,13,15,16 | soft | Prototypes |
+| yolo | 3,5,8,10-14,15,17,18 | soft | Prototypes |
 | standard | none | mixed | Normal dev |
 | paranoid | none | hard | Production |
 

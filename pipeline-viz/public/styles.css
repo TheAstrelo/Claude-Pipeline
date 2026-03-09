@@ -1,164 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #1a1a2e;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  background: #0f0e17;
+  color: #a7a9be;
+  font-family: 'Courier New', monospace;
   min-height: 100vh;
+  image-rendering: pixelated;
 }
 
+/* CRT scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.05) 2px,
+    rgba(0,0,0,0.05) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* --- Header --- */
 .header {
-  padding: 16px 24px;
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 2px solid #2a2a3e;
+  background: #12111a;
 }
-.header h1 { font-size: 18px; font-weight: 600; }
-.header .session { font-size: 13px; color: #888; }
+.header h1 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #7209b7;
+  text-shadow: 2px 2px 0 #3a0066;
+  letter-spacing: 1px;
+}
+.header .session {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #666;
+}
 .header .status-dot {
   display: inline-block;
   width: 8px; height: 8px;
-  border-radius: 50%;
   margin-right: 6px;
 }
-.status-dot.connected { background: #4caf50; }
-.status-dot.disconnected { background: #f44336; }
+.status-dot.connected { background: #38b764; }
+.status-dot.disconnected { background: #e63946; animation: blink-dot 1s steps(2) infinite; }
 
+@keyframes blink-dot {
+  50% { opacity: 0; }
+}
+
+/* --- Progress bar (pixelated blocks) --- */
 .progress-bar-container {
-  padding: 12px 24px;
+  padding: 10px 20px;
 }
 .progress-bar {
-  height: 6px;
-  background: #2a2a3e;
-  border-radius: 3px;
+  height: 12px;
+  background: #1a1a2e;
+  border: 2px solid #2a2a3e;
   overflow: hidden;
+  position: relative;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4caf50, #66bb6a);
-  border-radius: 3px;
-  transition: width 0.5s ease;
+  background: repeating-linear-gradient(
+    90deg,
+    #38b764 0px, #38b764 8px,
+    #2d9950 8px, #2d9950 10px
+  );
+  transition: width 0.3s steps(10);
 }
 .progress-label {
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #666;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
 }
 
+/* --- Card grid --- */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  padding: 12px 24px 24px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 10px 20px 20px;
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
+  .card-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 700px) {
   .card-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 500px) {
+@media (max-width: 400px) {
   .card-grid { grid-template-columns: 1fr; }
 }
 
+/* --- Agent cards (pixel style) --- */
 .agent-card {
-  border-radius: 8px;
-  padding: 14px;
-  min-height: 100px;
+  padding: 10px;
+  min-height: 110px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+  gap: 4px;
+  position: relative;
+  border: 2px solid #2a2a3e;
+  background: #16152b;
+  transition: border-color 0.1s steps(1), background-color 0.1s steps(1);
+}
+
+/* Pixel corner notches (top-left, top-right, bottom-left, bottom-right) */
+.agent-card::before,
+.agent-card::after {
+  content: '';
+  position: absolute;
+  width: 4px; height: 4px;
+  background: #0f0e17;
+  z-index: 1;
+}
+.agent-card::before { top: -1px; left: -1px; }
+.agent-card::after { top: -1px; right: -1px; }
+
+.card-idle {
+  background: #16152b;
+  border-color: #2a2a3e;
+}
+.card-running {
+  background: #1f1a0e;
+  border-color: #f77f00;
+  animation: pixel-pulse 1s steps(2) infinite;
+}
+.card-complete {
+  background: #0e1f15;
+  border-color: #38b764;
+}
+.card-failed {
+  background: #1f0e0e;
+  border-color: #e63946;
+  animation: pixel-blink 0.5s steps(2) infinite;
+}
+.card-skipped {
+  background: #111020;
+  border-color: #1a1a2e;
+  opacity: 0.5;
+}
+
+@keyframes pixel-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px #f77f00; }
+  50% { box-shadow: 0 0 0 3px rgba(247, 127, 0, 0.3); }
+}
+
+@keyframes pixel-blink {
+  50% { border-color: #0f0e17; }
+}
+
+/* --- Pixel character area --- */
+.pixel-sprite {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+.pixel-char {
+  image-rendering: pixelated;
+  width: 3px;
+  height: 3px;
   position: relative;
 }
 
-.card-idle { background: #2a2a3e; }
-.card-running {
-  background: #3d3520;
-  box-shadow: 0 0 12px rgba(255, 183, 0, 0.15);
-  animation: pulse 2s ease-in-out infinite;
+.pixel-working {
+  animation: pixel-work 0.5s steps(2) infinite;
 }
-.card-complete {
-  background: #1a3d2a;
-  box-shadow: 0 0 8px rgba(76, 175, 80, 0.1);
-}
-.card-failed {
-  background: #3d1a1a;
-  box-shadow: 0 0 8px rgba(244, 67, 54, 0.15);
-}
-.card-skipped { background: #1e1e2e; opacity: 0.6; }
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(255, 183, 0, 0.15); }
-  50% { box-shadow: 0 0 20px rgba(255, 183, 0, 0.3); }
+@keyframes pixel-work {
+  50% { transform: translateY(-2px); }
 }
 
+/* --- Card content --- */
 .card-phase-badge {
   position: absolute;
-  top: 8px; right: 10px;
-  font-size: 11px;
-  color: #666;
-  font-weight: 600;
+  top: 6px; right: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #444;
 }
 
 .card-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1.4;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  color: #e0e0e0;
 }
 
-.card-status-icon { font-size: 16px; }
+.card-status-icon { font-size: 12px; }
 
 .card-verdict {
-  font-size: 12px;
-  font-weight: 500;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
   margin-top: 2px;
 }
-.verdict-pass { color: #66bb6a; }
-.verdict-warn { color: #ffa726; }
-.verdict-fail { color: #ef5350; }
-.verdict-unknown { color: #888; }
+.verdict-pass { color: #38b764; }
+.verdict-warn { color: #f77f00; }
+.verdict-fail { color: #e63946; }
+.verdict-unknown { color: #555; }
 
 .card-elapsed {
-  font-size: 11px;
-  color: #666;
+  font-size: 10px;
+  color: #555;
   margin-top: auto;
+  font-family: 'Courier New', monospace;
 }
 
 .card-artifact {
-  font-size: 11px;
-  color: #5c6bc0;
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  color: #4361ee;
 }
 
-/* Spinner for running state */
+/* --- Spinner (pixel style) --- */
 .spinner {
   display: inline-block;
-  width: 14px; height: 14px;
-  border: 2px solid #ffa726;
+  width: 10px; height: 10px;
+  border: 2px solid #f77f00;
   border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.6s steps(8) infinite;
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
+/* --- Waiting message --- */
 .waiting-message {
   text-align: center;
   padding: 60px 24px;
-  color: #666;
-  font-size: 14px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #555;
+  animation: cursor-blink 1s steps(2) infinite;
+}
+@keyframes cursor-blink {
+  50% { opacity: 0.5; }
 }
 
-/* Artifact handoff animation */
+/* --- Artifact handoff (pixel dot) --- */
 .artifact-handoff {
   position: fixed;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: #5c6bc0;
+  width: 6px; height: 6px;
+  background: #4361ee;
   pointer-events: none;
   z-index: 1000;
-  transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+  transition: transform 0.4s steps(8), opacity 0.4s steps(4);
   opacity: 1;
+  image-rendering: pixelated;
 }
 .artifact-handoff.done { opacity: 0; }
