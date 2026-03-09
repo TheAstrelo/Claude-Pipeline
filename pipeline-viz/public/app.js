@@ -1,32 +1,107 @@
 const { useState, useEffect, useReducer, useRef, useCallback } = React;
 const { createPortal } = ReactDOM;
 
-// --- Phase metadata (display names for all 17 phases) ---
+// --- Pixel Character Sprites ---
+// Each sprite is a grid of color indices: 0=transparent, 1=hair, 2=skin, 3=eyes, 4=shirt, 5=pants, 6=accessory
+const SPRITE_PALETTE = {
+  researcher:  { 1: '#4a90d9', 2: '#ffd5b4', 3: '#222', 4: '#2962ff', 5: '#1a47b0', 6: '#90caf9' },
+  architect:   { 1: '#7c4dff', 2: '#ffd5b4', 3: '#222', 4: '#6200ea', 5: '#4a148c', 6: '#ce93d8' },
+  builder:     { 1: '#ff6d00', 2: '#ffd5b4', 3: '#222', 4: '#e65100', 5: '#bf360c', 6: '#ffcc02' },
+  inspector:   { 1: '#00c853', 2: '#ffd5b4', 3: '#222', 4: '#2e7d32', 5: '#1b5e20', 6: '#a5d6a7' },
+  guardian:    { 1: '#d50000', 2: '#ffd5b4', 3: '#222', 4: '#b71c1c', 5: '#7f0000', 6: '#ef9a9a' },
+};
+
+// Sprite grid (7 wide x 9 tall) — shared shape, different colors
+const CHAR_GRID = [
+  [0,0,1,1,1,0,0],
+  [0,1,1,1,1,1,0],
+  [0,2,2,2,2,2,0],
+  [0,2,3,2,3,2,0],
+  [0,0,2,2,2,0,0],
+  [0,4,4,4,4,4,0],
+  [4,4,4,4,4,4,4],
+  [0,0,5,0,5,0,0],
+  [0,0,5,0,5,0,0],
+];
+
+// Map phase to character type
+function getCharType(phase) {
+  if (phase <= 3) return 'researcher';
+  if (phase <= 8) return 'architect';
+  if (phase === 9) return 'builder';
+  if (phase <= 15) return 'inspector';
+  return 'guardian';
+}
+
+// Generate CSS box-shadow string for a sprite
+function spriteBoxShadow(charType, pixelSize) {
+  const palette = SPRITE_PALETTE[charType];
+  const shadows = [];
+  for (let y = 0; y < CHAR_GRID.length; y++) {
+    for (let x = 0; x < CHAR_GRID[y].length; x++) {
+      const colorIdx = CHAR_GRID[y][x];
+      if (colorIdx === 0) continue;
+      const color = palette[colorIdx] || '#fff';
+      shadows.push(`${x * pixelSize}px ${y * pixelSize}px 0 ${color}`);
+    }
+  }
+  return shadows.join(', ');
+}
+
+function PixelSprite({ phase, status }) {
+  if (status === 'skipped') return <div className="pixel-sprite"></div>;
+
+  const charType = getCharType(phase);
+  const px = 3; // pixel size
+  const shadow = spriteBoxShadow(charType, px);
+
+  const style = {
+    width: `${px}px`,
+    height: `${px}px`,
+    boxShadow: shadow,
+    opacity: status === 'idle' ? 0.4 : 1,
+    transition: 'opacity 0.2s steps(2)',
+  };
+
+  // Add a subtle animation class for running state
+  const className = `pixel-char ${status === 'running' ? 'pixel-working' : ''}`;
+
+  return (
+    <div className="pixel-sprite">
+      <div className={className} style={style}></div>
+    </div>
+  );
+}
+
+// --- Phase metadata (display names for all 20 phases) ---
 const PHASE_META = [
   { phase: 0,  name: 'Pre-Check' },
   { phase: 1,  name: 'Research' },
   { phase: 2,  name: 'Requirements' },
-  { phase: 3,  name: 'Design' },
-  { phase: 4,  name: 'Adversarial Review' },
-  { phase: 5,  name: 'Planning' },
-  { phase: 6,  name: 'Test Planning' },
-  { phase: 7,  name: 'Drift Detection' },
-  { phase: 8,  name: 'Build' },
-  { phase: 9,  name: 'Denoise' },
-  { phase: 10, name: 'Quality Fit' },
-  { phase: 11, name: 'Quality Behavior' },
-  { phase: 12, name: 'Quality Docs' },
-  { phase: 13, name: 'Perf Check' },
-  { phase: 14, name: 'Security' },
-  { phase: 15, name: 'Tech Debt' },
-  { phase: 16, name: 'Rollback Plan' },
+  { phase: 3,  name: 'Cost Estimate' },
+  { phase: 4,  name: 'Design' },
+  { phase: 5,  name: 'Adversarial Review' },
+  { phase: 6,  name: 'Planning' },
+  { phase: 7,  name: 'Test Planning' },
+  { phase: 8,  name: 'Drift Detection' },
+  { phase: 9,  name: 'Build' },
+  { phase: 10, name: 'Denoise' },
+  { phase: 11, name: 'Quality Fit' },
+  { phase: 12, name: 'Quality Behavior' },
+  { phase: 13, name: 'Quality Docs' },
+  { phase: 14, name: 'Perf Check' },
+  { phase: 15, name: 'A11y Check' },
+  { phase: 16, name: 'Security' },
+  { phase: 17, name: 'Tech Debt' },
+  { phase: 18, name: 'Rollback Plan' },
+  { phase: 19, name: 'Changelog' },
 ];
 
 // --- Verdict classification ---
 function verdictClass(verdict) {
   if (!verdict || verdict === 'UNKNOWN') return 'verdict-unknown';
-  const pass = ['SUFFICIENT','CLEAR','APPROVED','READY','ALIGNED','SUCCESS','PASS','CLEAN','CLEANED','LOW'];
-  const warn = ['NEEDS_MORE_RESEARCH','NEEDS_INPUT','NEEDS_DETAIL','PARTIAL','WARN','DEBT_LOGGED','MEDIUM'];
+  const pass = ['SUFFICIENT','CLEAR','APPROVED','READY','ALIGNED','SUCCESS','PASS','CLEAN','CLEANED','LOW','ACCEPTABLE','DONE'];
+  const warn = ['NEEDS_MORE_RESEARCH','NEEDS_INPUT','NEEDS_DETAIL','PARTIAL','WARN','DEBT_LOGGED','MEDIUM','REVIEW_COSTS'];
   if (pass.includes(verdict)) return 'verdict-pass';
   if (warn.includes(verdict)) return 'verdict-warn';
   return 'verdict-fail';
@@ -57,7 +132,7 @@ function reducer(state, action) {
 function Header({ session, connected }) {
   return (
     <div className="header">
-      <h1>Pipeline Viz</h1>
+      <h1>PIPELINE VIZ</h1>
       <div>
         <span className={`status-dot ${connected ? 'connected' : 'disconnected'}`}></span>
         <span className="session">{session || 'Waiting for session...'}</span>
@@ -67,7 +142,7 @@ function Header({ session, connected }) {
 }
 
 function ProgressBar({ phases }) {
-  const total = 17; // phases 0-16
+  const total = 20; // phases 0-19
   let completed = 0;
   phases.forEach(p => {
     if (p.status === 'complete' || p.status === 'skipped') completed++;
@@ -98,6 +173,7 @@ const AgentCard = React.forwardRef(function AgentCard({ meta, event, prevEvent }
   return (
     <div className={cardClass} ref={ref}>
       <span className="card-phase-badge">#{meta.phase}</span>
+      <PixelSprite phase={meta.phase} status={status} />
       <div className="card-title">{icon} {meta.name}</div>
       {event && event.verdict && (
         <div className={`card-verdict ${verdictClass(event.verdict)}`}>{event.verdict}</div>
@@ -297,7 +373,7 @@ function App() {
       <Header session={state.session} connected={connected} />
       <ProgressBar phases={state.phases} />
       {!state.session && state.phases.size === 0 ? (
-        <div className="waiting-message">Waiting for a pipeline session to start...</div>
+        <div className="waiting-message">PRESS START ... WAITING FOR PIPELINE</div>
       ) : (
         <CardGrid phases={state.phases} cardRefs={cardRefs} />
       )}

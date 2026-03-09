@@ -97,44 +97,48 @@ parseFloat(String(score.composite_score)).toFixed(1)
 
 ### The Pipeline — `/dev-pipeline <task>`
 
-A single command that runs 16 phases automatically, **pausing after each artifact-producing phase** for user review. The user says "continue" to advance, or gives feedback to revise.
+A single command that runs 19 phases automatically, **pausing after each artifact-producing phase** for user review. The user says "continue" to advance, or gives feedback to revise.
 
 | Phase | Agent | Artifact | Pauses? |
 |-------|-------|----------|---------|
 | 1. Research | researcher | `research.md` | Yes |
 | 2. Requirements | requirements-crystallizer | `brief.md` | Yes |
-| 3. Design | architect | `design.md` | Yes |
-| 4. Adversarial Review | adversarial-coordinator | `critique.md` | Yes |
-| 5. Planning | atomic-planner | `plan.md` | Yes |
-| 6. Test Planning | test-writer | `test-plan.md` | Yes |
-| 7. Drift Detection | drift-detector | `drift-report.md` | Yes |
-| 8. Build | builder | `build-report.md` | Yes |
-| 9. Denoise | denoiser | `qa-report.md` | No (auto) |
-| 10. Quality Fit | quality-fit | `qa-report.md` | No (auto) |
-| 11. Quality Behavior | quality-behavior | `qa-report.md` | No (auto) |
-| 12. Quality Docs | quality-docs | `qa-report.md` | No (auto) |
-| 13. Perf Check | performance-profiler | `qa-report.md` | No (auto) |
-| 14. Security Review | security-auditor | `qa-report.md` | No (auto) |
-| 15. Tech Debt | tech-debt-tracker | `qa-report.md` | No (auto) |
-| 16. Rollback Plan | rollback-planner | `rollback-plan.md` | No (auto) |
+| 3. Cost Estimate | cost-estimator | `cost-estimate.md` | Yes |
+| 4. Design | architect | `design.md` | Yes |
+| 5. Adversarial Review | adversarial-coordinator | `critique.md` | Yes |
+| 6. Planning | atomic-planner | `plan.md` | Yes |
+| 7. Test Planning | test-writer | `test-plan.md` | Yes |
+| 8. Drift Detection | drift-detector | `drift-report.md` | Yes |
+| 9. Build | builder | `build-report.md` | Yes |
+| 10. Denoise | denoiser | `qa-report.md` | No (auto) |
+| 11. Quality Fit | quality-fit | `qa-report.md` | No (auto) |
+| 12. Quality Behavior | quality-behavior | `qa-report.md` | No (auto) |
+| 13. Quality Docs | quality-docs | `qa-report.md` | No (auto) |
+| 14. Perf Check | performance-profiler | `qa-report.md` | No (auto) |
+| 15. A11y Check | accessibility-auditor | `qa-report.md` | No (auto) |
+| 16. Security Review | security-auditor | `qa-report.md` | No (auto) |
+| 17. Tech Debt | tech-debt-tracker | `qa-report.md` | No (auto) |
+| 18. Rollback Plan | rollback-planner | `rollback-plan.md` | No (auto) |
+| 19. Changelog | changelog-generator | `changelog.md` | No (auto) |
 
 All artifacts are saved in `.claude/artifacts/{session}/`.
 
 ### Feedback Loops
 
-- **Adversarial Review (Phase 4):** If verdict is REVISE_DESIGN, user can say "revise" to loop back to Phase 3. Max 2 revision cycles.
-- **Drift Detection (Phase 7):** If DRIFT_DETECTED, user can say "fix-plan" (back to Phase 5) or "fix-design" (back to Phase 3).
-- **Build (Phase 8):** If PARTIAL/FAILED, user reviews issues before QA runs.
+- **Adversarial Review (Phase 5):** If verdict is REVISE_DESIGN, user can say "revise" to loop back to Phase 4. Max 2 revision cycles.
+- **Drift Detection (Phase 8):** If DRIFT_DETECTED, user can say "fix-plan" (back to Phase 6) or "fix-design" (back to Phase 4).
+- **Build (Phase 9):** If PARTIAL/FAILED, user reviews issues before QA runs.
 - **User Override:** At any gate, user can say "override" to proceed despite a failing verdict.
 
 ### Skip Options
 
 - `--skip-research` — Skip Phase 1 (Research)
 - `--skip-arm` — Skip Phase 2 if requirements are already clear
-- `--skip-ar` — Skip Phase 4 for smaller changes
-- `--skip-tests` — Skip Phase 6 (Test Planning)
-- `--skip-pmatch` — Skip Phase 7 for quick iterations
-- Phases 3, 5, 8, and QA (9-16) are never skipped
+- `--skip-cost` — Skip Phase 3 (Cost Estimate)
+- `--skip-ar` — Skip Phase 5 for smaller changes
+- `--skip-tests` — Skip Phase 7 (Test Planning)
+- `--skip-pmatch` — Skip Phase 8 for quick iterations
+- Phases 4, 6, 9, and QA (10-19) are never skipped
 
 ### When to Skip the Entire Pipeline
 
@@ -150,6 +154,7 @@ Each phase can also be run standalone via its own slash command:
 |---------|-------|----------|
 | `/research <task>` | Research | Nothing (creates session) |
 | `/arm <task>` | Requirements | Nothing (creates session) |
+| `/estimate-cost` | Cost Estimate | `brief.md` |
 | `/design` | Design | `brief.md` |
 | `/ar` | Adversarial Review | `design.md` |
 | `/plan` | Planning | `design.md` |
@@ -161,15 +166,18 @@ Each phase can also be run standalone via its own slash command:
 | `/qb` | Quality Behavior | `build-report.md` |
 | `/qd` | Quality Docs | `build-report.md` |
 | `/perf-check` | Performance Check | `build-report.md` |
+| `/a11y-check` | Accessibility Check | `build-report.md` |
 | `/security-review` | Security Audit | `build-report.md` |
 | `/track-debt` | Tech Debt | `build-report.md` |
 | `/rollback-plan` | Rollback Plan | `build-report.md` |
+| `/changelog` | Changelog | `build-report.md` |
 
 ### Agent Locations
 
 All agents are in `.claude/agents/`:
 - `researcher.md` — Library/API/prior art research
 - `requirements-crystallizer.md` — Requirements Q&A
+- `cost-estimator.md` — API cost and infrastructure impact estimation
 - `architect.md` — Live-doc-grounded design
 - `adversarial-coordinator.md` — Multi-perspective critique
 - `atomic-planner.md` — Deterministic specs with BEFORE/AFTER code
@@ -181,9 +189,11 @@ All agents are in `.claude/agents/`:
 - `quality-behavior.md` — Tests and specs
 - `quality-docs.md` — Swagger and JSDoc
 - `performance-profiler.md` — N+1 queries, bundle size, memory leaks
+- `accessibility-auditor.md` — WCAG 2.1 AA compliance
 - `security-auditor.md` — OWASP audit
 - `tech-debt-tracker.md` — TODO/HACK scanning, design deviations
 - `rollback-planner.md` — Rollback steps, migration reversal
+- `changelog-generator.md` — Automated release notes
 
 ## Important Notes
 - Use **MUI first**, not raw CSS
