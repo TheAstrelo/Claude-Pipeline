@@ -30,25 +30,6 @@ Every phase produces a readable artifact. Every design decision cites a source. 
 
 ---
 
-## The Simple Explanation
-
-Imagine you hire a contractor to renovate your kitchen.
-
-A **bad contractor** shows up, starts ripping out cabinets, and figures it out as they go.
-
-A **good contractor**:
-1. Asks what you need — how do you cook? what's your budget?
-2. Draws up blueprints based on actual building codes
-3. Has an inspector review the blueprints before any work starts
-4. Creates a step-by-step work order — plumbing first, then electrical, then cabinets
-5. Double-checks the work order matches the blueprints
-6. Builds it, following the plan exactly
-7. Does a final inspection — safe? up to code? clean?
-
-This pipeline is the "good contractor" process, but for AI writing software.
-
----
-
 ## Quick Start
 
 ### 1. Copy to your project
@@ -65,27 +46,188 @@ cp -r Claude-Pipeline/.claude/ /path/to/your/project/
 npx @anthropic-ai/claude-code@latest
 
 # Or open in Cursor, Cline, Windsurf, Copilot, or Aider
-# See "Tool-Specific Setup" below
 ```
 
 ### 3. Run the pipeline
 
 ```bash
 # Fast prototyping — skip reviews, just build
-/auto-pipeline --profile=yolo "add a logout button"
+/auto-pipeline --yolo "add a logout button"
 
 # Balanced (default) — full pipeline
 /auto-pipeline "implement user dashboard"
 
 # Full oversight — pause on any issue
-/auto-pipeline --profile=paranoid "payment integration"
+/auto-pipeline --paranoid "payment integration"
+
+# Skip QA but keep safety checks
+/auto-pipeline --fast "add dashboard widget"
 ```
 
 ---
 
-## How It Works
+## Enhanced Flags
 
-### The 12 Phases
+Control pipeline behavior with powerful flags:
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview changes without writing files |
+| `--fast` | Skip QA phases 7-10, keep adversarial & security |
+| `--fix` | Auto-retry failures up to 3 times |
+| `--auto` / `--yolo` | Never pause, log warnings only |
+| `--quiet` | Single-line output for scripting |
+| `--only=X` | Run specific phases (e.g., `--only=0,2,6`) |
+| `--preview` | Show git diff before applying changes |
+| `--test` | Run tests after build phase |
+| `--branch[=name]` | Create feature branch before build |
+| `--pr` | Create PR after successful completion |
+| `--template=X` | Use pre-configured template |
+| `--estimate` | Show cost estimate without running |
+| `--resume[=N]` | Resume from last or specific phase |
+
+### Examples
+
+```bash
+# Preview what would change
+/auto-pipeline --dry-run "refactor auth middleware"
+
+# Full pipeline with tests, then create PR
+/auto-pipeline --test --pr "add user authentication"
+
+# Preview diff before applying
+/auto-pipeline --preview --branch=feature/auth "add login"
+
+# Check cost before running
+/auto-pipeline --estimate "implement payment processing"
+
+# Use template for common patterns
+/auto-pipeline --template=api-endpoint "users GET /api/users"
+
+# Run only design and build phases
+/auto-pipeline --only=2,6 "quick prototype"
+```
+
+---
+
+## Templates
+
+Skip requirements gathering with pre-configured templates:
+
+| Template | Use Case |
+|----------|----------|
+| `api-endpoint` | REST API endpoints with validation |
+| `auth-flow` | JWT/OAuth authentication |
+| `crud-page` | Full CRUD interface (list, create, edit, delete) |
+| `webhook` | Webhook handlers with signature verification |
+
+```bash
+/auto-pipeline --template=api-endpoint "users GET /api/users"
+/auto-pipeline --template=auth-flow "jwt with refresh tokens"
+/auto-pipeline --template=crud-page "products with name, price, category"
+/auto-pipeline --template=webhook "stripe payment_intent.succeeded"
+```
+
+---
+
+## Pipeline Commands
+
+### Core Pipeline
+| Command | Description |
+|---------|-------------|
+| `/auto-pipeline <task>` | Run full pipeline with all flags |
+| `/pipeline-undo` | Revert last pipeline run |
+| `/pipeline-history` | Show past runs with costs |
+| `/pipeline-estimate <task>` | Preview cost before running |
+| `/pipeline-scan` | Proactive issue detection |
+
+### Individual Phases
+| Command | Phase | What It Does |
+|---------|-------|-------------|
+| `/pre-check <task>` | 0 | Search for existing solutions |
+| `/arm <task>` | 1 | Requirements crystallization |
+| `/design` | 2 | Technical design |
+| `/ar` | 3 | Adversarial review |
+| `/plan` | 4 | Implementation planning |
+| `/pmatch` | 5 | Drift detection |
+| `/build` | 6 | Execute the plan |
+| `/denoise` | 7 | Remove debug artifacts |
+| `/qf` | 8 | Quality fit check |
+| `/qb` | 9 | Quality behavior check |
+| `/qd` | 10 | Quality docs check |
+| `/security-review` | 11 | Security audit |
+
+---
+
+## Intelligent Suggestions
+
+### On Failure
+
+Get actionable fix suggestions with clickable file references:
+
+```
+✗ add auth endpoint · $0.12
+
+FAILED: Phase 3 (Adversarial) — HIGH severity issue
+
+Suggested fixes:
+  1. Add input validation for email field
+     └─ src/api/auth.ts:24
+
+  2. Use parameterized SQL query
+     └─ src/api/auth.ts:31
+     └─ Before: WHERE email = '${email}'
+     └─ After:  WHERE email = $1, [email]
+
+Run /auto-pipeline --fix to auto-apply these suggestions
+```
+
+### On Success
+
+Context-aware next steps based on what was built:
+
+```
+✓ add user dashboard · $0.19
+
+Created:
+  src/pages/dashboard.tsx
+  src/api/dashboard/stats.ts
+
+Suggested next steps:
+  1. Run tests          → /auto-pipeline --test
+  2. Create PR          → /auto-pipeline --pr
+  3. Add E2E test       → /auto-pipeline "add cypress test for dashboard"
+```
+
+### Proactive Scanning
+
+Find issues before they become problems:
+
+```bash
+/pipeline-scan
+```
+
+```
+Found 3 opportunities:
+
+  ⚠ Missing tests
+    └─ src/api/users.ts has no corresponding test file
+    └─ Suggestion: /auto-pipeline "add tests for users API"
+
+  ⚠ Security
+    └─ npm audit found 2 moderate vulnerabilities
+    └─ Suggestion: /auto-pipeline "fix npm audit vulnerabilities"
+
+  ⚠ Documentation
+    └─ src/api/auth.ts missing JSDoc on 5 exports
+    └─ Suggestion: /auto-pipeline "add jsdoc to auth module"
+
+Run suggested pipelines? [1/2/3/all/none]
+```
+
+---
+
+## The 12 Phases
 
 ```
 Task Description
@@ -129,71 +271,65 @@ Task Description
 | **0. Pre-Check** | Searches your codebase for existing code and libraries | Prevents rebuilding what already exists |
 | **1. Requirements** | Extracts testable success criteria from your task | Turns a vague idea into a concrete spec |
 | **2. Design** | Creates architecture decisions citing real documentation | Decisions are traceable, not hallucinated |
-| **3. Adversarial Review** | Three critics stress-test the design (Architect, Skeptic, Implementer) | Catches security gaps and edge cases before code is written |
-| **4. Planning** | Produces exact BEFORE/AFTER code for every file change | Every change is deterministic — no improvisation |
-| **5. Drift Detection** | Verifies the plan covers every design requirement | Nothing from the design gets lost or added |
+| **3. Adversarial Review** | Three critics stress-test the design | Catches security gaps and edge cases before code |
+| **4. Planning** | Produces exact BEFORE/AFTER code for every file change | Every change is deterministic |
+| **5. Drift Detection** | Verifies the plan covers every design requirement | Nothing gets lost or added |
 | **6. Build** | Executes the plan step by step with verification | No YOLO code dumps |
-| **7. Denoise** | Removes `console.log`, `debugger`, commented-out code | Clean production code |
+| **7. Denoise** | Removes console.log, debugger, commented-out code | Clean production code |
 | **8. Quality Fit** | Type checking, linting, convention compliance | Code matches project standards |
 | **9. Quality Behavior** | Runs build + tests, verifies behavior | Code actually works as designed |
 | **10. Quality Docs** | Checks Swagger/JSDoc coverage | API documentation stays current |
 | **11. Security** | OWASP scan: injection, XSS, auth bypass, secrets | Vulnerabilities caught before merge |
 
-### Gates
-
-Each phase has a gate that decides what happens next:
-
-| Gate | Behavior | Assigned To |
-|------|----------|-------------|
-| **HARD** | Must pass or pipeline pauses for your review | Phases 0, 3, 11 |
-| **SOFT** | Warns and proceeds | Phases 1, 2, 4, 5 |
-| **NONE** | Always proceeds, auto-fixes when possible | Phases 6-10 |
-
-Gates use **objective validation** (does the artifact contain the required sections? do referenced files exist? are there fewer than 3 medium-severity issues?) — not self-reported confidence scores.
-
-### Feedback Loops
-
-The pipeline tries to fix itself before asking you to intervene:
-
-| Failure | Recovery | Max Retries |
-|---------|----------|-------------|
-| Design has critical issues (Phase 3) | Loop back to Phase 2 with critique feedback | 1 |
-| Plan misses design requirements (Phase 5) | Loop back to Phase 4 to add missing steps | 1 |
-| Build step fails (Phase 6) | Retry the step with error context | 2 per step |
-| QA finds issues (Phases 7-10) | Auto-fix inline | 1 |
-
 ---
 
 ## Profiles
 
-| Profile | What Gets Skipped | When To Use |
-|---------|-------------------|-------------|
-| **yolo** | Reviews, drift check, most QA | Prototyping, experiments, "just make it work" |
-| **standard** | Nothing | Normal development (default) |
-| **paranoid** | Nothing, and any issue pauses | Production code, payments, auth, sensitive features |
+| Profile | What Gets Skipped | Gate Mode | When To Use |
+|---------|-------------------|-----------|-------------|
+| **yolo** | 3, 5, 7-10 | soft | Prototyping, experiments |
+| **fast** | 7-10 | standard | Feature dev, moderate risk |
+| **standard** | Nothing | mixed | Normal development (default) |
+| **paranoid** | Nothing | hard | Production, payments, auth |
 
 ```bash
-/auto-pipeline --profile=yolo "quick prototype"
-/auto-pipeline --profile=paranoid "handle payments"
+/auto-pipeline --yolo "quick prototype"
+/auto-pipeline --fast "add dashboard widget"
+/auto-pipeline --paranoid "handle payments"
 ```
 
 ---
 
-## Tool-Agnostic
+## History & Undo
 
-The pipeline is defined in a single [specification](PIPELINE-SPEC.md) (990 lines) that is independent of any AI tool. It's then implemented natively for each:
+### View History
 
-| Tool | Location | Setup |
-|------|----------|-------|
-| **Claude Code** | `.claude/` | `cp -r .claude/ your-project/` |
-| **Cursor** | `targets/cursor/` | `cp -r targets/cursor/.cursor/ your-project/` |
-| **Cline** | `targets/cline/` | `cp -r targets/cline/.clinerules/ your-project/` |
-| **Windsurf** | `targets/windsurf/` | Copy windsurf config to your project |
-| **GitHub Copilot** | `targets/copilot/` | `cp -r targets/copilot/.github/ your-project/` |
-| **Aider** | `targets/aider/` | Copy aider config to your project |
-| **Codex** | `targets/codex/` | Copy codex config to your project |
+```bash
+/pipeline-history
+```
 
-Same 12 phases, same gates, same validation rules, same artifact structure — just mapped to each tool's native format.
+```
+Pipeline History (last 10 runs)
+
+  #  Status   Task                           Cost     Duration
+  ─────────────────────────────────────────────────────────────
+  1  ✓        add user authentication        $0.24    3m 12s
+  2  ✓        fix login bug                  $0.08    1m 04s
+  3  ✗        implement payment flow         $0.15    2m 30s
+               └─ Failed: Phase 11 (Security)
+
+Summary:
+  Total runs: 47    Success: 44 (94%)    Failed: 3 (6%)
+  Total cost: $8.42
+```
+
+### Undo Last Run
+
+```bash
+/pipeline-undo
+```
+
+Reverts to the git checkpoint created before the pipeline made changes.
 
 ---
 
@@ -201,63 +337,70 @@ Same 12 phases, same gates, same validation rules, same artifact structure — j
 
 ### Model Routing
 
-Only 2 of 12 phases need the expensive model. The rest use fast/cheap models:
+Only 2 of 12 phases need the expensive model:
 
 | Phase | Model Tier | Why |
 |-------|-----------|-----|
 | Design (2), Adversarial Review (3) | **Strong** | Architecture and critique require deep reasoning |
-| All other phases (0,1,4-11) | **Fast** | Mechanical tasks — search, plan, build, scan |
+| All other phases (0,1,4-11) | **Fast** | Mechanical tasks |
 
 **Result: ~70% cost reduction** compared to using the strongest model for everything.
 
-### Token Efficiency
+### Cost Estimation
 
-| Optimization | Savings |
-|-------------|---------|
-| Slim agents (included) | 40-60% fewer tokens per agent |
-| Phase skipping (yolo profile) | 30-40% fewer phases |
-| Caching (security, patterns, QA rules) | 15-25% on repeat runs |
-| Context isolation (each phase gets only what it needs) | 10-20% |
+```bash
+/auto-pipeline --estimate "implement user authentication"
+```
 
----
+```
+Estimated Cost:
+  ├─ Minimum: $0.15 (best case)
+  ├─ Expected: $0.22 (typical)
+  └─ Maximum: $0.45 (worst case)
 
-## Artifacts
-
-Every pipeline run produces artifacts in `.claude/artifacts/{session}/`:
-
-| File | Phase | Contents |
-|------|-------|----------|
-| `pre-check.md` | 0 | Existing code found, library recommendations |
-| `brief.md` | 1 | Problem statement, success criteria, scope |
-| `design.md` | 2 | Architecture decisions with source citations |
-| `critique.md` | 3 | Issues from 3 critic angles, verdict |
-| `plan.md` | 4 | Step-by-step BEFORE/AFTER code changes |
-| `drift-report.md` | 5 | Coverage matrix, missing/extra items |
-| `build-report.md` | 6 | Step results, build/type check status |
-| `qa-report.md` | 7-11 | Denoise, lint, tests, docs, security results |
-
-These are your audit trail. Every design decision is traceable to a source. Every code change is traceable to a plan step. Every plan step is traceable to a design requirement.
+Estimated Duration: 2-4 minutes
+```
 
 ---
 
-## Individual Commands
+## File Structure
 
-Run any phase standalone:
-
-| Command | Phase | What It Does |
-|---------|-------|-------------|
-| `/pre-check <task>` | 0 | Search for existing solutions |
-| `/arm <task>` | 1 | Requirements crystallization |
-| `/design` | 2 | Technical design |
-| `/ar` | 3 | Adversarial review |
-| `/plan` | 4 | Implementation planning |
-| `/pmatch` | 5 | Drift detection |
-| `/build` | 6 | Execute the plan |
-| `/denoise` | 7 | Remove debug artifacts |
-| `/qf` | 8 | Quality fit check |
-| `/qb` | 9 | Quality behavior check |
-| `/qd` | 10 | Quality docs check |
-| `/security-review` | 11 | Security audit |
+```
+Claude-Pipeline/
+├── .claude/
+│   ├── commands/                 # Slash commands
+│   │   ├── auto-pipeline.md      # Main pipeline
+│   │   ├── pipeline-undo.md      # Undo last run
+│   │   ├── pipeline-history.md   # View past runs
+│   │   ├── pipeline-estimate.md  # Cost estimation
+│   │   └── pipeline-scan.md      # Proactive scanning
+│   ├── agents/                   # Agent definitions
+│   │   ├── suggestion-engine.md  # Error fix suggestions
+│   │   └── code-scanner.md       # Proactive scanning
+│   ├── lib/                      # Configuration
+│   │   ├── error-patterns.md     # Error → fix mappings
+│   │   ├── next-steps.md         # Success suggestions
+│   │   └── context-engine.md     # History recommendations
+│   ├── templates/                # Quick-start templates
+│   │   ├── api-endpoint.md
+│   │   ├── auth-flow.md
+│   │   ├── crud-page.md
+│   │   └── webhook.md
+│   ├── hooks/                    # Automation hooks
+│   │   ├── notify.sh             # Completion notifications
+│   │   └── detect-project.sh     # Project detection
+│   ├── history.json              # Run history
+│   └── artifacts/                # Per-session output
+│
+├── targets/                      # Other tool implementations
+│   ├── cursor/
+│   ├── cline/
+│   ├── windsurf/
+│   ├── copilot/
+│   └── aider/
+│
+└── demo/                         # Demo kit
+```
 
 ---
 
@@ -273,101 +416,15 @@ Add project-specific conventions in `.claude/rules/`:
 - Return { data, error } shape
 ```
 
-### Cached Patterns
-
-Add reusable design patterns in `.claude/cache/patterns/`:
-
-- `rest-api.md` — REST endpoint with auth, validation, errors
-- `auth-jwt.md` — JWT authentication flow
-- `crud-endpoint.md` — Full CRUD with soft delete
-- Add your own for repeated patterns in your codebase
-
 ### Hooks
-
-Add formatting or protection hooks in `.claude/hooks/`:
 
 ```bash
 # auto-format.sh — runs after edits
 bunx biome format --write "$FILE"
+
+# notify.sh — cross-platform completion notification
+# detect-project.sh — auto-detect project type
 ```
-
-**Cost Example (standard profile):**
-```
-Single-phase task:     ~$0.20/run
-Multi-phase task:      ~$0.18/phase (QA cached after first)
-
-Breakdown:
-  Haiku phases:        $0.002 (search, validation, docs)
-  Sonnet phases:       $0.045 (requirements, planning, build)
-  Opus phases:         $0.150 (design, critique, security)
-```
-
----
-
-## Demo
-
-A ready-to-run demo is included in `demo/`:
-
-- **Starter project:** A tiny Express API (4 files)
-- **Task:** "Add user authentication with JWT"
-- **Expected output:** Example artifacts showing what each phase produces
-
-```bash
-cp -r demo/starter-project/ /tmp/pipeline-demo/
-cd /tmp/pipeline-demo/
-npm install
-
-# Run with your preferred tool
-/auto-pipeline --profile=yolo "add user authentication with JWT"
-```
-
-See [`demo/README.md`](demo/README.md) for the full walkthrough.
-
----
-
-## File Structure
-
-```
-Claude-Pipeline/
-├── PIPELINE-SPEC.md              # Tool-agnostic specification (990 lines)
-├── README.md                     # You are here
-│
-├── .claude/                      # Claude Code implementation
-│   ├── commands/                 # Slash commands (/auto-pipeline, /dev-pipeline, etc.)
-│   ├── agents/                   # 12 agent definitions + slim variants
-│   ├── lib/                      # Profiles, validators, cache config
-│   ├── cache/                    # Cached patterns, security scans, QA rules
-│   ├── hooks/                    # Auto-format, file protection
-│   ├── rules/                    # Project conventions (api, database, react)
-│   └── artifacts/                # Per-session output
-│
-├── targets/                      # Implementations for other tools
-│   ├── cursor/                   # Cursor agent definitions
-│   ├── cline/                    # Cline rules and workflows
-│   ├── windsurf/                 # Windsurf workflow config
-│   ├── copilot/                  # GitHub Copilot agents
-│   ├── codex/                    # OpenAI Codex config
-│   └── aider/                    # Aider conversation config
-│
-└── demo/                         # Demo kit
-    ├── starter-project/          # Tiny Express app (4 files)
-    └── expected-output/          # Example artifacts for "add JWT auth"
-```
-
----
-
-## Implementing for a New Tool
-
-The [pipeline specification](PIPELINE-SPEC.md) is tool-agnostic. To add support for a new AI coding tool:
-
-1. **Map agent roles** to the tool's agent/prompt system (12 roles, each with defined inputs/outputs/tools)
-2. **Map validation** to the tool's capabilities (shell scripts, inline checks, or prompt instructions)
-3. **Map the orchestrator** to the tool's workflow system (slash command, master prompt, or script)
-4. **Map caching** to the tool's storage (filesystem, database, or in-memory)
-5. **Map gates** to the tool's interaction model (PAUSE = ask user, WARN = log, AUTO = silent)
-6. **Map model routing** to the tool's model selection (strong for phases 2-3, fast for everything else)
-
-See `targets/` for reference implementations.
 
 ---
 
