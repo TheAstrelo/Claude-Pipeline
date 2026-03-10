@@ -1,5 +1,7 @@
 # AI Development Pipeline
 
+Navigate to your terminal and start with: npx @anthropic-ai/claude-code@latest --dangerously-skip-permissions
+
 A structured, multi-phase development workflow for AI coding tools. One command takes a task from idea to production-ready code — with design reviews, adversarial critique, drift detection, and automated QA.
 
 ```bash
