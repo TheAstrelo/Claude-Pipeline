@@ -1,139 +1,106 @@
 # Pipeline Configuration
 
+Configuration reference for the auto-pipeline system.
+
 ## Profiles
 
-```yaml
-profiles:
-  yolo:
-    description: "Fast prototyping, minimal checks"
-    skip: [3, 5, 7, 8, 9, 10]  # Keep: pre-check, requirements, design, plan, build, security
-    gate_mode: soft  # Only HARD fails pause
-    max_retries: 1
+### yolo
+Fastest profile for prototyping.
+- **Skips:** 3 (Adversarial), 5 (Drift), 7-10 (All QA)
+- **Gate Mode:** soft (warnings only)
+- **Use Case:** Quick prototypes, low-risk changes
 
-  standard:
-    description: "Balanced automation with safety"
-    skip: []
-    gate_mode: mixed  # HARD phases pause, others warn
-    max_retries: 2
+### fast
+Balanced speed - skips QA but keeps safety checks.
+- **Skips:** 7-10 (All QA)
+- **Gate Mode:** standard
+- **Use Case:** Feature development, moderate-risk changes
 
-  paranoid:
-    description: "Full human oversight"
-    skip: []
-    gate_mode: hard  # Any fail pauses
-    max_retries: 3
+### standard
+Full pipeline with all phases.
+- **Skips:** none
+- **Gate Mode:** mixed
+- **Use Case:** Normal development, important features
+
+### paranoid
+Maximum safety for critical code.
+- **Skips:** none
+- **Gate Mode:** hard (all gates require approval)
+- **Extra:** Additional security scrutiny
+- **Use Case:** Payment processing, authentication, sensitive data
+
+## Gate Modes
+
+| Mode | Behavior |
+|------|----------|
+| hard | All gates require explicit pass. Any failure pauses. |
+| mixed | Critical gates hard, non-critical soft. |
+| soft | All gates are warnings only. Never pauses. |
+| none | No gates (--auto mode). Logs everything, stops for nothing. |
+
+## Configuration Options
+
+### settings.json Structure
+
+```json
+{
+  "pipeline": {
+    "defaultProfile": "standard",
+    "profiles": { ... },
+    "defaults": {
+      "autoDetect": true,
+      "notifications": true,
+      "dryRun": false
+    },
+    "testCommand": null,
+    "costEstimates": {
+      "haiku": 0.001,
+      "sonnet": 0.015,
+      "opus": 0.075
+    }
+  }
+}
 ```
 
-## Output-Based Validation
+### Environment Variables
 
-**Self-reported confidence is unreliable.** We validate outputs objectively.
+- `PIPELINE_PROFILE` - Override default profile
+- `PIPELINE_GATE_MODE` - Override gate mode
+- `PIPELINE_DRY_RUN` - Enable dry-run mode
 
-See `lib/validator.md` for full validator definitions.
+## Flag Interactions
 
-### Gate Types
+| Flag Combination | Behavior |
+|------------------|----------|
+| `--dry-run --fast` | Preview with fast profile |
+| `--branch --pr` | Create branch and PR |
+| `--template --estimate` | Estimate template-based task |
+| `--fix --test` | Auto-fix test failures |
 
-| Type | Behavior | Phases |
-|------|----------|--------|
-| HARD | Any fail → pause for human | 0 (pre-check), 3 (adversarial), 11 (security) |
-| SOFT | Fail → warn and proceed | 1, 2, 4, 5 |
-| NONE | Always proceed, auto-fix | 6, 7, 8, 9, 10 |
+## Phase Skip Rules
 
-### Decision Matrix
+Certain phases can never be skipped:
+- Phase 0 (Pre-check): Always runs
+- Phase 11 (Security): Always runs
 
-| HARD Fails | SOFT Fails | Profile: yolo | Profile: standard | Profile: paranoid |
-|------------|------------|---------------|-------------------|-------------------|
-| 0 | 0 | AUTO | AUTO | AUTO |
-| 0 | 1+ | AUTO | WARN | PAUSE |
-| 1+ | any | PAUSE | PAUSE | PAUSE |
+Profile skips are additive with flag skips.
 
-### Validation Summary
+## Cost Estimation
 
-| Phase | Critical Validators (HARD) |
-|-------|---------------------------|
-| 0 | Has recommendation, searched codebase |
-| 1 | No NEEDS_INPUT flag |
-| 2 | No NEEDS_RESEARCH flag, paths exist |
-| 3 | No HIGH severity, no consensus issues |
-| 4 | No NEEDS_DETAIL flag, paths verified |
-| 5 | Coverage ≥ 90% |
-| 6 | No BLOCKED steps |
-| 11 | No CRITICAL, no SQLi, auth coverage |
+Estimates based on:
+1. Profile (affects phase count)
+2. Phase models (Haiku/Sonnet/Opus)
+3. Task complexity
+4. Historical data
+5. Cache hit probability
 
-## Token Budget
+## Project Detection
 
-| Phase | Max Tokens | Strategy |
-|-------|------------|----------|
-| 0 | 3000 | Task + grep/glob results |
-| 1 | 4000 | Task + file snippets |
-| 2 | 6000 | Brief summary + patterns |
-| 3 | 4000 | Design decisions only |
-| 4 | 5000 | Decisions + file paths |
-| 5 | 3000 | Requirements + step list |
-| 6 | 2000/step | One step at a time |
-| 7-11 | 3000 | Changed files only |
+Auto-detection checks:
+- `package.json` for Node.js frameworks
+- `tsconfig.json` for TypeScript
+- `pyproject.toml` for Python
+- `go.mod` for Go
+- `Cargo.toml` for Rust
 
-## Model Allocation
-
-Strategic model selection by phase complexity:
-
-| Phase | Agent | Model | Rationale |
-|-------|-------|-------|-----------|
-| 0 | pre-check | haiku | Search + grep operations, simple recommendation |
-| 1 | requirements-slim | sonnet | Needs reasoning but structured output |
-| 2 | architect-slim | **opus** | Architectural decisions, trade-off analysis |
-| 3 | adversarial-slim | **opus** | Multi-perspective critique, finding subtle flaws |
-| 4 | planner-slim | sonnet | BEFORE/AFTER code generation |
-| 5 | drift-detector | haiku | Document comparison, deterministic |
-| 6 | builder-slim | sonnet | Step execution, follows plan exactly |
-| 7 | denoiser | haiku | Pattern matching (find/remove) |
-| 8 | quality-fit | haiku | Lint/type checks, convention matching |
-| 9 | quality-behavior | sonnet | Test analysis, behavior verification |
-| 10 | quality-docs | haiku | JSDoc presence checks |
-| 11 | security-slim | **opus** | Detecting subtle vulnerabilities |
-
-### Model Cost Comparison
-
-```
-Haiku:  $0.25 / 1M tokens  (60x cheaper than Opus)
-Sonnet: $3.00 / 1M tokens  (5x cheaper than Opus)
-Opus:   $15.00 / 1M tokens (most capable)
-```
-
-### Estimated Cost Per Run
-
-```
-All Sonnet:          ~$0.23/run
-Optimized allocation: ~$0.20/run (with higher quality on critical phases)
-
-Breakdown:
-  Haiku phases:  ~8k tokens  = $0.002
-  Sonnet phases: ~15k tokens = $0.045
-  Opus phases:   ~10k tokens = $0.15
-```
-
-### When to Override
-
-Use `model: opus` override for:
-- Security-sensitive features (payments, auth)
-- Complex architectural decisions
-- High-stakes production code
-
-Use `model: haiku` override for:
-- Simple search/validation tasks
-- High-volume batch operations
-- Cost-sensitive prototyping
-
-## Usage
-
-```bash
-# Fast prototyping (only HARD fails pause)
-/auto-pipeline --profile=yolo "add login button"
-
-# Balanced (HARD pauses, SOFT warns)
-/auto-pipeline --profile=standard "refactor auth"
-
-# Full oversight (any fail pauses)
-/auto-pipeline --profile=paranoid "payment integration"
-
-# Override gate mode
-/auto-pipeline --gate=hard "critical feature"
-```
+Stores config in session artifacts.
