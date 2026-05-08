@@ -30,20 +30,36 @@
         "skip": [3, 5, 7, 8, 9, 10],
         "gateMode": "soft",
         "maxRetries": 1,
-        "tokenBudget": 20000
+        "tokenBudget": 20000,
+        "description": "Skip adversarial, drift, all QA. Keep security."
+      },
+      "fast": {
+        "skip": [7, 8, 9, 10],
+        "gateMode": "standard",
+        "maxRetries": 2,
+        "tokenBudget": 30000,
+        "description": "Skip QA phases only. Keep adversarial, drift, security."
       },
       "standard": {
         "skip": [],
         "gateMode": "mixed",
         "maxRetries": 2,
-        "tokenBudget": 40000
+        "tokenBudget": 40000,
+        "description": "Run all phases with standard gates."
       },
       "paranoid": {
         "skip": [],
         "gateMode": "hard",
         "maxRetries": 3,
-        "tokenBudget": 60000
+        "tokenBudget": 60000,
+        "extraChecks": true,
+        "description": "Run all phases with extra security scrutiny."
       }
+    },
+    "defaults": {
+      "autoDetect": true,
+      "notifications": true,
+      "dryRun": false
     },
     "validation": {
       "hardGatePhases": [0, 3, 11],
@@ -69,6 +85,12 @@
       "neverSkip": true,
       "searchDirs": ["src/pages/api", "src/features", "src/lib", "src/domain"],
       "maxWebSearches": 3
+    },
+    "testCommand": null,
+    "costEstimates": {
+      "haiku": 0.001,
+      "sonnet": 0.015,
+      "opus": 0.075
     },
     "slimAgents": true,
     "agentMapping": {
