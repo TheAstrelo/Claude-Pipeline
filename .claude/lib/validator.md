@@ -217,6 +217,40 @@ validators:
     fail: HARD
 ```
 
+### Cross-Phase Discernment Validators (SOFT)
+
+These run after Phase 6 (Build) to check consistency across phases. All section-scoped (not file-wide grep) to avoid false positives from prose mentions.
+
+```yaml
+- name: critique_addressed
+  phase: 6
+  principle: "Discernment — critique-to-build traceability"
+  check: |
+    # Count HIGH/MEDIUM critique issues, then count addressed in build-report Traceability section
+    issues=$(sed -n '/^## Issues/,/^## /p' "$SESSION/critique.md" 2>/dev/null | grep -cE "\| (HIGH|MEDIUM) \|" || echo 0)
+    traced=$(sed -n '/^## Traceability/,/^## /p' "$SESSION/build-report.md" 2>/dev/null | grep -cE "RESOLVED|ADDRESSED|DONE" || echo 0)
+    [ "$traced" -ge "$issues" ]
+  fail: SOFT
+
+- name: requirements_covered
+  phase: 6
+  principle: "Discernment — requirements-to-build coverage"
+  check: |
+    # Count Success Criteria from brief, then count addressed in build-report Traceability
+    criteria=$(sed -n '/^## Success Criteria/,/^## /p' "$SESSION/brief.md" 2>/dev/null | grep -cE "^[0-9]+\." || echo 0)
+    covered=$(sed -n '/^## Traceability/,/^$/p' "$SESSION/build-report.md" 2>/dev/null | grep -cE "DONE|IMPLEMENTED|VERIFIED" || echo 0)
+    [ "$covered" -ge "$criteria" ]
+  fail: SOFT
+
+- name: uncertainty_resolved
+  phase: 6
+  principle: "Knowledge — flagged uncertainty must be resolved before build"
+  check: |
+    # Match only verdict lines, not prose references to validator names
+    ! grep -E "^## Verdict:.*NEEDS_(RESEARCH|DETAIL|INPUT)" "$SESSION/design.md" "$SESSION/plan.md" 2>/dev/null
+  fail: SOFT
+```
+
 ## Validation Runner
 
 ```bash

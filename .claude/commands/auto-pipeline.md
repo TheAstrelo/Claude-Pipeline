@@ -81,18 +81,49 @@ gate_decision(hard_fails, soft_fails):
 
 **Spawn subprocess:**
 ```bash
-PROMPT="You are the Pre-Check Agent. Your task: $TASK
+PROMPT="You are the Pre-Check Agent.
 
-Search the codebase for existing implementations related to this task. Check the package manifest for relevant installed libraries. Search the web for up to 3 external options.
+## CONSTRAINTS
+- Max 3 web searches. Stop earlier if a strong codebase match exists.
+- Recommend EXTEND_EXISTING when a HIGH-relevance codebase match is found.
+- Recommend USE_LIBRARY only if the package is already installed or widely adopted.
+- Task Triage is advisory — never recommend overriding the user's chosen profile silently.
 
-Write your output as a markdown file to $SESSION/pre-check.md with these sections:
+## CONTEXT
+Task: $TASK
+Working directory: project root
+Manifest: package.json (if present)
+
+## TASK
+Find existing implementations before anything new is built. Assess task complexity and risk to inform profile selection.
+
+## FORMAT
+Write to \$SESSION/pre-check.md with these sections:
 - ## Codebase Matches (table: Type | Path | Relevance)
 - ## Installed Libraries (table: Package | Version | Purpose)
 - ## Recommendation (one of: EXTEND_EXISTING, USE_LIBRARY, BUILD_NEW)
-- **Reasoning:** (1-2 sentences)"
+- **Reasoning:** (1-2 sentences)
+- ## Task Triage
+  - **Complexity:** [LOW | MEDIUM | HIGH] — (1 sentence justification)
+  - **Risk:** [LOW | MEDIUM | HIGH] — (1 sentence justification)
+  - **Recommended Profile:** [yolo | standard | paranoid]
+  - **Human Review:** [list of phase numbers, or \"None\"]
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/pre-check.md.raw"
-[[ ! -f "$SESSION/pre-check.md" ]] && [[ -f "$SESSION/pre-check.md.raw" ]] && cp "$SESSION/pre-check.md.raw" "$SESSION/pre-check.md"
+## VERIFY
+Before writing, confirm:
+- Codebase Matches table exists (even if empty)
+- Recommendation is exactly one of the three allowed values
+- Task Triage Complexity, Risk, and Recommended Profile fields are filled
+- Human Review lists phase numbers (e.g., \"3, 11\") or the literal string \"None\""
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/pre-check.md.raw"
+[[ ! -f "\$SESSION/pre-check.md" ]] && [[ -f "\$SESSION/pre-check.md.raw" ]] && cp "\$SESSION/pre-check.md.raw" "\$SESSION/pre-check.md"
+
+# Profile-mismatch warning (Delegation: human decides)
+RECOMMENDED=$(grep -oE "Recommended Profile:.*(yolo|standard|paranoid)" "$SESSION/pre-check.md" | grep -oE "(yolo|standard|paranoid)" | head -1)
+if [[ -n "$RECOMMENDED" && "$RECOMMENDED" != "$PROFILE" ]]; then
+  echo "WARNING: Task triage recommends --profile=$RECOMMENDED but running with --profile=$PROFILE"
+fi
 ```
 
 **Validators** (run via Grep on artifact):
@@ -100,6 +131,8 @@ echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/p
 codebase_searched    → grep -qi "Codebase Matches\|Codebase Findings" $SESSION/pre-check.md
 has_recommendation   → grep -qiE "EXTEND_EXISTING|USE_LIBRARY|BUILD_NEW" $SESSION/pre-check.md
 reasoning_present    → grep -qi "Reasoning" $SESSION/pre-check.md  (SOFT)
+has_triage           → grep -q "## Task Triage" $SESSION/pre-check.md  (SOFT)
+has_complexity       → grep -qE "Complexity:.*(LOW|MEDIUM|HIGH)" $SESSION/pre-check.md  (SOFT)
 ```
 
 ---
@@ -110,14 +143,32 @@ Skip if `--skip-arm` or in SKIP_PHASES.
 
 **Spawn subprocess:**
 ```bash
-PRECHECK=$(cat "$SESSION/pre-check.md" 2>/dev/null || echo "No pre-check available")
+# Compressed context (Working Memory): extract Recommendation + Codebase Matches only
+RECOMMENDATION=$(grep -iA2 "Recommendation" "$SESSION/pre-check.md" 2>/dev/null || echo "No recommendation available")
+CODEBASE_MATCHES=$(grep -iA20 "Codebase Matches\|Codebase Findings" "$SESSION/pre-check.md" 2>/dev/null || echo "No codebase context available")
 
-PROMPT="You are the Requirements Agent. Your task: $TASK
+PROMPT="You are the Requirements Agent.
 
-Pre-check context:
-$PRECHECK
+## CONSTRAINTS
+- Max 3 clarifying questions. Skip Q&A if the task is specific.
+- Output NEEDS_INPUT only if genuinely ambiguous; otherwise CLEAR.
+- Do not invent requirements not implied by the task.
+- Each success criterion must be independently testable (yes/no answer).
 
-Extract clear, testable requirements. Write output to $SESSION/brief.md with sections:
+## CONTEXT
+Task: $TASK
+
+Pre-check recommendation:
+$RECOMMENDATION
+
+Codebase matches:
+$CODEBASE_MATCHES
+
+## TASK
+Extract clear, testable requirements from the task and pre-check context.
+
+## FORMAT
+Write to \$SESSION/brief.md with sections:
 ## Verdict: [CLEAR | NEEDS_INPUT]
 ## Problem (1-2 sentences)
 ## Success Criteria (numbered, testable)
@@ -126,10 +177,15 @@ Extract clear, testable requirements. Write output to $SESSION/brief.md with sec
 ## Context Found
 ## Assumptions
 
-Max 3 clarifying questions. Skip Q&A if the task is specific. Output NEEDS_INPUT only if genuinely ambiguous."
+## VERIFY
+Before writing, confirm:
+- Problem statement is 1-2 sentences
+- Each success criterion is independently testable
+- Scope explicitly lists what is out of scope
+- Assumptions are falsifiable (could be checked later)"
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/brief.md.raw"
-[[ ! -f "$SESSION/brief.md" ]] && [[ -f "$SESSION/brief.md.raw" ]] && cp "$SESSION/brief.md.raw" "$SESSION/brief.md"
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/brief.md.raw"
+[[ ! -f "\$SESSION/brief.md" ]] && [[ -f "\$SESSION/brief.md.raw" ]] && cp "\$SESSION/brief.md.raw" "\$SESSION/brief.md"
 ```
 
 **Validators:**
@@ -145,25 +201,42 @@ no_ambiguity      → ! grep "NEEDS_INPUT" $SESSION/brief.md  (HARD)
 
 **Spawn subprocess:**
 ```bash
+# Phase 2 exception: brief is already concise, pass full
 BRIEF=$(cat "$SESSION/brief.md" 2>/dev/null || echo "No brief available")
 
-PROMPT="You are the Architect Agent. Create a technical design based on these requirements.
+PROMPT="You are the Architect Agent.
 
+## CONSTRAINTS
+- Max 6 architecture decisions. Prefer fewer, well-justified ones.
+- Every decision MUST cite a source: a live documentation URL OR an existing codebase file:line.
+- If you cannot find a source for a decision, mark verdict NEEDS_RESEARCH and explain what you tried.
+- Prefer existing codebase patterns over inventing new ones.
+- Knowledge boundary: if a library version is uncertain, WebSearch to verify.
+
+## CONTEXT
 Requirements brief:
 $BRIEF
 
-Research live documentation for relevant libraries/APIs. Analyze existing codebase patterns. Make design decisions — each must cite live docs OR existing codebase patterns.
+## TASK
+Create a technical design grounded in research. Identify components, data changes, and risks.
 
-Write output to $SESSION/design.md with:
+## FORMAT
+Write to \$SESSION/design.md with:
+## Verdict: [READY_FOR_REVIEW | NEEDS_RESEARCH]
 ## Decisions (max 6, each: **{choice}** — {rationale} — Source: {URL or file:line})
 ## Components (table, max 4: Name | Purpose | Interface)
 ## Data Changes (SQL or 'None')
 ## Risks (table: Risk | Mitigation)
 
-Every decision must cite a source. If docs can't be found, output NEEDS_RESEARCH."
+## VERIFY
+Before writing, confirm:
+- Every decision has a Source: line
+- Components reference real or to-be-created paths
+- Risks have concrete mitigations (not 'TBD')
+- Verdict is NEEDS_RESEARCH only if a decision lacks a source"
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/design.md.raw"
-[[ ! -f "$SESSION/design.md" ]] && [[ -f "$SESSION/design.md.raw" ]] && cp "$SESSION/design.md.raw" "$SESSION/design.md"
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/design.md.raw"
+[[ ! -f "\$SESSION/design.md" ]] && [[ -f "\$SESSION/design.md.raw" ]] && cp "\$SESSION/design.md.raw" "\$SESSION/design.md"
 ```
 
 **Validators:**
@@ -181,25 +254,41 @@ Skip if `--skip-ar` or in SKIP_PHASES.
 
 **Spawn subprocess:**
 ```bash
-DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
+# Compressed context: extract Decisions through Risks (case-insensitive, fallback to full)
+DESIGN_CORE=$(sed -n '/[Dd]ecisions/,/[Rr]isks/p' "$SESSION/design.md" 2>/dev/null)
+[[ -z "$DESIGN_CORE" ]] && DESIGN_CORE=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
 
-PROMPT="You are the Adversarial Review Agent. Critique this design from 3 angles.
+PROMPT="You are the Adversarial Review Agent.
 
-Design:
-$DESIGN
+## CONSTRAINTS
+- Critique from exactly 3 angles: Architect (scalability/coupling), Skeptic (edge cases/security), Implementer (types/testability).
+- Every issue must cite a specific decision or component — no vague 'this could be better'.
+- Every issue must propose a concrete fix.
+- Verdict rules: Any HIGH → REVISE_DESIGN. 3+ MEDIUM → REVISE_DESIGN. Any consensus issue (raised by 2+ angles) → REVISE_DESIGN.
 
-Angles: Architect (scalability/coupling), Skeptic (edge cases/security), Implementer (types/testability).
+## CONTEXT
+Design (decisions + components + data changes):
+$DESIGN_CORE
 
-Write output to $SESSION/critique.md with:
+## TASK
+Critique the design from all 3 angles. Identify consensus issues. Issue verdict.
+
+## FORMAT
+Write to \$SESSION/critique.md with:
 ## Verdict: [APPROVED | REVISE_DESIGN]
 ## Issues (table, max 10: # | Angle | Severity | Issue | Fix)
 ## Consensus (issues raised by 2+ angles)
 ## Blocks (if REVISE_DESIGN: list of must-fix items)
 
-Rules: Any HIGH -> REVISE_DESIGN. 3+ MEDIUM -> REVISE_DESIGN. Any consensus -> REVISE_DESIGN."
+## VERIFY
+Before writing, confirm:
+- All 3 angles contributed at least one issue (or explicitly say 'No issues from {angle}')
+- Each row in the Issues table has Severity (HIGH/MEDIUM/LOW), Issue, and Fix
+- If verdict is APPROVED, no HIGH issues and no consensus issues exist
+- If verdict is REVISE_DESIGN, the Blocks section lists every must-fix item"
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/critique.md.raw"
-[[ ! -f "$SESSION/critique.md" ]] && [[ -f "$SESSION/critique.md.raw" ]] && cp "$SESSION/critique.md.raw" "$SESSION/critique.md"
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/critique.md.raw"
+[[ ! -f "\$SESSION/critique.md" ]] && [[ -f "\$SESSION/critique.md.raw" ]] && cp "\$SESSION/critique.md.raw" "\$SESSION/critique.md"
 ```
 
 **Validators:**
@@ -235,14 +324,29 @@ Then re-run Phase 3 (max 1 retry). If still REVISE_DESIGN after retry, PAUSE.
 
 **Spawn subprocess:**
 ```bash
-DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
+# Compressed context: Decisions + Components + Data Changes (case-insensitive, fallback to full)
+DESIGN_CORE=$(sed -n '/[Dd]ecisions/,/[Rr]isks/p' "$SESSION/design.md" 2>/dev/null)
+[[ -z "$DESIGN_CORE" ]] && DESIGN_CORE=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
 
-PROMPT="You are the Planning Agent. Convert this design into implementation steps.
+PROMPT="You are the Planning Agent.
 
-Design:
-$DESIGN
+## CONSTRAINTS
+- Max 8 steps. Prefer fewer.
+- Each step references exactly one file path.
+- All MODIFY paths must exist on disk; otherwise use CREATE.
+- BEFORE blocks must be 3-5 lines of actual current code (not paraphrased).
+- AFTER blocks must be paste-ready (correct indentation, complete syntax).
+- Anti-pattern: 'Update the authentication.' Concrete: 'In src/middleware/auth.ts, replace lines 45-52 with...'
 
-Write output to $SESSION/plan.md with:
+## CONTEXT
+Design (decisions + components + data changes):
+$DESIGN_CORE
+
+## TASK
+Convert the design into atomic, paste-ready implementation steps.
+
+## FORMAT
+Write to \$SESSION/plan.md with:
 ## Verdict: [READY | NEEDS_DETAIL]
 ## Steps (table: # | File | Action | Depends)
 Then for each step:
@@ -253,10 +357,15 @@ Then for each step:
 **After:** (new code, paste-ready)
 **Test:** {input} -> {expected output}
 
-Max 8 steps. All MODIFY paths must exist on disk."
+## VERIFY
+Before writing, confirm:
+- Total step count ≤ 8
+- Every MODIFY step references a path that exists
+- Every step has BEFORE and AFTER blocks
+- Every step has a Test line that is independently runnable"
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/plan.md.raw"
-[[ ! -f "$SESSION/plan.md" ]] && [[ -f "$SESSION/plan.md.raw" ]] && cp "$SESSION/plan.md.raw" "$SESSION/plan.md"
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/plan.md.raw"
+[[ ! -f "\$SESSION/plan.md" ]] && [[ -f "\$SESSION/plan.md.raw" ]] && cp "\$SESSION/plan.md.raw" "\$SESSION/plan.md"
 ```
 
 **Validators:**
@@ -274,26 +383,47 @@ Skip if `--skip-pmatch` or in SKIP_PHASES.
 
 **Spawn subprocess:**
 ```bash
-DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "No design available")
-PLAN=$(cat "$SESSION/plan.md" 2>/dev/null || echo "No plan available")
+# Compressed context: Success Criteria from brief + step list from plan
+CRITERIA=$(sed -n '/## Success Criteria/,/^## /p' "$SESSION/brief.md" 2>/dev/null | head -50)
+[[ -z "$CRITERIA" ]] && CRITERIA=$(cat "$SESSION/brief.md" 2>/dev/null || echo "No criteria available")
+PLAN_STEPS=$(grep -E "^### Step|^\*\*File:|^## Steps" "$SESSION/plan.md" 2>/dev/null | head -40)
+[[ -z "$PLAN_STEPS" ]] && PLAN_STEPS=$(cat "$SESSION/plan.md" 2>/dev/null || echo "No plan available")
 
-PROMPT="You are the Drift Detection Agent. Verify the plan covers all design requirements.
+PROMPT="You are the Drift Detection Agent.
 
-Design:
-$DESIGN
+## CONSTRAINTS
+- Map every success criterion to a plan step.
+- Verdict ALIGNED only if coverage ≥ 90%.
+- Flag scope creep: any plan step that does not map to a design decision.
+- Do not invent missing coverage — if a criterion has no matching step, list it under Missing.
 
-Plan:
-$PLAN
+## CONTEXT
+Success Criteria (from brief.md):
+$CRITERIA
 
-Write output to $SESSION/drift-report.md with:
+Plan Steps (from plan.md):
+$PLAN_STEPS
+
+## TASK
+Verify the plan covers all design requirements. Identify missing coverage and scope creep.
+
+## FORMAT
+Write to \$SESSION/drift-report.md with:
 ## Verdict: [ALIGNED | DRIFT_DETECTED]
 ## Coverage Matrix (table: Design Requirement | Plan Step | Status)
 ## Missing Coverage
 ## Scope Creep
-## Summary (Requirements: N, Covered: N, Missing: N, Coverage: N%)"
+## Summary (Requirements: N, Covered: N, Missing: N, Coverage: N%)
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/drift-report.md.raw"
-[[ ! -f "$SESSION/drift-report.md" ]] && [[ -f "$SESSION/drift-report.md.raw" ]] && cp "$SESSION/drift-report.md.raw" "$SESSION/drift-report.md"
+## VERIFY
+Before writing, confirm:
+- Coverage Matrix has one row per success criterion
+- Coverage % is calculated from the matrix counts
+- Verdict ALIGNED only if Coverage ≥ 90%
+- Scope Creep section lists any plan step not tied to a criterion"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/drift-report.md.raw"
+[[ ! -f "\$SESSION/drift-report.md" ]] && [[ -f "\$SESSION/drift-report.md.raw" ]] && cp "\$SESSION/drift-report.md.raw" "\$SESSION/drift-report.md"
 ```
 
 **Validators:**
@@ -328,23 +458,55 @@ Then re-run Phase 5 (max 1 retry). If still drifting, PAUSE.
 
 **Spawn subprocess:**
 ```bash
+# Phase 6 exception: builder needs full plan with paste-ready code
 PLAN=$(cat "$SESSION/plan.md" 2>/dev/null || echo "No plan available")
+# Compressed context for traceability: critique issues + brief criteria
+CRITIQUE_ISSUES=$(grep -E "^\| [0-9]+ \|" "$SESSION/critique.md" 2>/dev/null | head -15)
+REQUIREMENTS=$(sed -n '/## Success Criteria/,/^## /p' "$SESSION/brief.md" 2>/dev/null | grep -E "^[0-9]+\." | head -10)
 
-PROMPT="You are the Builder Agent. Execute this plan exactly as specified.
+PROMPT="You are the Builder Agent.
 
-Plan:
+## CONSTRAINTS
+- Plan is law. No improvisation, no refactoring untouched code, no 'improvements'.
+- For each step: read only referenced files, verify BEFORE matches, apply AFTER exactly, run tests.
+- Report blockers (BLOCKED status) — do not silently skip steps.
+- Track traceability: every critique issue and success criterion must appear in the Traceability section.
+
+## CONTEXT
+Plan (full — paste-ready code required for execution):
 $PLAN
 
-For each step: read only referenced files, verify BEFORE matches, apply AFTER exactly, run tests. No improvisation, no refactoring untouched code.
+Critique issues to address (from Phase 3):
+$CRITIQUE_ISSUES
 
-Write output to $SESSION/build-report.md with:
+Success criteria to verify (from Phase 1):
+$REQUIREMENTS
+
+## TASK
+Execute every plan step in order. Build, type-check, and verify. Produce a traceability matrix.
+
+## FORMAT
+Write to \$SESSION/build-report.md with:
 ## Verdict: [SUCCESS | PARTIAL | FAILED]
 ## Results (table: Step | File | Status | Notes)
 ## Verification (Build: PASS/FAIL, Types: PASS/FAIL)
-## Files Changed (list)"
+## Files Changed (list)
+## Traceability
+### Critique Coverage (table: Critique # | Severity | Issue | Addressed In | Status)
+### Requirements Coverage (table: Criterion # | Requirement | Implemented In | File(s) | Status)
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/build-report.md.raw"
-[[ ! -f "$SESSION/build-report.md" ]] && [[ -f "$SESSION/build-report.md.raw" ]] && cp "$SESSION/build-report.md.raw" "$SESSION/build-report.md"
+Status values: RESOLVED | ADDRESSED | DEFERRED | DONE | IMPLEMENTED | VERIFIED | NOT_APPLICABLE
+
+## VERIFY
+Before writing, confirm:
+- Every plan step has a row in Results
+- Verification ran build AND types
+- Files Changed lists every modified/created path
+- Traceability has rows for ALL critique issues and ALL success criteria
+- Status values are from the allowed set above"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/build-report.md.raw"
+[[ ! -f "\$SESSION/build-report.md" ]] && [[ -f "\$SESSION/build-report.md.raw" ]] && cp "\$SESSION/build-report.md.raw" "\$SESSION/build-report.md"
 ```
 
 **Validators:**
@@ -363,72 +525,136 @@ Run sequentially. Each is a separate subprocess. No pauses.
 ### Phase 7: Denoise
 
 ```bash
-BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+# Compressed context: Files Changed list + Verdict (not full report)
+FILES_CHANGED=$(grep -A30 "## Files Changed" "$SESSION/build-report.md" 2>/dev/null | head -30)
+[[ -z "$FILES_CHANGED" ]] && FILES_CHANGED=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+VERDICT=$(grep "^## Verdict:" "$SESSION/build-report.md" 2>/dev/null | head -1)
 
-PROMPT="You are the Denoiser Agent. Remove debug artifacts from changed files.
+PROMPT="You are the Denoiser Agent.
 
-Build report:
-$BUILD_REPORT
+## CONSTRAINTS
+- Operate ONLY on files in the Files Changed list.
+- Remove: console.log/debug/trace, debugger statements, commented-out code, TODO/DEBUG/TEMP markers, unused imports.
+- Preserve: console.error with component prefix, explanatory comments, license headers.
+- Do not refactor or rename anything.
 
-Remove: console.log/debug/trace, debugger statements, commented-out code, TODO/DEBUG/TEMP markers, unused imports.
-Preserve: console.error with component prefix, explanatory comments, license headers.
+## CONTEXT
+$VERDICT
+Files Changed:
+$FILES_CHANGED
 
-Append results to $SESSION/qa-report.md with a ## Denoise section."
+## TASK
+Strip debug artifacts from the changed files only. Report what was removed.
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-denoise.raw"
+## FORMAT
+Append to \$SESSION/qa-report.md a ## Denoise section listing files modified and noise removed (per file: count + types).
+
+## VERIFY
+- Only files from the Files Changed list were touched
+- Console.error with component prefix preserved
+- No code logic changed"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/qa-denoise.raw"
 ```
 
 ### Phase 8: Quality Fit
 
 ```bash
-BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+FILES_CHANGED=$(grep -A30 "## Files Changed" "$SESSION/build-report.md" 2>/dev/null | head -30)
+[[ -z "$FILES_CHANGED" ]] && FILES_CHANGED=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
 
-PROMPT="You are the Quality Fit Agent. Check changed files for type safety, lint, and conventions.
+PROMPT="You are the Quality Fit Agent.
 
-Build report:
-$BUILD_REPORT
+## CONSTRAINTS
+- Type-check and lint ONLY the changed files.
+- Auto-fix lint violations where safe; flag (don't auto-fix) any change that alters behavior.
+- Reference project conventions in CLAUDE.md and .claude/rules/ when judging fit.
 
-Run type checker and linter on changed files. Check project conventions. Auto-fix violations. Append results to $SESSION/qa-report.md with a ## Quality Fit section."
+## CONTEXT
+Files Changed:
+$FILES_CHANGED
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-fit.raw"
+## TASK
+Verify type safety, lint cleanliness, and convention adherence on changed files.
+
+## FORMAT
+Append to \$SESSION/qa-report.md a ## Quality Fit section with: type-check result (PASS/FAIL + errors), lint result (PASS/FAIL + violations), conventions checked, fixes applied.
+
+## VERIFY
+- Type checker actually ran (output captured)
+- Linter actually ran (output captured)
+- Auto-fixes don't change behavior"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/qa-fit.raw"
 ```
 
 ### Phase 9: Quality Behavior
 
 ```bash
-BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
-DESIGN=$(cat "$SESSION/design.md" 2>/dev/null || echo "")
-CRITIQUE=$(cat "$SESSION/critique.md" 2>/dev/null || echo "")
+FILES_CHANGED=$(grep -A30 "## Files Changed" "$SESSION/build-report.md" 2>/dev/null | head -30)
+[[ -z "$FILES_CHANGED" ]] && FILES_CHANGED=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+DESIGN_DECISIONS=$(sed -n '/[Dd]ecisions/,/[Cc]omponents/p' "$SESSION/design.md" 2>/dev/null | head -40)
+CRITIQUE_CONSENSUS=$(sed -n '/## Consensus/,/^## /p' "$SESSION/critique.md" 2>/dev/null | head -20)
 
-PROMPT="You are the Quality Behavior Agent. Verify the code works as designed.
+PROMPT="You are the Quality Behavior Agent.
 
-Build report:
-$BUILD_REPORT
+## CONSTRAINTS
+- Verify behavior on changed files only.
+- Run the existing build and test suite — do not invent new tests beyond what was planned.
+- Check edge cases flagged by the critique consensus.
 
-Design (expected behavior):
-$DESIGN
+## CONTEXT
+Files Changed:
+$FILES_CHANGED
 
-Critique (edge cases to check):
-$CRITIQUE
+Expected behavior (design decisions):
+$DESIGN_DECISIONS
 
-Run build, run tests, verify behavior matches design. Append results to $SESSION/qa-report.md with a ## Quality Behavior section."
+Edge cases to verify (critique consensus):
+$CRITIQUE_CONSENSUS
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-behavior.raw"
+## TASK
+Verify the code behaves as designed. Run build and tests. Flag any deviation.
+
+## FORMAT
+Append to \$SESSION/qa-report.md a ## Quality Behavior section with: build result, test results, behavior verification per critique consensus item.
+
+## VERIFY
+- Build was actually executed (command + output)
+- Tests were actually run (count + pass/fail)
+- Each consensus item from critique is verified or marked unverifiable"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/qa-behavior.raw"
 ```
 
 ### Phase 10: Quality Docs
 
 ```bash
-BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+FILES_CHANGED=$(grep -A30 "## Files Changed" "$SESSION/build-report.md" 2>/dev/null | head -30)
+[[ -z "$FILES_CHANGED" ]] && FILES_CHANGED=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
 
-PROMPT="You are the Quality Docs Agent. Check documentation coverage for changed files.
+PROMPT="You are the Quality Docs Agent.
 
-Build report:
-$BUILD_REPORT
+## CONSTRAINTS
+- Check documentation only on changed files.
+- API routes REQUIRE docs (Swagger/OpenAPI). Public functions RECOMMEND docs. Types are nice-to-have.
+- Don't generate docs unless explicitly part of the plan — flag missing instead.
 
-Check: API route docs (required), public function docs (recommended), type docs (nice-to-have). Append results to $SESSION/qa-report.md with a ## Quality Docs section."
+## CONTEXT
+Files Changed:
+$FILES_CHANGED
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-docs.raw"
+## TASK
+Check documentation coverage. Flag missing required docs.
+
+## FORMAT
+Append to \$SESSION/qa-report.md a ## Quality Docs section with: API route doc coverage (table: route | has_docs), public function coverage, missing required docs.
+
+## VERIFY
+- Every API route in changed files was checked
+- Missing required docs are listed with file:line references"
+
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/qa-docs.raw"
 ```
 
 ---
@@ -437,24 +663,40 @@ echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/q
 
 **Spawn subprocess:**
 ```bash
-BUILD_REPORT=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
+# Compressed context: changed files list only
+FILES_CHANGED=$(grep -A30 "## Files Changed" "$SESSION/build-report.md" 2>/dev/null | head -30)
+[[ -z "$FILES_CHANGED" ]] && FILES_CHANGED=$(cat "$SESSION/build-report.md" 2>/dev/null || echo "No build report")
 
-PROMPT="You are the Security Agent. Scan changed files for vulnerabilities.
+PROMPT="You are the Security Agent.
 
-Build report:
-$BUILD_REPORT
+## CONSTRAINTS
+- Scan changed files only.
+- False negatives (missing a real vulnerability) are far worse than false positives. When uncertain, flag [REVIEW_NEEDED] rather than marking safe.
+- CRITICAL severity: injection (SQL/command) or hardcoded secrets — always pause regardless of profile.
+- FAIL severity: XSS or auth bypass.
+- PASS verdict requires ALL of: no injection, no secrets, no auth gaps, no XSS.
 
-Scan for: SQL/command injection, XSS, auth gaps, hardcoded secrets, access control issues.
+## CONTEXT
+Files Changed:
+$FILES_CHANGED
 
-Append findings to $SESSION/qa-report.md with:
+## TASK
+Scan for: SQL/command injection, XSS, auth gaps, hardcoded secrets, access control issues. Issue verdict.
+
+## FORMAT
+Append to \$SESSION/qa-report.md:
 ## Findings (table: Type | File:Line | Pattern | Severity | Fix)
 ## Summary (Injection: CLEAR/FOUND, Auth: N/M protected, Secrets: CLEAR/FOUND)
 ## Verdict: [PASS | FAIL | CRITICAL]
 
-CRITICAL = injection or secrets. FAIL = XSS or auth bypass. PASS = all clear."
+## VERIFY
+- Every changed file was inspected (or marked SKIPPED with reason)
+- Severity markers are exactly CRITICAL/FAIL/PASS (no other words)
+- [REVIEW_NEEDED] flag is used for any uncertain finding
+- Verdict CRITICAL is set if ANY injection or secrets found"
 
-echo "$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "$SESSION/qa-security.raw"
-[[ ! -f "$SESSION/qa-report.md" ]] && echo "Security scan produced no qa-report.md" >&2
+echo "\$PROMPT" | claude -p --dangerously-skip-permissions 2>&1 | tee "\$SESSION/qa-security.raw"
+[[ ! -f "\$SESSION/qa-report.md" ]] && echo "Security scan produced no qa-report.md" >&2
 ```
 
 **Validators:**
