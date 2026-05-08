@@ -87,6 +87,41 @@ When `--fix` flag is set:
 3. On QA issues: apply suggestions
 4. Continue if resolved
 
+## Cross-Phase Discernment Validators (SOFT)
+
+These run after Phase 6 (Build) to check consistency across phases. Tied to the 4 Ds framework — see `lib/framework.md`. All section-scoped (not file-wide grep) to avoid false positives from prose mentions.
+
+- `critique_addressed` — Discernment: every HIGH/MEDIUM critique issue is addressed in build-report Traceability section
+- `requirements_covered` — Discernment + Diligence: every numbered success criterion is verified in build-report Traceability
+- `uncertainty_resolved` — Knowledge: no `NEEDS_RESEARCH` / `NEEDS_DETAIL` / `NEEDS_INPUT` verdicts remain in design.md or plan.md
+
+```yaml
+- name: critique_addressed
+  phase: 6
+  principle: "Discernment — critique-to-build traceability"
+  check: |
+    issues=$(sed -n '/^## Issues/,/^## /p' "$SESSION/critique.md" 2>/dev/null | grep -cE "\| (HIGH|MEDIUM) \|" || echo 0)
+    traced=$(sed -n '/^## Traceability/,/^## /p' "$SESSION/build-report.md" 2>/dev/null | grep -cE "RESOLVED|ADDRESSED|DONE" || echo 0)
+    [ "$traced" -ge "$issues" ]
+  fail: SOFT
+
+- name: requirements_covered
+  phase: 6
+  principle: "Discernment — requirements-to-build coverage"
+  check: |
+    criteria=$(sed -n '/^## Success Criteria/,/^## /p' "$SESSION/brief.md" 2>/dev/null | grep -cE "^[0-9]+\." || echo 0)
+    covered=$(sed -n '/^## Traceability/,/^$/p' "$SESSION/build-report.md" 2>/dev/null | grep -cE "DONE|IMPLEMENTED|VERIFIED" || echo 0)
+    [ "$covered" -ge "$criteria" ]
+  fail: SOFT
+
+- name: uncertainty_resolved
+  phase: 6
+  principle: "Knowledge — flagged uncertainty must be resolved before build"
+  check: |
+    ! grep -E "^## Verdict:.*NEEDS_(RESEARCH|DETAIL|INPUT)" "$SESSION/design.md" "$SESSION/plan.md" 2>/dev/null
+  fail: SOFT
+```
+
 ## Issue Logging
 
 All issues logged to session artifacts:

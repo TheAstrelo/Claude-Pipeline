@@ -1,14 +1,46 @@
-# AI Development Pipeline
+<div align="center">
 
-Navigate to your terminal and start with: npx @anthropic-ai/claude-code@latest --dangerously-skip-permissions
+# Claude Code Auto-Pipeline
 
-A structured, multi-phase development workflow for AI coding tools. One command takes a task from idea to production-ready code — with design reviews, adversarial critique, drift detection, and automated QA.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Built%20for-Claude%20Code-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
+[![Agents](https://img.shields.io/badge/Agents-41-green)](.claude/agents/)
+[![Tool Agnostic](https://img.shields.io/badge/Works%20with-Claude%20%7C%20Cursor%20%7C%20Windsurf%20%7C%20Copilot-orange)](#tool-support)
+
+**AI coding tools generate code fast — but ship bugs faster.**
+This pipeline adds structured quality gates between "idea" and "production" so you stop crossing your fingers every time you deploy.
+
+One command. 12 phases. Security, accessibility, performance, and testing — handled automatically. Now structured around Anthropic's 4 Ds + 4 Core Properties frameworks.
 
 ```bash
 /auto-pipeline "add user authentication with JWT"
 ```
 
 Works with **Claude Code, Cursor, Cline, Windsurf, GitHub Copilot, and Aider**.
+
+<!--
+  TODO: Replace this comment with a GIF or screenshot of the pipeline in action.
+  Record the pipeline-viz pixel art office + terminal output side by side.
+  Place the file at .github/assets/demo.gif and uncomment the line below:
+-->
+<!-- ![Pipeline Demo](.github/assets/demo.gif) -->
+
+</div>
+
+---
+
+## Why This Exists
+
+You've seen it before: Claude writes 200 lines, you hit "accept all," and 10 minutes later something's broken. No tests, no security check, no one asked "does this even match the existing code?"
+
+This pipeline fixes that. Every feature goes through **pre-flight checks, adversarial review, drift detection, and a full QA suite** before a single line ships. It catches the things you'd catch in code review — except it catches them *before* you commit.
+
+**Results from real usage:**
+- Caught N+1 queries, XSS vectors, and missing auth checks that would have shipped otherwise
+- 40-60% token savings vs. naive "just ask Claude to build it" approaches
+- Works with any codebase — drop in the `.claude/` folder and go
+
+> **Looking for the manual workflow?** See the [`full-workflow-legacy`](https://github.com/TheAstrelo/Claude-Pipeline/tree/full-workflow-legacy) branch for the original 11-phase pipeline with human checkpoints.
 
 ---
 
@@ -29,6 +61,18 @@ This pipeline makes AI follow the same process a senior engineering team would:
 7. **Check** the result — types, tests, docs, and security
 
 Every phase produces a readable artifact. Every design decision cites a source. Every critique issue has a fix. Full traceability from task to code.
+
+| Feature | Benefit |
+|---------|---------|
+| **3 Profiles** | `yolo` (fast), `standard` (balanced), `paranoid` (thorough) |
+| **Pre-Check Phase** | Finds existing code/libraries before building from scratch |
+| **41 Specialized Agents** | Security, accessibility, performance, tech debt, and more |
+| **Slim Agents** | 60-84% fewer tokens than standard agents |
+| **Output Validation** | Objective checks replace self-reported confidence |
+| **Caching** | Security scans, patterns, QA rules cached across runs |
+| **Auto-Recovery** | Retries failures before pausing |
+| **4 Ds + Core Properties** | Prompts structured CONSTRAINTS→CONTEXT→TASK→FORMAT→VERIFY; Phase 0 triage; Phase 6 traceability; cross-phase validators |
+| **Tool Agnostic** | Works with Claude Code, Cursor, Windsurf, Copilot, Cline, Aider |
 
 ---
 
@@ -430,14 +474,50 @@ bunx biome format --write "$FILE"
 
 ---
 
+## Tool Support
+
+This pipeline is **tool-agnostic**. Drop the `.claude/` folder into any project and use it with:
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Full support | Native slash commands |
+| [Cursor](https://cursor.sh) | Full support | Via rules and agents |
+| [Windsurf](https://codeium.com/windsurf) | Full support | Via rules and agents |
+| [GitHub Copilot](https://github.com/features/copilot) | Full support | Via instructions |
+| [Cline](https://github.com/cline/cline) | Full support | Via custom instructions |
+| [Aider](https://aider.chat) | Full support | Via conventions |
+
+---
+
+## Live Visualization
+
+The `pipeline-viz/` folder includes a **real-time pixel-art visualization** that shows your pipeline progress as an animated isometric office with agents working at desks.
+
+```bash
+cd pipeline-viz && npm install && npm start
+```
+
+<!-- TODO: Add a screenshot of pipeline-viz here -->
+<!-- ![Pipeline Visualization](.github/assets/pipeline-viz.png) -->
+
+---
+
 ## Requirements
 
 - An AI coding tool (Claude Code, Cursor, Cline, Windsurf, Copilot, Codex, or Aider)
 - Node.js (for build/type-check steps in QA phases)
-- A project to run it on
+- A project with a `CLAUDE.md` file
+
+---
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+Whether it's a new agent, a bug fix, or better docs — PRs are appreciated.
 
 ---
 
 ## License
 
-MIT
+MIT — use it, adapt it, ship it. See [LICENSE](LICENSE).

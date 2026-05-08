@@ -2,6 +2,40 @@
 
 Configuration reference for the auto-pipeline system.
 
+## Framework Principles
+
+The pipeline is structured around two frameworks from Anthropic's AI courses:
+
+- **The 4 Ds** (human competencies): Delegation, Description, Discernment, Diligence
+- **The 4 Core Properties** (machine behaviors): Next Token Prediction, Knowledge, Working Memory, Steerability
+
+See `lib/framework.md` for the full mapping of principles to pipeline mechanics.
+
+### Prompt Structure (all phases)
+
+Every phase prompt follows the order: **CONSTRAINTS → CONTEXT → TASK → FORMAT → VERIFY**
+
+This exploits Next Token Prediction (constraints first, verify last) and Steerability (instructions before data). Per Anthropic prompting docs, "queries at the end can improve response quality by up to 30%."
+
+### Context Budget Strategy (Working Memory)
+
+Each phase receives compressed shell extractions instead of full artifact dumps. Patterns use case-insensitive matching with cat fallback:
+
+| Phase | Source | Extraction | Rationale |
+|-------|--------|-----------|-----------|
+| 1 | pre-check.md | `grep -iA2 Recommendation` + `grep -iA20 Codebase` | Recommendation + match table only |
+| 2 | brief.md | Full brief (already concise) | Architect needs complete requirements |
+| 3 | design.md | `sed -n '/[Dd]ecisions/,/[Rr]isks/p'` | Decisions + components only |
+| 4 | design.md | Same as Phase 3 | Planner needs design decisions |
+| 5 | brief.md + plan.md | Success Criteria section + step list | Compare requirements to plan |
+| 6 | plan.md | Full plan (exception — needs paste-ready code) | Builder must apply BEFORE/AFTER exactly |
+| 7-10 | build-report.md | `grep -A20 "Files Changed"` + verdict | QA acts on changed files only |
+| 11 | build-report.md | Files Changed list only | Security scans changed code |
+
+### Delegation Triage (Phase 0)
+
+Phase 0 outputs an advisory Task Triage section: Complexity (LOW/MEDIUM/HIGH), Risk (LOW/MEDIUM/HIGH), Recommended Profile, Human Review (list of phase numbers or "None"). The orchestrator logs a warning if the recommended profile differs from `--profile`, but never auto-overrides — the human decides (Delegation principle).
+
 ## Profiles
 
 ### yolo
