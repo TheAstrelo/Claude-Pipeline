@@ -533,5 +533,4 @@ bug fix, or better docs, it's appreciated.
 
 ## License
 
-MIT-licensed in intent — use it, adapt it, ship it. *(A `LICENSE` file has not
-yet been added to this repo; add one to formalize.)*
+MIT — see [`LICENSE`](LICENSE). Use it, adapt it, ship it.
