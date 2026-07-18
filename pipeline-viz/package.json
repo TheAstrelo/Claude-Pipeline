@@ -1,0 +1,14 @@
+{
+  "name": "pipeline-viz",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pipeline visualization bridge server for Claude Code dev-pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "chokidar": "^3.6.0"
+  }
+}

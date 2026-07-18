@@ -1,0 +1,392 @@
+# CLAUDE.md
+
+Guidance for Claude Code when working **on this repository**.
+
+> This file is instructions for modifying Claude-Pipeline. It is not the product README.
+> For what the project claims to do, see README.md — but read "Known State" below first,
+> because README currently describes features that are not implemented.
+
+---
+
+## Known State (read before changing anything)
+
+**The pipeline does not currently execute.** Do not assume any phase has ever run. Verified:
+
+- `.claude/history.json` → `"runs": []`, `"totalRuns": 0`. Zero recorded runs.
+- `.claude/artifacts/` does not exist, though four docs reference it as if it ships.
+- Every phase invocation passes `--max-tokens`, which is **not a Claude Code CLI flag**.
+  Verify: `claude -p --model haiku --max-tokens 100 "hi"` → `error: unknown option '--max-tokens'`.
+  17 call sites in `.claude/commands/auto-pipeline.md` (:1052, :1157, :1241, :1328, :1373,
+  :1418, :1498, :1527, :1603, :1684, :1710, :1802, :1896, :1938, :1978, :2011, :2157).
+- 11 of 13 phase calls read `echo "\$PROMPT"` — an escaped `$`, which pipes the literal
+  7-character string `$PROMPT`. The two revision blocks (:1527, :1710) and the canonical
+  template (:744) use the correct unescaped form, so the file contradicts itself.
+- Helper functions are defined in one ```bash fence and called from another 300–1700 lines
+  away (`init_cache_tracking` called :65, defined :405). The Bash tool spawns a fresh shell
+  per call — **shell state does not persist between fences.** Nothing in this file is
+  executable as written.
+
+**Treat `auto-pipeline.md` as a specification the orchestrating model interprets as prose,
+not as a shell script.** Its determinism claims are aspirational.
+
+When you fix something here, fix the doc in the same change. The single largest defect class
+in this repo is documentation asserting features that were never implemented.
+
+---
+
+## Working On This Repo
+
+### Reading `auto-pipeline.md`
+2,418 lines. **Page it with `offset`/`limit`** — never read it once and assume you have it.
+Its sections contradict each other (model routing is defined twice at :34 and :691; the
+subprocess template at :744 disagrees with all 11 phases that copy it).
+
+### Two orchestrators exist and they diverge
+| File | Lines | Model routing | Status |
+|---|---|---|---|
+| `.claude/commands/auto-pipeline.md` | 2,418 | Yes (`--model`) | The one docs describe |
+| `run-pipeline.sh` | 1,038 | **None** — `grep -c 'MODEL\|--model\|haiku\|sonnet' run-pipeline.sh` → 0 | Referenced by zero docs |
+
+`run-pipeline.sh:223` is `echo "$prompt" | claude -p --dangerously-skip-permissions` with no
+`--model`. Every cost claim in every doc is false for this orchestrator. A change to one does
+not propagate to the other. **State which orchestrator you are changing.**
+
+### Do not edit `.claude/.claude/`
+An install bug (`install.sh:121` `cp -r "$source_dir" "$target_dir"` nests when the target
+exists) created a fossil tree: 10 command files including a stale 868-line `auto-pipeline.md`
+describing a **different 20-phase pipeline**. Claude Code does not discover it — it is a
+sibling of `.claude/commands/`, not a child. Anything you edit there has no effect.
+
+### Verify claims before repeating them
+Every count in this file was checked with `ls | wc -l` on 2026-07-15. If you change a count,
+re-run the command. Do not copy a number from README — README is wrong about several.
+
+---
+
+## Verified Facts
+
+| Claim | Reality | Check |
+|---|---|---|
+| Slash commands | **23** | `ls .claude/commands/*.md \| wc -l` |
+| Agents | **42** (README says 41 — wrong, twice: badge :7 and :69) | `ls .claude/agents/*.md \| wc -l` |
+| Skills | **2**, both private-project scaffolding, not pipeline skills | `ls .claude/skills/` |
+| Wired hooks | **2** (PreToolUse→protect-files.sh, PostToolUse→auto-format.sh) | `.claude/settings.json:3-24` |
+| Unwired hook scripts | **3** (notify.sh, cache.sh, detect-project.sh — zero callers) | grep repo-wide |
+| Tests | **0** anywhere in the repo | `find . -name '*.test.*' -not -path '*/node_modules/*'` |
+| MCP servers | **0** configured; 4 files reference `mcp__codex-advisor__ask_codex`, undeclared | `grep -rn 'mcp__' .` |
+
+**Agent model pinning:** 32 files declare `model: haiku`, 6 declare `inherit`, 2 declare
+`opus`, 2 have no frontmatter at all (`code-scanner.md`, `suggestion-engine.md` — these are
+not registrable as subagents). **All of it is inert**: `auto-pipeline.md` never loads any
+agent file. `grep -n '\.claude/agents\|--agents\|subagent_type' .claude/commands/auto-pipeline.md`
+→ zero hits. Every phase re-inlines its persona as a bash string. Editing agent frontmatter
+changes nothing about pipeline behavior.
+
+---
+
+## Architecture
+
+### Phases 0–12 (twelve documented, thirteen implemented)
+
+```
+0  Pre-Check          HARD    Find existing code/libraries
+1  Requirements       SOFT*   Extract testable success criteria
+2  Design             SOFT*   Architecture decisions with citations
+3  Adversarial        HARD    3 critics + 1 aggregator stress-test design
+4  Planning           SOFT    Exact BEFORE/AFTER code per change
+5  Drift Detection    SOFT    Verify plan matches design
+6  Build              HARD**  Execute plan step by step
+7-10 QA               NONE    Denoise, fit, behavior, docs
+11 Security           HARD    OWASP scan
+12 Learning Extract   none    sed-munges .claude/AGENTS.md (see below)
+```
+
+`*` **Phases 1 and 2 are labelled SOFT but carry HARD validators.** `no_ambiguity` (:1165)
+and `no_research_gap` (:1249) are tagged HARD under headers reading "(SOFT gate)" (:1093,
+:1178). The headers are wrong.
+
+`**` **Phase 6 is labelled NONE but `no_blocked` (:1808) is HARD.** It can pause.
+
+**Phase 12 exists in code (:2181–2289) and in no document.** It mutates `.claude/AGENTS.md`
+on every successful run via `sed -i`. It is absent from README, PIPELINE-SPEC, and the Final
+Output summary. If you touch AGENTS.md, know that a pipeline run rewrites it — and that
+`sed -i` + `a\` are GNU-only, so this silently fails on macOS.
+
+### Model routing — the docs are wrong about Phase 3
+
+**Do not repeat "Strong models: Phases 2 and 3 only."** It is false. Verified at the call sites:
+
+| Step | Line | Model |
+|---|---|---|
+| 3a. Architect critic | :1328 | `$MODEL_FAST` |
+| 3a. Skeptic critic | :1373 | `$MODEL_FAST` |
+| 3a. Implementer critic | :1418 | `$MODEL_FAST` |
+| 3b. Aggregator | :1498 | `$MODEL_STRONG` |
+
+The file's own routing table says so at :702–703. **The three critics that do the actual
+adversarial work run on the fast model; only the synthesis step uses the strong model.**
+README:320 calls those critics "the aha moment." They are Haiku. The accurate statement is
+"Phase 2 and Phase 3's aggregator use the strong model" — roughly 1.25 of 12 phases, not 2.
+
+### The cost claim is unverified and self-contradictory
+
+Four different numbers for one claim:
+
+| Figure | Source |
+|---|---|
+| 70% | `auto-pipeline.md:33`, `:685`, README:393, PIPELINE-SPEC:929, demo/README:129 |
+| 62% | `auto-pipeline.md:728`, `:2364` |
+| 40-60% | README:40 |
+
+The arithmetic at `:725-727` does not reproduce: "50K tokens at Sonnet rates = ~$0.90" is not
+reachable from the file's own quoted $3/$15 per MTok (50K input = $0.15; 50K output = $0.75).
+It conflates input and output, then derives a saving from the inflated baseline. The "all
+strong" baseline it measures against is a configuration the pipeline never runs.
+
+**Do not cite a cost-reduction percentage until a run is measured with
+`--output-format json` and real `usage` figures.** `history.json` records zero runs, so there
+is no measurement behind any of these numbers.
+
+### Execution pattern
+
+Each phase spawns `claude -p` as a subprocess. Stated rationale is memory isolation. Note the
+tradeoff the docs never mention: each subprocess is a fresh session, so there is **no
+cross-phase prompt cache**, and switching models between phases invalidates the cache
+entirely (cache is keyed by model *and* effort level).
+
+The `[CACHE_BREAKPOINT:1h]` markers (:388) are **inert literal text**. Prompt caching is
+controlled by the `cache_control` API field on a content block; `claude -p` takes a plain
+string on stdin and there is no in-prompt marker syntax. The ~215-line caching subsystem
+(:349–565) reports hardcoded zeros because `parse_cache_metrics` (:422) greps for JSON fields
+from calls that never pass `--output-format json`. Delete the markers; set
+`ENABLE_PROMPT_CACHING_1H=1` in the environment if on API-key auth.
+
+---
+
+## Validation Philosophy — aspiration vs. implementation
+
+**The stated philosophy:** objective checks only (pattern matching, file existence, count
+thresholds); gates decided by validator results, not self-reported confidence.
+
+**This is the right principle and the repo does not follow it.** Do not cite it as a
+description of current behavior. Three concrete violations:
+
+1. **A self-reported confidence gate exists.** `auto-pipeline.md:902–964` is a "Confidence
+   Calibration" section whose :904 reads "Each phase agent must self-assess confidence" and
+   whose :947 sets `GATE_RESULT="PAUSE"` from that self-assessment. Phase 0's validator list
+   (:1068) includes `has_confidence` **untagged** — i.e. HARD by the file's own convention.
+   PIPELINE-SPEC.md:112 ("Self-reported confidence scores are ignored for gating decisions")
+   is contradicted by the orchestrator it specifies.
+
+2. **The confidence gate is itself broken.** The validator greps
+   `## Confidence: (HIGH|MEDIUM|LOW)` (:942) but 13 agent files emit `## Confidence: [0-100]`
+   — a different scale. The gate cannot match its own inputs.
+
+3. **Validators grep model-authored prose for words the prompt told the model to write.**
+   Phase 11's `no_critical → ! grep "CRITICAL"` (:2164) is HARD, while the mandated output
+   format at :2148 is `## Verdict: [PASS | FAIL | CRITICAL]`. An obedient agent emitting the
+   template **fails the security gate on a clean scan.** Same trap: `no_secrets → ! grep -i
+   "Hardcoded"` (:2167) fails on "Hardcoded secrets: CLEAR". Same shape at Phase 1 (:1165),
+   Phase 2 (:1249), Phase 4 (:1611).
+
+   This is not objective validation — it is grep over self-report, which makes the *reading*
+   deterministic but not the *claim*. The gate measures vocabulary, not vulnerability, and it
+   penalizes thorough reports.
+
+**When fixing this:** anchor to the verdict line (`grep -qE '^## Verdict: PASS'`) or, better,
+adopt `--output-format json --json-schema` and validate structurally. That deletes this entire
+bug class and is the change with the largest payoff in the repo.
+
+---
+
+## Auto-Recovery Loops
+
+Implemented:
+- Phase 3 `REVISE_DESIGN` → re-prompt Phase 2 (max 1) — `:1516-1530`
+- Phase 5 `DRIFT_DETECTED` → re-prompt planner (max 1) — `:1699-1713`
+
+**Not implemented — do not document it as if it were:** "Phase 6 step failure → retry with
+error context (max 2/step)". No such logic exists. The only retry helpers
+(`should_retry_phase` :275, `on_phase_failure` :847) are dead code, reachable only from
+`run_phase()` (:804), whose body is the comment `# Actual phase execution happens here`.
+
+**Neither loop re-gathers context.** Phase 3's revision receives design + critique only; Phase
+5's receives plan + drift only (design.md is not passed back to the re-planner that must match
+it). No codebase re-read, no re-search, no re-run of the failing check. The arrow from verify
+back to gather does not exist anywhere in 2,418 lines. Every `## VERIFY` block is an
+instruction *inside* the prompt ("Before writing, confirm:") — a one-shot self-check, not a
+loop the orchestrator runs.
+
+---
+
+## Profiles
+
+| Profile | Skip | Gate Mode | Defined in |
+|---|---|---|---|
+| `yolo` | 3, 5, 7-10 | soft | auto-pipeline.md:70, settings.json:29 |
+| `standard` | none | mixed | auto-pipeline.md:71, settings.json:43 |
+| `paranoid` | none | hard | auto-pipeline.md:72, settings.json:50 |
+| `fast` | 7-10 | "standard" | **settings.json:36 only — unreachable** |
+
+Three defects here:
+
+1. **`--profile` is never parsed.** `:26` reads `PROFILE="${PROFILE:-standard}"` — from the
+   *environment*, not the flag. The regex parse that exists for `--batch-qa` (:38) and
+   `--resume` (:44) was never written for `--profile`. `/auto-pipeline --profile=paranoid`
+   runs as `standard`. **The headline profile feature is inert.**
+
+2. **`SKIP_PHASES` is never assigned in code.** `:70-78` are prose bullets *outside* any bash
+   fence, yet `${SKIP_PHASES[*]}` is dereferenced as a real array at :816, :1099, :1270, :1630.
+   Skips skip nothing.
+
+3. **The `fast` profile is fiction.** README:337 lists it as a profile row; `auto-pipeline.md`
+   handles only yolo/standard/paranoid; `run-pipeline.sh:109` hard-exits: `Error: Unknown
+   profile 'fast'`. Its `"gateMode": "standard"` is not one of the four valid modes
+   (hard|mixed|soft|none) — an invalid value in a config block **nothing reads**. The entire
+   `pipeline` key in settings.json (:26-114) is non-standard; Claude Code ignores it and so
+   does every script in this repo.
+
+---
+
+## Documented-But-Unimplemented Surface
+
+Do not treat these as existing. README:119-134 advertises 13 flags; **one** (`--resume`) is
+implemented:
+
+`--dry-run` `--fast` `--fix` `--auto` `--yolo` `--quiet` `--only=X` `--preview` `--test`
+`--branch` `--pr` `--template=X` `--estimate` → all zero hits in `auto-pipeline.md`.
+
+Inversely, the flags that **do** work are documented nowhere in README or this file:
+`--skip-arm` `--skip-ar` `--skip-pmatch` `--batch-qa` `--mode=dev`.
+
+README's Quick Start (:101) says `/auto-pipeline --yolo "..."`. `--yolo` is not parsed, so it
+survives into `$TASK` and is sent to the model as part of the task string. demo/README.md:64
+uses the correct `--profile=yolo`. Two docs, opposite syntax, and the wrong one is more
+prominent.
+
+Also missing but linked: `LICENSE` (README:5 badge and :523), `CONTRIBUTING.md` (README:515),
+`.github/assets/demo.gif` (README:26). A repo whose headline badge claims MIT ships no license
+text. `.claude/prompts/` holds 14 externalized phase prompts that `load_prompt()` (:333) never
+loads — grep returns exactly one hit, the definition.
+
+---
+
+## Rules Integration — HANDLE WITH CARE
+
+`.claude/rules/{api,database,react}.md` are **conventions for one private codebase** (a
+Next.js/TypeScript/MUI/PostgreSQL app referred to as "RDO"). They specify
+`@infrastructure/auth/middleware` imports, `deal_outcomes` / `ml_fit_scores` tables, "highest
+migration ID is 240", duplicate IDs 116/133/134/151/152/233/234/235, and MUI Grid v2 syntax.
+
+`auto-pipeline.md:95-115` **auto-injects them on keyword match**. A stranger typing
+`/auto-pipeline "add a REST endpoint"` matches `grep -qiE "api|endpoint|route|REST|handler"`
+and gets api.md pushed into the design prompt, instructing Claude to import from a module that
+does not exist in their project. `"add a migration"` injects database.md's hardcoded IDs.
+
+**On this repo:** these files are sample content. Do not follow them as conventions for
+Claude-Pipeline itself — it is a bash-and-markdown project with no React, no Postgres, and no
+API routes.
+
+**Before this ships:** either parameterize the rules from `detect-project.sh` (which already
+computes project type and test command, and is wired to nothing), or move them to
+`examples/rules/` and stop auto-injecting them. Shipping another project's schema as
+authoritative context is the single worst violation of "a stranger can use this well."
+
+The same contamination runs deeper: 25 of 42 agents contain "RDO", 22 open with an identical
+persona line naming the private platform, and `tester.md:113` tells strangers to ignore
+failures in `useAccountSegmentation.test.ts` — a file that does not exist in their repo.
+
+---
+
+## Repo Layout
+
+```
+.claude/
+├── commands/      23 slash commands (auto-pipeline.md = main entry, 2418 lines)
+├── agents/        42 agent prompts — NOT loaded by the orchestrator (dead)
+├── prompts/       14 externalized phase prompts — load_prompt() never called (dead)
+├── rules/         Private-project conventions, auto-injected — see warning above
+├── templates/     4 patterns — zero references repo-wide (dead)
+├── skills/        2 skills, both private-project scaffolding
+├── lib/           8 reference docs — zero read by any executing code
+├── hooks/         5 scripts; only protect-files.sh + auto-format.sh are wired.
+│                  cache.sh is a CLI utility, not a hook (misfiled).
+├── cache/         Cached patterns/QA rules — contains private-project conventions
+├── AGENTS.md      Cross-session memory; rewritten by Phase 12. Undocumented elsewhere.
+├── history.json   Run history — currently empty
+└── settings.json  2 hook wirings + an 89-line `pipeline` block nothing reads
+.claude/.claude/   FOSSIL — install bug artifact, unreachable, do not edit
+targets/           6 ports; none carry hooks/settings; all use .pipeline/artifacts/
+                   while the Claude path uses .claude/artifacts/ (schism)
+demo/              Express demo — 6 files, ZERO tests
+pipeline-viz/      Visualizer — watches pipeline-state.jsonl, which only the FOSSIL
+                   tree ever writes. Never produced a frame.
+run-pipeline.sh    Second orchestrator, no model routing, referenced by no doc
+t.sh               Debug scratchpad, committed by accident — delete
+PIPELINE-SPEC.md   990-line "contract" — referenced by zero files, stale on Phase 3 & 12
+```
+
+`.claude/artifacts/` is listed in docs but **does not exist** until a run creates it.
+
+---
+
+## Commands
+
+```bash
+# Demo (demo/starter-project/) — Express, 6 files
+npm install
+npm run dev          # node --watch src/index.js
+npm start            # node src/index.js
+npm run test         # WARNING: globs src/**/*.test.js — matches NOTHING.
+                     # Exits 0 with "tests 0 / pass 0 / fail 0".
+                     # A green check here means nothing ran, not that tests passed.
+
+bash install.sh      # Interactive installer. Known bug: install.sh:121 nests .claude/
+                     # into an existing .claude/. Also mkdir's .pipeline/artifacts even
+                     # for the Claude Code target, which reads .claude/artifacts.
+                     # Copies no CLAUDE.md, though README:509 lists it as a requirement.
+
+cd pipeline-viz && npm install && npm start   # Phase map targets the 20-phase fossil
+```
+
+**Never let a phase conclude "tests pass" from an exit code alone** while the demo suite is
+empty — that is the pipeline's terminal quality signal reading zero and calling it green.
+
+---
+
+## Priorities When Fixing
+
+Ordered by leverage:
+
+1. **Delete `--max-tokens` from all 17 call sites.** Nothing runs until this is gone. Use
+   `--max-budget-usd` for a real cost ceiling and `--max-turns` to bound loops; enforce output
+   length in the prompt text. Then rewrite the "Token Budgets" section (:2300-2317), which
+   documents a ~19,100-token budget "enforced via `--max-tokens`" — a flag that does not exist.
+2. **Fix the 11 `echo "\$PROMPT"` → `echo "$PROMPT"`** and the `tee "\$SESSION/..."` targets.
+   Match :1527 and :1710, which are already correct.
+3. **Extract the bash into a real `pipeline.sh`** sourced once, and let `auto-pipeline.md` be a
+   thin invocation + gate-interpretation doc. Cross-fence function calls cannot work.
+4. **Adopt `--output-format json --json-schema`.** Deletes the entire false-positive validator
+   class, makes gates structural, and gives real `usage` telemetry so cost claims become
+   measurable instead of asserted.
+5. **Decide the agents/ question.** Either wire `.claude/agents/` in via `--agents`/Task
+   dispatch, or delete it. Do not ship both an inline persona and a divergent file claiming to
+   be the same agent.
+6. **De-RDO the rules, agents, cache, and templates** before calling this usable by strangers.
+7. **Reconcile every doc with the code in the same commit.** Delete the flags you do not
+   implement, or implement them. Do not leave a third state.
+
+---
+
+## Doc Discipline (the rule this repo most needs)
+
+Before adding any capability claim to README, CLAUDE.md, or PIPELINE-SPEC:
+
+- **Counts:** re-run the command. Four counts in these docs disagree with the filesystem.
+- **Flags:** `grep -c -- "--flagname"` the orchestrator. Twelve advertised flags have zero hits.
+- **Percentages:** show the arithmetic and the measurement. One claim carries three values.
+- **Features:** name the file and line that implements it. If you cannot, it is not a feature.
+- **Both orchestrators:** a claim true of `auto-pipeline.md` is probably false of
+  `run-pipeline.sh`. Say which.
+
+If a claim cannot survive a `grep`, it does not go in a doc.

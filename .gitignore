@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets (the .env.example templates stay tracked)
+.env
+.env.local
+.env.*.local
+
+# Pipeline session output (regenerated on every run)
+.claude/artifacts/
+
+# Logs
+*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
