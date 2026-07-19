@@ -42,10 +42,9 @@ demo/
 cp -r demo/starter-project/ /tmp/pipeline-demo/
 cd /tmp/pipeline-demo/
 
-# 2. Install the pipeline for your tool
+# 2. Copy the pipeline into the demo project
 #    (from the Claude-Pipeline repo root)
-bash install.sh
-#    → Pick your tool, point it at /tmp/pipeline-demo/
+cp -r .claude/ run-pipeline.sh /tmp/pipeline-demo/
 
 # 3. Install project deps
 npm install
