@@ -123,7 +123,7 @@ Show highest priority first.
 ### 7. Caching
 
 Cache scan results to avoid repeated work:
-- Store in `.claude/cache/scan-results.json`
+- Store in `.claude/artifacts/scan-results.json`
 - Invalidate on file changes
 - Show "cached" indicator if using cached data
 

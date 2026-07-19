@@ -64,38 +64,11 @@ npx @anthropic-ai/claude-code@latest
 /auto-pipeline --profile=yolo "add user authentication with JWT"
 ```
 
-### Cursor
-```
-Open /tmp/pipeline-demo/ in Cursor
-Cmd+K → @auto-pipeline add user authentication with JWT
-```
+Or run the engine directly, no slash command needed:
 
-### Cline
-```
-Open /tmp/pipeline-demo/ in VS Code with Cline
-Tell Cline: "Run the auto-pipeline workflow with task: add user authentication with JWT"
-```
-
-### Windsurf
-```
-Open /tmp/pipeline-demo/ in Windsurf
-Run workflow: auto-pipeline
-Task: "add user authentication with JWT"
-```
-
-### GitHub Copilot
-```
-Open /tmp/pipeline-demo/ in VS Code with Copilot Chat
-Type: @auto-pipeline add user authentication with JWT
-```
-
-### Aider
 ```bash
 cd /tmp/pipeline-demo/
-aider
-
-# Inside Aider:
-"Run the development pipeline for: add user authentication with JWT"
+bash run-pipeline.sh --profile=yolo "add user authentication with JWT"
 ```
 
 ---
@@ -124,7 +97,7 @@ Point these out to the dev you're demoing to:
 
 2. **"The pipeline catches its own mistakes."** Drift detection ensures nothing from the design gets lost. Adversarial review catches security gaps before code is written.
 
-3. **"It works with any AI tool."** Same pipeline spec, native implementations for Claude Code, Cursor, Cline, Windsurf, Copilot, and Aider.
+3. **"Nothing ships unreviewed."** The final phase reviews the real git diff and only commits on APPROVE — self-healing up to twice before it ever asks a human.
 
 4. **"It's cost-aware."** Only the 3 hardest phases (Design, Adversarial, Code-Review) use Opus; the other 10 use Sonnet — never Haiku. Per-phase tool scoping and budget caps keep a full run at ~$3–6.
 

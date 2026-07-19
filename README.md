@@ -4,7 +4,7 @@
 
 [![Claude Code](https://img.shields.io/badge/Built%20for-Claude%20Code-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/Agents-15-green)](.claude/agents/)
-[![Tool Agnostic](https://img.shields.io/badge/Works%20with-Claude%20%7C%20Cursor%20%7C%20Windsurf%20%7C%20Copilot-orange)](#tool-support)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 **AI coding tools generate code fast — but ship bugs faster.**
 This pipeline adds structured quality gates between "idea" and "production" so you stop crossing your fingers every time you deploy.
@@ -17,11 +17,11 @@ One command. 13 phases (0–12). Design review, security, testing, and a final c
 bash run-pipeline.sh "add user authentication with JWT"
 ```
 
-Works with **Claude Code, Cursor, Cline, Windsurf, GitHub Copilot, and Aider**.
+Built for **Claude Code**.
 
 <!--
   TODO: Replace this comment with a GIF or screenshot of the pipeline in action.
-  Record the pipeline-viz pixel art office + terminal output side by side.
+  Record the terminal output of a full run.
   Place the file at .github/assets/demo.gif and uncomment the line below:
 -->
 <!-- ![Pipeline Demo](.github/assets/demo.gif) -->
@@ -75,7 +75,7 @@ Every phase produces a readable artifact. Every design decision cites a source. 
 | **Commit Code-Review** | Phase 12 reviews the real diff and commits on `APPROVE`, with a bounded auto-heal loop |
 | **Per-Phase Tool Scoping** | Loads only the tools each phase needs — 50–78% smaller bootstrap per subprocess |
 | **Auto-Recovery** | Design revision, drift repair, build retries, and code-review healing before pausing |
-| **Tool Agnostic** | Works with Claude Code, Cursor, Windsurf, Copilot, Cline, Aider |
+| **Wired Hooks** | protect-files + auto-format (Claude Code), detect-project + notify (engine lifecycle) |
 
 ---
 
@@ -88,13 +88,10 @@ git clone https://github.com/TheAstrelo/Claude-Pipeline.git
 cp -r Claude-Pipeline/.claude/ /path/to/your/project/
 ```
 
-### 2. Start your AI tool
+### 2. Start Claude Code
 
 ```bash
-# Claude Code
 npx @anthropic-ai/claude-code@latest
-
-# Or open in Cursor, Cline, Windsurf, Copilot, or Aider
 ```
 
 ### 3. Run the pipeline
@@ -188,7 +185,6 @@ Skip requirements gathering with pre-configured templates:
 | `/auto-pipeline <task>` | Run full pipeline with all flags |
 | `/pipeline-undo` | Revert last pipeline run |
 | `/pipeline-history` | Show past runs with costs |
-| `/pipeline-estimate <task>` | Preview cost before running |
 | `/pipeline-scan` | Proactive issue detection |
 
 ### Individual Phases
@@ -436,16 +432,13 @@ Claude-Pipeline/
 │   ├── agents/                   # 15 agents — reachable from a live slash command
 │   │   ├── architect.md · atomic-planner.md · adversarial-coordinator.md
 │   │   ├── security-auditor.md · code-scanner.md · builder.md · denoiser.md …
-│   ├── lib/                      # Reference docs (error patterns, next steps, context)
 │   ├── templates/                # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
 │   ├── hooks/                    # protect-files.sh + auto-format.sh (Claude Code, via settings.json);
 │   │   │                         #   detect-project.sh + notify.sh (run-pipeline.sh startup/exit)
 │   ├── history.json              # Run history (per-run costUSD)
 │   └── artifacts/                # Per-session output ({session}/*.md + .raw/.err/.verdict)
 │
-├── targets/                      # Other tool ports (cursor, cline, windsurf, copilot, aider, codex)
-├── demo/                         # Demo kit (starter Express project + red acceptance test)
-└── pipeline-viz/                 # Real-time pixel-art visualization
+└── demo/                         # Demo kit (starter Express project + red acceptance test)
 ```
 
 ---
@@ -488,37 +481,9 @@ Add project-specific conventions in `.claude/rules/`:
 
 ---
 
-## Tool Support
-
-This pipeline is **tool-agnostic**. Drop the `.claude/` folder into any project and use it with:
-
-| Tool | Status | Notes |
-|------|--------|-------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Full support | Native slash commands |
-| [Cursor](https://cursor.sh) | Full support | Via rules and agents |
-| [Windsurf](https://codeium.com/windsurf) | Full support | Via rules and agents |
-| [GitHub Copilot](https://github.com/features/copilot) | Full support | Via instructions |
-| [Cline](https://github.com/cline/cline) | Full support | Via custom instructions |
-| [Aider](https://aider.chat) | Full support | Via conventions |
-
----
-
-## Live Visualization
-
-The `pipeline-viz/` folder includes a **real-time pixel-art visualization** that shows your pipeline progress as an animated isometric office with agents working at desks.
-
-```bash
-cd pipeline-viz && npm install && npm start
-```
-
-<!-- TODO: Add a screenshot of pipeline-viz here -->
-<!-- ![Pipeline Visualization](.github/assets/pipeline-viz.png) -->
-
----
-
 ## Requirements
 
-- An AI coding tool (Claude Code, Cursor, Cline, Windsurf, Copilot, Codex, or Aider)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npx @anthropic-ai/claude-code@latest`)
 - Node.js (for build/type-check steps in QA phases)
 - A project with a `CLAUDE.md` file
 

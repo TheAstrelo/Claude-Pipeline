@@ -4,9 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude-Pipeline is a tool-agnostic, 13-phase (0–12) automated development pipeline that
-transforms a task description into reviewed, committed code. The reference implementation is
-`run-pipeline.sh`; tool-specific ports live under `targets/` (cursor, cline, windsurf, copilot, aider, codex).
+Claude-Pipeline is a 13-phase (0–12) automated development pipeline for Claude Code that
+transforms a task description into reviewed, committed code. The single engine is `run-pipeline.sh`.
 
 ## The One Engine
 
@@ -29,9 +28,6 @@ bash run-pipeline.sh --profile=paranoid --mode=dev "handle payments"
 
 # Demo starter project (demo/starter-project/)
 npm install && npm test
-
-# Pipeline visualization
-cd pipeline-viz && npm install && npm start
 ```
 
 Flags the engine actually parses: `--profile=yolo|fast|standard|paranoid`, `--mode=auto|dev`,
@@ -97,22 +93,19 @@ research phases add `WebSearch/WebFetch`; build/QA phases add `Edit/Bash`. See `
 ```
 run-pipeline.sh          # THE engine (13 phases, gates, commit)
 .claude/
-├── commands/            # 22 slash commands (auto-pipeline.md is the engine wrapper)
+├── commands/            # 17 slash commands (auto-pipeline.md is the engine wrapper)
 ├── agents/              # 15 agents — the set reachable from a live slash command
 │                        #   (interactive helpers only; the engine inlines its prompts)
 ├── rules/               # Project conventions (api.md, database.md, react.md)
 ├── templates/           # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
 ├── skills/              # Scaffolding skills (new-migration, scaffold-api)
-├── lib/                 # Error patterns, next steps, context engine (reference docs)
 ├── hooks/               # protect-files.sh + auto-format.sh (Claude Code hooks via settings.json);
 │                        #   detect-project.sh + notify.sh (wired into run-pipeline.sh startup/exit)
 ├── artifacts/           # Per-session output ({session-id}/*.md + .raw/.err/.verdict)
 ├── history.json         # Pipeline run history (per-run costUSD)
 └── settings.json        # Hooks + profiles (protected by protect-files.sh)
 
-targets/                 # Tool-specific ports (cursor, cline, windsurf, copilot, aider, codex)
 demo/                    # Demo kit with a starter Express project + red acceptance test
-pipeline-viz/            # Real-time pixel-art visualization
 ```
 
 ### Key Execution Pattern

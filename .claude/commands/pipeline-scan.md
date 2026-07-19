@@ -37,7 +37,7 @@ Run checks based on flags:
 
 ### 3. Aggregate Results
 
-Collect all issues and rank by priority using `.claude/lib/improvement-patterns.md`.
+Collect all issues and rank by priority (Critical → Warning → Suggestion).
 
 Priority order:
 1. Security critical (score: 100)
@@ -131,7 +131,7 @@ If `--full` flag:
 ### 7. Caching
 
 To keep scans fast:
-- Cache results in `.claude/cache/scan-results.json`
+- Write results to `.claude/artifacts/scan-results.json`
 - Invalidate cache when files change
 - Show "(cached)" indicator if using cached data
 - `--full` always bypasses cache
