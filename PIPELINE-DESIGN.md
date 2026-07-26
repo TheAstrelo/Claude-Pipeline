@@ -1,5 +1,10 @@
 # Claude-Pipeline — Design Document
 
+> **Historical design record.** This document predates the Codex provider
+> adapter and contains superseded implementation/roadmap claims. Use
+> [PIPELINE-AUDIT-2026-07.md](PIPELINE-AUDIT-2026-07.md) and
+> `run-pipeline.sh` for the current behavior.
+
 **Date:** 2026-07-16 · **Status:** the bash engine is shipped and has run end-to-end; this doc is the target architecture and the routing/capability matrix behind it. Every claim here was verified against `run-pipeline.sh` as it exists, and the cost figures are grounded in the first real end-to-end run (against `demo/starter-project`), not estimates.
 
 ## Current state (one paragraph)

@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0",
+  "policyVersion": "1.0",
+  "corpusSha256": "67c20184824d926ef3af5aa6a441b57da050fb96ab74464988aebf67c7640d43",
+  "cases": 12,
+  "confusion": {
+    "truePositive": 5,
+    "falsePositive": 0,
+    "falseNegative": 0,
+    "trueNegative": 7
+  },
+  "metrics": {
+    "classificationPrecision": 1,
+    "classificationRecall": 1,
+    "requiredCheckPassRate": {
+      "baseline": 0.6666666666666666,
+      "adaptive": 1,
+      "delta": 0.33333333333333337
+    },
+    "cleanQaCallReduction": 1,
+    "costUnits": {
+      "baseline": 13,
+      "adaptive": 14
+    },
+    "latencyUnits": {
+      "baseline": 13,
+      "adaptive": 14
+    },
+    "recoverySuccesses": {
+      "baseline": 8,
+      "adaptive": 12
+    }
+  },
+  "thresholds": {
+    "classificationPrecision": 1,
+    "classificationRecall": 1,
+    "requiredCheckPassRateDeltaMin": 0,
+    "minimumCleanQaCallReduction": 0.75
+  },
+  "passed": true,
+  "results": [
+    {
+      "id": "routine-endpoint",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "authentication-build",
+      "labels": {
+        "risk": "HIGH",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "strong"
+    },
+    {
+      "id": "payment-planning",
+      "labels": {
+        "risk": "HIGH",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "strong"
+    },
+    {
+      "id": "destructive-migration-fast-profile",
+      "labels": {
+        "risk": "HIGH",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "strong"
+    },
+    {
+      "id": "yolo-is-explicitly-fixed",
+      "labels": {
+        "risk": "HIGH",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "short-ambiguous-plan",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "HIGH"
+      },
+      "selectedLane": "strong"
+    },
+    {
+      "id": "routine-plan",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "paranoid-semantic-default",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "strong"
+    },
+    {
+      "id": "clean-denoise",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "HIGH"
+      },
+      "selectedLane": "none"
+    },
+    {
+      "id": "clean-fit",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "none"
+    },
+    {
+      "id": "clean-docs",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "none"
+    },
+    {
+      "id": "docs-finding-remediation",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    }
+  ]
+}

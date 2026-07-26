@@ -1,8 +1,9 @@
 <div align="center">
 
-# Claude Code Auto-Pipeline
+# AI Development Auto-Pipeline
 
-[![Claude Code](https://img.shields.io/badge/Built%20for-Claude%20Code-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
+[![Codex](https://img.shields.io/badge/Provider-Codex-black)](https://developers.openai.com/codex)
+[![Claude Code](https://img.shields.io/badge/Provider-Claude%20Code-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/Agents-15-green)](.claude/agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
@@ -12,12 +13,11 @@ This pipeline adds structured quality gates between "idea" and "production" so y
 One command. 13 phases (0–12). Design review, security, testing, and a final code-review-and-commit gate — handled automatically. Phase prompts are structured CONSTRAINTS→CONTEXT→TASK→FORMAT→VERIFY.
 
 ```bash
-/auto-pipeline "add user authentication with JWT"
-# or run the engine directly:
-bash run-pipeline.sh "add user authentication with JWT"
+bash run-pipeline.sh --provider=codex "add user authentication with JWT"
+bash run-pipeline.sh --provider=claude "add user authentication with JWT"
 ```
 
-Built for **Claude Code**.
+Built for **Codex and Claude Code** with one Bash engine.
 
 <!--
   TODO: Replace this comment with a GIF or screenshot of the pipeline in action.
@@ -32,19 +32,37 @@ Built for **Claude Code**.
 
 ## Why This Exists
 
-You've seen it before: Claude writes 200 lines, you hit "accept all," and 10 minutes later something's broken. No tests, no security check, no one asked "does this even match the existing code?"
+You've seen it before: a coding agent writes 200 lines and 10 minutes later something is broken. No tests, no security check, no one asked "does this even match the existing code?"
 
 This pipeline fixes that. Every feature goes through **pre-flight checks, adversarial review, drift detection, and a full QA suite** before a single line ships. It catches the things you'd catch in code review — except it catches them *before* you commit.
 
 **What it does:**
 - Reviews the design adversarially and scans for OWASP issues before anything ships
-- Gates Phase 9 on your project's **real test exit code** — a signal a model can't fake
+- Gates Phase 9 on your project's **real test exit code** — and spends no model call narrating a green run
+- Runs deterministic checks before Phases 7, 8, and 10; clean results make zero
+  provider calls, while objective findings trigger one bounded remediation call
+- Runs a final trusted test/build/typecheck/lint/docs matrix after Phase 10 and every review heal; a heal also invalidates and rebuilds the security review
 - Reviews the actual git diff (Phase 12) and commits only on `APPROVE`, auto-healing up to twice first
-- Scopes each subprocess's tools to cut the per-phase bootstrap 50–78% (measured)
-- Works with any codebase — drop in the `.claude/` folder and go
+- Requires verification, security, review, and the exact commit object to attest the same Git tree
+- Publishes the exact reviewed tree with an immutable parent and compare-and-swap branch update
+- Uses Claude tool allowlists or Codex sandbox boundaries per phase
+- Runs every phase in a fresh, non-resumed subprocess
+- Captures tracked and untracked changes before security and final review
+- Records every versioned routing decision before invocation, including the
+  rule, evidence, selected lane/effort, and projected budget impact
+- Runs non-waivable protected-path, secret-signature, dependency-source, and
+  escaping-symlink scanners before Phase 11 sees the candidate
+- Redacts high-confidence secrets and sensitive environment values before
+  provider or trusted-command output becomes durable
+- Supports `legacy`, review-only `shadow`, and `enforced` policy rollout modes,
+  plus explicit terminal-run retention and an operational SLO dashboard
 
-> **Cost:** a full 13-phase run is typically ~$3–6 (measured on the demo task). See
-> [Cost Efficiency](#cost-efficiency) for the model routing and the real per-phase breakdown.
+See [the July 2026 audit](PIPELINE-AUDIT-2026-07.md) for the exact provider
+differences, gate strength, budget semantics, and remaining limitations.
+The [deterministic-first PRD](DETERMINISTIC-FIRST-PRD.md) defines the implemented
+reliability spine, durable ledger/resume layer, and deterministic-first adaptive
+routing/security policy. Milestone 4 controls pass offline; a controlled
+real-provider canary and security approval remain the GA release gates.
 
 ---
 
@@ -70,44 +88,47 @@ Every phase produces a readable artifact. Every design decision cites a source. 
 |---------|---------|
 | **4 Profiles** | `yolo` (fast), `fast`, `standard` (balanced, default), `paranoid` (thorough) |
 | **Pre-Check Phase** | Finds existing code/libraries before building from scratch |
-| **Balanced Model Routing** | Opus on Design, Adversarial, and Code-Review; Sonnet everywhere else — never Haiku |
-| **Test-Exit-Code Gate** | Phase 9 gates on your real test suite's exit code, not a model's say-so |
-| **Commit Code-Review** | Phase 12 reviews the real diff and commits on `APPROVE`, with a bounded auto-heal loop |
-| **Per-Phase Tool Scoping** | Loads only the tools each phase needs — 50–78% smaller bootstrap per subprocess |
-| **Auto-Recovery** | Design revision, drift repair, build retries, and code-review healing before pausing |
+| **Provider Model Routing** | Versioned, profile-aware Opus/Sonnet routing on Claude and GPT-5.6 Sol/Terra routing on Codex |
+| **Deterministic QA Paths** | Clean Phases 7, 8, 9, and 10 make no provider call; objective findings can trigger bounded remediation |
+| **Fresh Final Evidence** | A frozen test/build/typecheck/lint/docs policy reruns after Phase 10 and review heals; security reruns after every heal |
+| **Non-Waivable Security Scanners** | Protected paths, high-confidence secrets, risky dependency sources, and escaping symlinks halt before the Phase 11 model |
+| **Durable Data Controls** | Output is redacted before persistence; terminal-run retention is opt-in and ledger-recorded |
+| **Commit Code-Review** | Phase 12 reviews the real diff and commits on `APPROVE`, with a bounded auto-heal loop and exact-tree integrity checks |
+| **Per-Phase Authority** | Claude tool allowlists; Codex read-only/workspace-write sandboxes |
+| **Auto-Recovery** | Design revision, drift repair, and code-review healing before pausing |
 | **Wired Hooks** | protect-files + auto-format (Claude Code), detect-project + notify (engine lifecycle) |
 
 ---
 
 ## Quick Start
 
-### 1. Copy to your project
+### 1. Install one provider CLI
 
 ```bash
-git clone https://github.com/TheAstrelo/Claude-Pipeline.git
-cp -r Claude-Pipeline/.claude/ /path/to/your/project/
+npm install -g @openai/codex
+# or
+npm install -g @anthropic-ai/claude-code
 ```
 
-### 2. Start Claude Code
+Authenticate the selected CLI, then copy `run-pipeline.sh` into a clean,
+committed project. Copy `.claude/` too if you want the Claude slash-command
+helpers and hooks.
+
+### 2. Run the pipeline
 
 ```bash
-npx @anthropic-ai/claude-code@latest
-```
+# Auto-detect the host provider
+bash run-pipeline.sh "implement user dashboard"
 
-### 3. Run the pipeline
-
-```bash
-# Fast prototyping — skip adversarial, drift, and QA; just build
-/auto-pipeline --profile=yolo "add a logout button"
-
-# Balanced (default) — full pipeline
-/auto-pipeline "implement user dashboard"
+# Select explicitly
+bash run-pipeline.sh --provider=codex "implement user dashboard"
+bash run-pipeline.sh --provider=claude "implement user dashboard"
 
 # Full oversight — pause on any issue
-/auto-pipeline --profile=paranoid "payment integration"
+bash run-pipeline.sh --provider=codex --profile=paranoid "payment integration"
 
-# Skip QA phases only, keep adversarial + drift + security
-/auto-pipeline --profile=fast "add dashboard widget"
+# Review but leave the commit to a human
+bash run-pipeline.sh --no-commit "add dashboard widget"
 ```
 
 ---
@@ -119,37 +140,65 @@ forwards to it) actually parses:
 
 | Flag | Description |
 |------|-------------|
+| `--provider=auto\|claude\|codex` | Select the subprocess provider (default: host-aware `auto`) |
 | `--profile=yolo\|fast\|standard\|paranoid` | Select a profile (default: `standard`) |
 | `--mode=auto\|dev` | `auto` (non-interactive) or `dev` (pause after each artifact-producing phase) |
 | `--skip-arm` | Skip Phase 1 (Requirements) |
 | `--skip-ar` | Skip Phase 3 (Adversarial Review) |
 | `--skip-pmatch` | Skip Phase 5 (Drift Detection) |
-| `--model-strong=MODEL` | Model for Phases 2, 3, 12 (default: `claude-opus-4-8`) |
-| `--model-fast=MODEL` | Model for all other phases (default: `claude-sonnet-5`) |
-| `--max-budget-usd=N` | Per-phase spend cap (default: `4.00`) |
+| `--model-strong=MODEL` | Override the provider's strong model lane |
+| `--model-fast=MODEL` | Override the provider's balanced model lane |
+| `--max-budget-usd=N` | Per-phase cap; native on Claude, post-call estimate on Codex |
 | `--max-run-budget-usd=N` | Whole-run spend cap (default: `15.00`) |
+| `--resume=RUN_ID` | Resume from the last verified atomic checkpoint; requires the original task and identical engine, config, Git baseline, branch, worktree, and durable evidence |
+| `--policy-rollout=legacy\|shadow\|enforced` | `legacy` restores fixed/model-first behavior; `shadow` records deterministic recommendations but retains baseline calls and disables commit; `enforced` is the default |
+| `--retention-days=N` | Remove terminal run artifacts older than N days at startup; `0` disables (default) |
+| `--retention-max-runs=N` | Keep at most N terminal run artifact sets; `0` disables (default) |
+| `--no-commit` | Run final verification and review without publishing a commit; clean runs still use an isolated pipeline branch |
+| `--allow-dirty` | Allow a dirty baseline and disable auto-commit |
+| `--allow-untested-commit` | Explicitly permit auto-commit when no trusted test command is configured; the waiver is recorded |
 
 There is no `--yolo`/`--fast`/`--paranoid` shorthand — use `--profile=`.
+
+For production auto-commit, the repository must start clean. Verification
+commands are frozen as trusted argv plus package-script and executable identities
+at run start. A verifier that changes the candidate or Git control state, a
+mid-run verification-policy change, missing configured tooling, stale security
+or review attestation, or a competing branch update halts the run. These
+integrity failures are not softened by `yolo` or `fast`.
+Each trusted command has a 900-second default bound; set
+`PIPELINE_COMMAND_TIMEOUT_SECONDS` to a positive integer before the run to
+change it.
+
+Production provider calls are capability-gated, not version-string-gated.
+Claude auto-commit requires a CLI with `--bare`; Codex auto-commit requires
+`codex exec --ignore-user-config` and rejects a repository
+`.codex/config.toml`. Older CLIs remain available only with `--no-commit`.
+This prevents a mutable memory/config layer from silently changing a later
+security or review phase. Update the selected CLI if the preflight rejects it.
 
 ### Examples
 
 ```bash
-# Balanced pipeline
-/auto-pipeline "add user authentication"
+# Balanced Codex pipeline
+bash run-pipeline.sh --provider=codex "add user authentication"
 
 # Skip adversarial review, keep everything else
-/auto-pipeline --skip-ar "add dashboard widget"
+bash run-pipeline.sh --provider=claude --skip-ar "add dashboard widget"
 
 # Cap spend and pick models explicitly
-bash run-pipeline.sh --max-run-budget-usd=8 --model-fast=claude-sonnet-5 "add dashboard widget"
+bash run-pipeline.sh --provider=codex --max-run-budget-usd=8 --model-fast=gpt-5.6-terra "add dashboard widget"
 
 # Standalone runner in interactive dev mode (pauses between phases)
 bash run-pipeline.sh --mode=dev --profile=paranoid "handle payments"
+
+# Resume an interrupted run; repeat its original task and options
+bash run-pipeline.sh --resume=RUN_ID --provider=codex "add user authentication"
 ```
 
-> **Roadmap (not yet implemented):** `--resume`, `--batch-qa`, `--template`,
+> **Roadmap (not yet implemented):** `--batch-qa`, `--template`,
 > `--dry-run`, `--test`, `--branch`, `--pr`, `--estimate`, `--fix`, and `--only`.
-> The engine ignores these today. See `AUDIT-FABLE.md` (§6, Remediation) for sequencing.
+> The engine rejects these today. See `PIPELINE-AUDIT-2026-07.md` for current gaps.
 
 ---
 
@@ -303,7 +352,7 @@ Task Description
 ┌─────────────┐    ┌──────────────────────────────────┐
 │  Phase 6    │───▶│  Phases 7-10                      │
 │  Build      │    │  7: Denoise    8: Quality Fit     │
-│  [NONE]     │    │  9: Behavior  10: Docs            │
+│  [HARD]     │    │  9: Behavior  10: Docs            │
 └─────────────┘    └──────────────────────────────────┘
                                     │
                                     ▼
@@ -328,10 +377,10 @@ Task Description
 | **6. Build** | Executes the plan step by step with verification | No YOLO code dumps |
 | **7. Denoise** | Removes console.log, debugger, commented-out code | Clean production code |
 | **8. Quality Fit** | Type checking, linting, convention compliance | Code matches project standards |
-| **9. Quality Behavior** | Runs build + tests, verifies behavior | Code actually works as designed |
+| **9. Quality Behavior** | Runs real tests; green evidence is recorded directly without a model call, failures can be diagnosed by a model | Code actually works as designed without paying for deterministic narration |
 | **10. Quality Docs** | Checks Swagger/JSDoc coverage | API documentation stays current |
-| **11. Security** | OWASP scan: injection, XSS, auth bypass, secrets | Vulnerabilities caught before merge |
-| **12. Commit Code-Review** | Reviews the real git diff against the brief; commits on `APPROVE`, else auto-heals (≤2) then asks a human | The last line of defense — nothing commits unreviewed |
+| **11. Security** | Non-waivable deterministic scanners, then an OWASP model review bound to the exact diff/tree | High-confidence policy failures stop before model judgment |
+| **12. Commit Code-Review** | Reviews the real git diff against the brief; commits on `APPROVE`, else auto-heals (≤2), re-verifies, re-runs security, and asks a human if unresolved | The exact verified and reviewed tree is committed with an atomic ref update |
 
 ---
 
@@ -349,6 +398,14 @@ Task Description
 /auto-pipeline --profile=fast "add dashboard widget"
 /auto-pipeline --profile=paranoid "handle payments"
 ```
+
+### Policy rollout and rollback
+
+`--policy-rollout=enforced` is the default deterministic-first behavior.
+`shadow` runs the same checks and records what would be skipped or promoted, but
+retains baseline model calls and forcibly disables commit. `legacy` is the
+rollback switch: it restores fixed routing and model-first Phases 7–10 while
+retaining the engine's release-integrity and security boundaries.
 
 ---
 
@@ -389,32 +446,75 @@ Reverts to the git checkpoint created before the pipeline made changes.
 
 ### Model Routing (Balanced)
 
-Two models, never Haiku, never `max` effort. Opus does the hard-reasoning and
-last-line-of-defense work; Sonnet does everything else.
+The engine uses two model lanes and tunes reasoning separately.
 
-| Phases | Model | Effort |
-|--------|-------|--------|
-| 2 Design, 3 Adversarial | `claude-opus-4-8` | high |
-| 12 Commit Code-Review | `claude-opus-4-8` | xhigh (clamped to high if the CLI caps it) |
-| 0 Pre-Check, 11 Security | `claude-sonnet-5` | high |
-| 4, 5, 6, 9 | `claude-sonnet-5` | medium |
-| 1, 7, 8, 10 | `claude-sonnet-5` | low |
+| Provider | Strong lane | Balanced lane |
+|---|---|---|
+| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` |
+| Claude | `claude-opus-4-8` | `claude-sonnet-5` |
 
-Override with `--model-strong=` / `--model-fast=`. Each subprocess also loads only its phase's
-tools (`--tools`) and runs hermetically (`--strict-mcp-config`), cutting the per-phase bootstrap
-50–78%.
+Codex uses Sol/xhigh for Security and final review, Sol/high for Design and
+Adversarial, and Terra at high/medium/low elsewhere. Claude uses Opus/high for
+Design, Adversarial, and final review, with Sonnet at high/medium/low elsewhere.
+Override either lane with `--model-strong=` or `--model-fast=`.
+
+Routing policy `1.0` keeps those phase routes as the baseline and applies only
+mechanical, pre-call task signals—never a model-generated confidence score:
+
+- `yolo` keeps fixed baseline routing except that high-risk Security is
+  non-skippable and promoted when its baseline is not already strong.
+- `fast` promotes high-risk Build and Security work.
+- `standard` promotes high-risk Requirements, Planning, Build, and Security
+  work, and promotes ambiguous Requirements and Planning work.
+- `paranoid` promotes Requirements, Planning, Drift Detection, Build, and
+  Security work.
+- Design, Adversarial Review, and final review remain on the strong lane for all
+  profiles. A Phase 7/8/10 remediation uses the balanced lane only after the
+  deterministic check reports findings or cannot run.
+
+Each decision is appended to `ledger.jsonl` before invocation with its policy
+version, evidence, selected model/effort, and projected per-call cap. The frozen
+12-case offline corpus reports precision `1.00`, recall `1.00`, a `100%` clean-QA
+call reduction, and no required-check regression against its labeled baseline.
+These are policy-fixture results, not a claim about live model quality; cost and
+latency are relative units. The offline release-SLO corpus also passes every
+control-plane threshold, but explicitly records `gaEligible: false` until a
+controlled provider canary and security approval exist.
+
+Claude uses `--bare`, an empty settings-source set, strict MCP isolation,
+disabled memory/background features, and only the built-in tools for that
+phase. Codex suppresses project-document injection, ignores user configuration,
+disables every supported plugin/memory/subagent feature, uses read-only versus
+workspace-write sandboxes, and disables web search outside research phases.
+Codex still has no general per-tool allowlist, so the sandbox remains the
+authority boundary for its built-in tools.
+
+For compatibility audits, `--no-commit` permits an older provider CLI and emits
+an explicit isolation warning. It is deliberately not accepted for production
+auto-commit.
 
 ### Cost
 
-Measured on the demo task (`add a GET /api/version endpoint`), a full 13-phase run is **~$3–6**:
-the three Opus phases (Design, Adversarial, Code-Review) run ~$0.8–1.7 each and dominate; the
-Sonnet phases run ~$0.13–0.26 each. A `--skip-ar` run with no code-review healing landed at
-**$3.06**; a run that hit `REQUEST_CHANGES` and auto-healed once cost **$3.83** (the extra ~$1
-buys a fix pass + a second Opus review instead of a human interrupt).
+Claude reports actual per-call USD and enforces the per-phase cap natively.
+Codex reports token usage; the engine calculates an API-price-equivalent
+estimate for GPT-5.6 Sol/Terra/Luna and enforces caps only after each call. That
+estimate is not ChatGPT subscription billing and does not include separately
+priced tool calls.
 
-Spend is capped by `--max-budget-usd` (per phase, default $4) and `--max-run-budget-usd` (whole
-run, default $15). Every phase emits `--output-format json`, so per-phase `total_cost_usd` is
-recorded in `.claude/history.json` — run once to get real numbers for your own tasks.
+Each run has a hash-linked, append-only `ledger.jsonl` as its source of truth.
+Atomic checkpoints bind the engine, effective configuration, original task,
+Git baseline and branch, worktree, verification plan, and content-addressed
+artifacts. `run.json` and the schema-2 `.pipeline/history.json` index are
+derived views and can be rebuilt from verified run evidence. Resume is
+fail-closed: it never guesses through changed or corrupt state and it never
+reuses a verdict whose declared inputs no longer match.
+
+Model and deterministic checks have separate attempt envelopes with hashed
+inputs and outputs. Provider/model/prefix-scoped prompt-cache telemetry records
+read and write tokens, but cache behavior has no effect on validation or gates.
+See
+[the audit](PIPELINE-AUDIT-2026-07.md#cost-and-budget-semantics) before relying
+on budget numbers.
 
 ---
 
@@ -423,6 +523,30 @@ recorded in `.claude/history.json` — run once to get real numbers for your own
 ```
 Claude-Pipeline/
 ├── run-pipeline.sh               # THE engine (13 phases, gates, commit)
+├── PIPELINE-AUDIT-2026-07.md     # Provider/capability/gate audit
+├── tests/
+│   ├── smoke-provider-adapters.sh
+│   ├── deterministic-first-smoke.sh
+│   ├── milestone-2-smoke.sh
+│   ├── milestone-3-smoke.sh
+│   ├── milestone-4-smoke.sh
+│   ├── evaluate-routing-policy.js
+│   └── evaluate-release-slos.js
+├── evals/
+│   ├── routing-corpus.v1.json        # Frozen labeled routing/QA cases
+│   ├── routing-eval-report.v1.json   # Frozen routing policy 1.0 evaluation
+│   ├── release-slo-corpus.v1.json    # Frozen offline release-control cases
+│   └── release-slo-report.v1.json    # Explicitly not live-canary evidence
+├── .pipeline/                    # Ignored run state, created on demand
+│   ├── history.json
+│   ├── operations.json           # Derived operational metrics / GA blocker
+│   └── artifacts/<run>-<time>/
+│       ├── ledger.jsonl          # Append-only source of truth
+│       ├── run.json              # Derived per-run summary
+│       ├── attempts/             # Hashed input/output envelopes
+│       ├── checkpoints/          # Atomic resume cursors
+│       ├── manifests/            # Checkpoint artifact manifests
+│       └── objects/              # Content-addressed artifact snapshots
 ├── .claude/
 │   ├── commands/                 # 22 slash commands
 │   │   ├── auto-pipeline.md      # Thin wrapper that runs run-pipeline.sh
@@ -435,9 +559,6 @@ Claude-Pipeline/
 │   ├── templates/                # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
 │   ├── hooks/                    # protect-files.sh + auto-format.sh (Claude Code, via settings.json);
 │   │   │                         #   detect-project.sh + notify.sh (run-pipeline.sh startup/exit)
-│   ├── history.json              # Run history (per-run costUSD)
-│   └── artifacts/                # Per-session output ({session}/*.md + .raw/.err/.verdict)
-│
 └── demo/                         # Demo kit (starter Express project + red acceptance test)
 ```
 
@@ -483,9 +604,33 @@ Add project-specific conventions in `.claude/rules/`:
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npx @anthropic-ai/claude-code@latest`)
-- Node.js (for build/type-check steps in QA phases)
-- A project with a `CLAUDE.md` file
+- [Codex CLI](https://developers.openai.com/codex) or
+  [Claude Code](https://docs.anthropic.com/en/docs/claude-code), installed and authenticated
+- Bash (Git Bash on native Windows)
+- Node.js for JSON parsing, evidence hashing, and usage accounting
+- Git for branch/review/commit behavior
+- A clean working tree, unless `--allow-dirty` is explicit
+- For auto-commit: Claude Code with `--bare`, or Codex CLI with
+  `codex exec --ignore-user-config`
+
+## Offline production checks
+
+These fixtures use fake provider CLIs and temporary repositories; they make no
+paid model or network calls:
+
+```bash
+bash tests/smoke-provider-adapters.sh
+bash tests/deterministic-first-smoke.sh
+bash tests/milestone-2-smoke.sh
+bash tests/milestone-3-smoke.sh
+bash tests/milestone-4-smoke.sh
+node tests/evaluate-routing-policy.js \
+  evals/routing-corpus.v1.json \
+  evals/routing-eval-report.v1.json
+node tests/evaluate-release-slos.js \
+  evals/release-slo-corpus.v1.json \
+  evals/release-slo-report.v1.json
+```
 
 ---
 

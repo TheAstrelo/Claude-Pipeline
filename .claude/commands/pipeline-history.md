@@ -1,109 +1,129 @@
 # Pipeline History Command
 
-Show past pipeline runs with costs and status.
+Show past pipeline runs with cost, token, cache, and status summaries.
 
 ## Arguments
 
 - `$ARGUMENTS` - Optional flags:
-  - `--all` - Show all history (not just last 10)
-  - `--json` - Output as JSON
-  - `--failed` - Show only failed runs
-  - `--success` - Show only successful runs
+  - `--all` - Show all history (not just the last 10)
+  - `--json` - Output the schema-2 history document as JSON
+  - `--failed` - Show only `HALTED` runs
+  - `--success` - Show only `COMPLETED` runs
 
 ## Instructions
 
-### 1. Load History
+### 1. Load and Validate History
 
-Read `.claude/history.json` file.
+Read `.pipeline/history.json`.
 
-If file doesn't exist:
-- Output: "No pipeline history found."
-- Exit
+If it does not exist, output `No pipeline history found.` and exit.
+
+Parse `schemaVersion`. Accept major version `2` and tolerate additive minor
+fields. Reject any other major version and tell the user to use a compatible
+history reader. Never reinterpret an unknown schema.
+
+The file is a derived index, not durable evidence. Each run's authoritative
+record is `.pipeline/artifacts/<session>/ledger.jsonl`; its `run.json` is a
+derived per-run summary. Do not edit any of these files from this command.
 
 ### 2. Parse Arguments
 
-Check for flags in `$ARGUMENTS`:
-- `--all`: Don't limit results
-- `--json`: Output raw JSON
-- `--failed`: Filter status = "failed"
-- `--success`: Filter status = "success"
+- `--all`: do not limit results
+- `--json`: output the validated JSON document
+- `--failed`: filter `status = "HALTED"`
+- `--success`: filter `status = "COMPLETED"`
+
+`RUNNING` means no terminal event follows the latest start/resume event. It is
+neither a successful nor a failed run.
 
 ### 3. Filter and Sort
 
-- Sort by timestamp (newest first)
-- Apply status filter if specified
-- Limit to 10 unless `--all` flag
+- Sort `runs` by `finishedAt`, newest first.
+- Apply the requested status filter.
+- Limit to 10 unless `--all` is present.
 
 ### 4. Calculate Totals
 
+For the displayed set report:
+
 - Total runs
-- Success rate
-- Total cost
-- Total tokens
+- Completed, halted, and running counts
+- Completion rate
+- Total estimated/reported cost
+- Total input plus output tokens
+- Cached input tokens
 
 ### 5. Format Output
 
-**Default format:**
-```
+Default table:
+
+```text
 Pipeline History (last 10 runs)
 
-  #  Status   Task                           Cost     Duration
-  ─────────────────────────────────────────────────────────────
-  1  ✓        add user authentication        $0.24    3m 12s
-  2  ✓        fix login bug                  $0.08    1m 04s
-  3  ✗        implement payment flow         $0.15    2m 30s
-               └─ Failed: Phase 11 (Security)
-  4  ✓        add dashboard widget           $0.19    2m 45s
-  ...
+  #  Status     Task                         Cost      Tokens   Cached
+  1  COMPLETED  add user authentication      $0.2400    15,000    4,000
+  2  HALTED     implement payment flow       $0.1500     9,400        0
+  3  RUNNING    add dashboard widget         $0.0800     5,200    1,100
 
 Summary:
-  Total runs: 47    Success: 44 (94%)    Failed: 3 (6%)
-  Total cost: $8.42    Total tokens: 1.2M
+  Runs: 3  Completed: 1  Halted: 1  Running: 1
+  Cost: $0.4700  Tokens: 29,600  Cached: 5,100
 ```
 
-**JSON format (`--json`):**
-```json
-{
-  "runs": [...],
-  "summary": {
-    "totalRuns": 47,
-    "successCount": 44,
-    "failedCount": 3,
-    "totalCost": 8.42,
-    "totalTokens": 1200000
-  }
-}
-```
+With `--json`, return the validated schema-2 document (or the filtered `runs`
+and recomputed `summary` when a filter is present).
 
 ### 6. Show Details on Selection
 
-After showing list, allow user to select a run for details:
-- "Enter run number for details (or press Enter to exit):"
+If interaction is available, allow selection of a run. Read its referenced
+`run.json` and show:
 
-If run selected, show:
-- Full task description
-- All phases run with timing
-- Files changed
-- Artifacts location
-- Error details (if failed)
+- Full task
+- Provider, model lanes, and profile
+- Phase results and last checkpoint cursor
+- Attempts, model calls, token/cache totals, and cost semantics
+- Commit publication state
+- Artifact directory
 
-## History Entry Format
+State clearly that `run.json` is derived and that forensic verification must
+use the hash-linked ledger and referenced attempt/artifact evidence.
 
-Each entry in `.claude/history.json`:
+## History Schema
+
+`.pipeline/history.json` uses this versioned shape:
+
 ```json
 {
-  "session": "abc123",
-  "task": "add user authentication",
-  "status": "success|failed",
-  "cost": 0.24,
-  "tokens": 15000,
-  "duration": "3m 12s",
-  "durationMs": 192000,
-  "filesChanged": ["src/auth.ts", "src/middleware.ts"],
-  "timestamp": "2024-01-15T10:30:00Z",
-  "profile": "standard",
-  "flags": ["--test"],
-  "failedPhase": null,
-  "error": null
+  "schemaVersion": "2.0",
+  "version": 2,
+  "source": "derived-from-run-ledgers",
+  "runs": [
+    {
+      "id": "opaque-run-id",
+      "task": "add user authentication",
+      "provider": "codex",
+      "models": {
+        "strong": "gpt-5.6-sol",
+        "fast": "gpt-5.6-terra"
+      },
+      "profile": "standard",
+      "artifacts": ".pipeline/artifacts/<session>",
+      "validatorsPassed": 13,
+      "validatorsFailed": 0,
+      "costUSD": 0.24,
+      "costKind": "api-price-equivalent-estimate",
+      "totalTokens": 15000,
+      "cachedTokens": 4000,
+      "status": "COMPLETED",
+      "finishedAt": "2026-07-24T10:30:00.000Z"
+    }
+  ],
+  "summary": {
+    "totalRuns": 1,
+    "successCount": 1,
+    "failedCount": 0,
+    "totalCost": 0.24,
+    "totalTokens": 15000
+  }
 }
 ```

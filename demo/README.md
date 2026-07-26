@@ -68,6 +68,13 @@ Or run the engine directly, no slash command needed:
 ```bash
 cd /tmp/pipeline-demo/
 bash run-pipeline.sh --profile=yolo "add user authentication with JWT"
+
+### Codex
+
+```bash
+npm install -g @openai/codex
+bash run-pipeline.sh --provider=codex --profile=yolo "add user authentication with JWT"
+```
 ```
 
 ---
@@ -98,7 +105,9 @@ Point these out to the dev you're demoing to:
 
 3. **"Nothing ships unreviewed."** The final phase reviews the real git diff and only commits on APPROVE — self-healing up to twice before it ever asks a human.
 
-4. **"It's cost-aware."** Only the 3 hardest phases (Design, Adversarial, Code-Review) use Opus; the other 10 use Sonnet — never Haiku. Per-phase tool scoping and budget caps keep a full run at ~$3–6.
+4. **"It's cost-aware."** Claude routes Opus/Sonnet and reports actual CLI
+   cost; Codex routes GPT-5.6 Sol/Terra and records an API-price-equivalent
+   estimate from JSONL token usage. See the root audit for cap semantics.
 
 5. **"Every decision is traceable."** No black-box output. You get artifacts at every phase — you can read the design doc, see the critique, verify the plan.
 

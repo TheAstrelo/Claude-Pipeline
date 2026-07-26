@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\JFree\\OneDrive\\Desktop\\Claude Pipeline\\Claude-Pipeline-main\\.codex\\hooks\\protect-files.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\JFree\\OneDrive\\Desktop\\Claude Pipeline\\Claude-Pipeline-main\\.codex\\hooks\\auto-format.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

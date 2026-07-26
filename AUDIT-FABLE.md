@@ -1,5 +1,9 @@
 # Claude-Pipeline: Audit Report (Fable)
 
+> **Historical audit.** This predates the provider-agnostic engine changes.
+> See [PIPELINE-AUDIT-2026-07.md](PIPELINE-AUDIT-2026-07.md) for the current
+> Claude Code/Codex audit and verified limitations.
+
 **Date:** 2026-07-16 · **Auditor:** Claude Fable 5 · **Method:** every load-bearing claim verified by execution or direct file inspection; four parallel sub-audits (agents / commands+prompts+lib / targets+docs / live pricing) plus a hand-read of the full 2,417-line orchestrator. A prior audit (`AUDIT-2026-07-15.md`) exists at the repo root; this audit was performed independently, then cross-checked — where we tested the same thing we got the same result, and this report marks what is **new** beyond it.
 
 ---

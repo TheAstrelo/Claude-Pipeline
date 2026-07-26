@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "policyVersion": "1.0",
+  "corpusSha256": "01a0fffd2f7bf0eadda436af0dfc95b62560381a43890c6573f220881f955f85",
+  "cases": 12,
+  "metrics": {
+    "recoveryReachability": 1,
+    "finalVerificationCoverage": 1,
+    "postHealSecurityCoverage": 1,
+    "reviewedDiffIntegrity": 1,
+    "preventedIntegrityMismatch": 1,
+    "redactionCoverage": 1,
+    "protectedPathEnforcement": 1,
+    "scannerNonWaiver": 1,
+    "rollbackSuccess": 1,
+    "hardGateEscapes": 0
+  },
+  "thresholds": {
+    "recoveryReachability": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "finalVerificationCoverage": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "postHealSecurityCoverage": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "reviewedDiffIntegrity": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "preventedIntegrityMismatch": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "redactionCoverage": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "protectedPathEnforcement": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "scannerNonWaiver": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "rollbackSuccess": {
+      "target": 1,
+      "actual": 1,
+      "passed": true
+    },
+    "maximumHardGateEscapes": {
+      "target": 0,
+      "actual": 0,
+      "passed": true
+    }
+  },
+  "passed": true,
+  "evidenceClass": "offline-control-fixtures",
+  "liveProviderCanary": false,
+  "gaEligible": false,
+  "gaBlocker": "controlled-provider-canary-and-security-approval-required"
+}

@@ -1,6 +1,6 @@
 # Automated Pipeline
 
-Run: `/auto-pipeline [--profile=yolo|fast|standard|paranoid] [--skip-arm] [--skip-ar] [--skip-pmatch] [--model-strong=MODEL] [--model-fast=MODEL] <task>`
+Run: `/auto-pipeline [--provider=auto|claude|codex] [--profile=yolo|fast|standard|paranoid] [--policy-rollout=legacy|shadow|enforced] [--resume=RUN_ID] [--skip-arm] [--skip-ar] [--skip-pmatch] [--model-strong=MODEL] [--model-fast=MODEL] [--no-commit] [--allow-untested-commit] [--retention-days=N] [--retention-max-runs=N] <task>`
 
 $ARGUMENTS
 
@@ -9,7 +9,7 @@ $ARGUMENTS
 ## What this is
 
 A **thin wrapper** over the real pipeline engine, `run-pipeline.sh` at the repo
-root. It does not reimplement the 12 phases — it launches the one script that
+root. It does not reimplement the 13 phases — it launches the one script that
 actually executes them and relays the result. The engine owns model routing,
 gates, validators, retries, and artifacts.
 
@@ -32,10 +32,17 @@ this file.)
    ```
 
    The engine parses `--profile`, `--skip-arm`, `--skip-ar`, `--skip-pmatch`,
-   `--model-strong=`, `--model-fast=`, and `--mode` itself — pass whatever the
-   user supplied.
+   `--provider`, `--resume=RUN_ID`, `--model-strong=`, `--model-fast=`, `--no-commit`,
+   `--allow-dirty`, `--allow-untested-commit`, `--policy-rollout=`,
+   retention controls, budget caps, and `--mode`
+   itself — pass whatever the user supplied.
 
-   > **This is long-running** (it spawns ~12 `claude -p` subprocesses, several
+   A resume invocation must repeat the original task and effective options.
+   The engine proceeds only if its atomic checkpoint and all bound engine,
+   configuration, Git, worktree, verification-policy, ledger, attempt, and
+   artifact hashes still match.
+
+   > **This is long-running** (it spawns up to 13 provider subprocesses, several
    > minutes, real API spend). Launch it in the background and monitor, or tell
    > the user it will take a while before starting.
 
@@ -44,9 +51,9 @@ this file.)
      N failed" line, any warnings, and the artifacts directory printed at the
      end.
    - **3** — a **HARD gate failed** and the run halted for review (Phase 0
-     Pre-Check, Phase 3 Adversarial, Phase 11 Security, or Phase 12 Commit
+     Pre-Check, Phase 3 Adversarial, Phase 6 Build, Phase 11 Security, or Phase 12 Commit
      Code-Review). Read the relevant
-     artifact under `.claude/artifacts/<session>/` and the matching `*.err`
+     artifact under `.pipeline/artifacts/<session>/` and the matching `*.err`
      file, tell the user **exactly which gate failed and why**, and ask how to
      proceed (fix and re-run, override, or abort). **Never silently continue
      past a HARD gate.**
@@ -58,13 +65,10 @@ this file.)
 
 ## Model routing (Balanced profile)
 
-- **Opus** (`claude-opus-4-8`): Phase 2 Design, Phase 3 Adversarial Review — the
-  open-ended reasoning and adversarial-finding work.
-- **Sonnet** (`claude-sonnet-5`): every other phase — generation and
-  verification. **Haiku is never used.**
-- Effort is tuned per phase (deep on Pre-Check/Design/Adversarial/Security,
-  light on the mechanical phases) and auto-clamps to what the installed CLI
-  supports. Override models per run with `--model-strong=` / `--model-fast=`.
+- **Claude:** `claude-opus-4-8` strong lane and `claude-sonnet-5` balanced lane.
+- **Codex:** `gpt-5.6-sol` strong lane and `gpt-5.6-terra` balanced lane.
+- Effort is tuned independently per phase. Override either lane per run with
+  `--model-strong=` / `--model-fast=`.
 
 ## Interactive / step-through variant
 

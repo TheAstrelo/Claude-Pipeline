@@ -8,6 +8,7 @@ node_modules/
 
 # Pipeline session output (regenerated on every run)
 .claude/artifacts/
+.pipeline/
 
 # Logs
 *.log
