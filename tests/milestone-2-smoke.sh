@@ -48,6 +48,10 @@ while [[ $# -gt 0 ]]; do
 done
 prompt=$(cat)
 case "$prompt" in
+  *"Unified Plan Agent"*)
+    kind="collapsed-plan"
+    report=$'===BRIEF===\n## Verdict: CLEAR\n\n## Problem\nSmoke test.\n\n## Success Criteria\n1. Pass.\n\n## Scope\nIn.\n\n## Constraints\nNone.\n\n## Context Found\nMock.\n\n## Assumptions\nNone.\n===DESIGN===\n## Decisions\n\n**Use mock** — deterministic — Source: tests/mock:1\n\n## Components\n\n| Name | Purpose | Interface |\n|---|---|---|\n| Mock | Test | CLI |\n\n## Data Changes\nNone\n\n## Risks\n\n| Risk | Mitigation |\n|---|---|\n| none | — |\n===PLAN===\n## Verdict: READY\n\n## Steps\n\n| # | File | Action | Depends |\n|---|---|---|---|\n| 1 | README.md | MODIFY | None |\n\n### Step 1: Smoke\n**File:** README.md [MODIFY]\n**Deps:** None\n**Anchor:** \x60seed\x60\n**Intent:** keep the seed line as-is\n**Test:** run -> pass'
+    verdict="" ;;
   *"Pre-Check Agent"*)
     kind="phase-0"
     report=$'## Codebase Matches\n\n| Type | Path | Relevance |\n|---|---|---|\n| none | - | none |\n\n## Installed Libraries\n\n| Package | Version | Purpose |\n|---|---|---|\n| none | - | - |\n\n## Recommendation\n\nBUILD_NEW\n\n**Reasoning:** No match exists.'

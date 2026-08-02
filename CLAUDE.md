@@ -49,7 +49,13 @@ Env knobs: `PIPELINE_PROVIDER_TIMEOUT_SECONDS` (default 2400),
 `PIPELINE_WORKTREE=0` (legacy in-place mode), `PIPELINE_WORKTREE_LINK_PATHS`
 (gitignored build state symlinked into the run worktree; default
 `node_modules .venv venv vendor`), `PIPELINE_ALLOW_REMOTE_DEPS=1` (recorded
-waiver for git/https dependency specifiers).
+waiver for git/https dependency specifiers), `--budget=elastic|strict` /
+`PIPELINE_BUDGET_POLICY` (elastic default: a capped phase retries with a
+doubled cap within the run cap, ledger-recorded; budgets are excluded from
+the resume identity so a run-cap halt resumes with a higher cap),
+`PIPELINE_BUDGET_EXTENSIONS` (default 2), `PIPELINE_COLLAPSE=0` (full
+planning ladder in yolo/fast), `PIPELINE_BUILD_FIX_ATTEMPTS` (default 2;
+in-build verify/fix loop, 0 disables).
 Resume requires the original task and an exact engine/config/Git/evidence
 match. Anything else (
 `--template`, `--batch-qa`, `--fix`, `--pr`,
@@ -215,12 +221,19 @@ model-first behavior for rollback. `enforced` is the default.
 
 ## Profiles
 
-| Profile | Skip Phases | Gate Mode | Use Case |
-|---------|-------------|-----------|----------|
-| `yolo` | 3, 5, 7, 8, 9, 10 | soft | Fast prototyping |
-| `fast` | 7, 8, 9, 10 | standard | Feature dev, keep adversarial + drift + security |
-| `standard` | none | mixed | Normal development (default) |
-| `paranoid` | none | hard | Production / payments / auth |
+| Profile | Skip Phases | Gate Mode | Planning | Use Case |
+|---------|-------------|-----------|----------|----------|
+| `yolo` | 3, 5, 7, 8, 9, 10 | soft | collapsed | Fast prototyping |
+| `fast` | 7, 8, 9, 10 | standard | collapsed | Feature dev, keep adversarial + security |
+| `standard` | none | mixed | full ladder | Normal development (default) |
+| `paranoid` | none | hard | full ladder | Production / payments / auth |
+
+**Collapsed planning** (`yolo`/`fast`; `PIPELINE_COLLAPSE=0` opts out): one
+strong-model call produces brief + design + plan, split into the three
+standard artifacts — validators, adversarial review, and build consume
+exactly the files they always did. Phase 5 auto-skips when plan and design
+came from the same call and the design was never revised; a Phase 3 recovery
+that revises the design triggers a normal plan regeneration.
 
 ## Validation Philosophy
 
@@ -256,6 +269,15 @@ failed on the Opus/high path in this workload.
 
 - Phase 3 `REVISE_DESIGN` → feed the critique back to Phase 2, re-review; recovery
   runs before a HARD-gate human halt.
+- Phase 4 plan lint → plans are intent-level (file + anchor + intent + test,
+  never exact BEFORE/AFTER blocks); a deterministic lint verifies every
+  MODIFY path exists and every anchor literally occurs in its file BEFORE
+  Phase 6 spends anything, with one bounded re-plan seeded by the exact lint
+  findings.
+- Phase 6 verify-inside-build → the frozen test/typecheck commands run
+  immediately after the build; failures get up to `PIPELINE_BUILD_FIX_ATTEMPTS`
+  in-phase fix calls seeded with the real failing output. Advisory only —
+  Phase 9 and release verification remain the authoritative gates.
 - Phase 5 `DRIFT_DETECTED` → add the missing plan steps, re-check; recovery runs
   before paranoid-mode escalation.
 - Phase 12 `REQUEST_CHANGES` → feed the review findings to a fix pass, re-test, re-review

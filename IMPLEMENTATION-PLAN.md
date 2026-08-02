@@ -23,10 +23,10 @@ direction. Never stack unrelated milestones in one PR.
 |---|---|---|
 | False-block rate on the routine-task benchmark (10 CRUD/UI tasks) | unmeasured | 0 hard halts |
 | Live cloud run completes | yes (1 run) | yes, 5/5 repeat runs |
-| Engine overhead per mocked run (non-model wall-clock) | ~50–90s | < 10s |
+| Engine overhead per mocked run (non-model wall-clock) | 94s → ~55s (post-M2) | < 10s |
 | `deterministic-first-smoke` wall-clock | > 200s (times out) | < 60s |
 | Resume success after `kill -9` at each phase checkpoint | mostly fails | 13/13 phases |
-| Model calls per `fast`-profile run | ~9 | ≤ 5 |
+| Model calls per `fast`-profile run | ~9 → 6 (post-M2: collapsed 1+2+4, auto-skipped 5) | ≤ 5 |
 | User worktree ever dirtied by a run | yes (by design) | never |
 | Runs killed mid-phase by a budget cap (money spent, nothing delivered) | possible | 0 — caps halt only at resumable checkpoints |
 | Executors supported via the adapter contract | 2 (claude, codex) | ≥ 3 (+ opencode), spec published |
@@ -81,7 +81,19 @@ damaged-worktree restore case).
    *Acceptance:* a task adding a test fixture with a fake API key completes;
    a task adding a real-shaped live secret still hard-blocks.
 
-## Milestone 2 — Fast and cheap by default (the consolidation move)
+## Milestone 2 — Fast and cheap by default (the consolidation move) — DONE
+
+Landed: collapsed planning for yolo/fast (one strong call → brief+design+plan
+split into the standard artifacts; drift auto-skips when nothing was revised;
+yolo model calls 7→5), verify-inside-build (frozen test/typecheck immediately
+after Phase 6 with bounded fix attempts seeded by real output), elastic
+budgets (--budget=elastic default: capped phases retry with doubled caps
+inside the hard run cap, ledger-recorded; budgets removed from the resume
+identity so a run-cap halt resumes with a higher cap), intent-level planning
+with a deterministic plan lint + one bounded re-plan, and the overhead diet
+(incremental O(1) ledger appends replacing full-chain re-verification per
+event, native sha256/timestamps replacing ~450 node spawns: mocked-run
+overhead 94s → ~55s; full <10s target continues in later passes).
 
 4. **Profile phase-collapse.** For `yolo`/`fast`: one strong-model PLAN call
    produces a combined requirements+design+plan artifact (sections mirror

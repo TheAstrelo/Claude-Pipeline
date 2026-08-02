@@ -88,6 +88,16 @@ EFFORT_CAP="high"
 # Per-phase cap clears Code-Review headroom; the RUN cap is the real runaway
 # guard (a typical complete run is ~$6; this leaves room for a large feature).
 MAX_BUDGET_PER_PHASE="4.00"
+# Budget policy. Caps are runaway protection, not pacing: the model never
+# sees them (prompts carry no budget language), so a cap firing mid-phase
+# converts spent money into nothing delivered. elastic (default): when a
+# phase hits its cap, retry it with a doubled cap while the projected spend
+# still fits inside the run cap — every extension is a loud ledger event.
+# strict: the old behavior (first cap hit kills the run with exit 4). The
+# RUN cap is hard in both policies.
+BUDGET_POLICY="${PIPELINE_BUDGET_POLICY:-elastic}"
+MAX_BUDGET_EXTENSIONS="${PIPELINE_BUDGET_EXTENSIONS:-2}"
+PHASE_BUDGET_CURRENT=""
 MAX_RUN_BUDGET="15.00"
 TOTAL_COST="0"
 TOTAL_TOKENS="0"
@@ -336,6 +346,16 @@ for arg in "$@"; do
     --model-strong=*) MODEL_STRONG="${arg#*=}" ;;
     --model-fast=*)   MODEL_FAST="${arg#*=}" ;;
     --max-budget-usd=*)     MAX_BUDGET_PER_PHASE="${arg#*=}" ;;
+    --budget=*)
+      BUDGET_POLICY="${arg#*=}"
+      case "$BUDGET_POLICY" in
+        strict|elastic) ;;
+        *)
+          echo -e "${RED}Error: --budget must be 'strict' or 'elastic'.${NC}" >&2
+          exit 1
+          ;;
+      esac
+      ;;
     --max-run-budget-usd=*) MAX_RUN_BUDGET="${arg#*=}" ;;
     --help|-h)
       echo "Usage: $0 [OPTIONS] \"task description\""
@@ -350,6 +370,8 @@ for arg in "$@"; do
       echo "  --model-strong=MODEL     Strong model lane (provider default when omitted)"
       echo "  --model-fast=MODEL       Balanced model lane (provider default when omitted)"
       echo "  --max-budget-usd=N       Per-phase cap (Codex: post-call estimate)"
+      echo "  --budget=elastic|strict  elastic (default): a capped phase retries with a doubled cap"
+      echo "                           inside the run cap (ledger-recorded); strict: first cap halts"
       echo "  --max-run-budget-usd=N   Whole-run spend cap in USD (default: 15.00)"
       echo "  --no-commit              Disable final commit; clean runs still branch for isolation"
       echo "  --allow-dirty            Permit a dirty start; implies --no-commit"
@@ -574,6 +596,18 @@ case "$PROFILE" in
     exit 1
     ;;
 esac
+
+# Collapsed planning (2026 consolidation): in yolo/fast, Requirements + Design
+# + Plan are produced by ONE strong-model call whose output is split into the
+# three standard artifacts — the validators, adversarial review, drift check,
+# and build consume exactly the files they always did. Cuts the model-judgment
+# front from three calls to one, with the deterministic skeleton unchanged.
+# standard/paranoid keep the full ladder. PIPELINE_COLLAPSE=0 opts out.
+COLLAPSED_PLANNING=0
+COLLAPSED_DESIGN_SHA=""
+if [[ "${PIPELINE_COLLAPSE:-1}" != "0" && ( "$PROFILE" == "yolo" || "$PROFILE" == "fast" ) ]]; then
+  COLLAPSED_PLANNING=1
+fi
 
 case "$POLICY_ROLLOUT" in
   legacy)
@@ -962,11 +996,40 @@ is_skipped() {
 # Durable run ledger, attempt envelopes, checkpoints, and safe resume
 # ---------------------------------------------------------------------------
 
+# Native hashing/timestamps where the platform provides them: a mocked run
+# makes 1000+ tiny `node -e` spawns at ~45ms each, and hashing/timestamps are
+# the hottest classes. node remains the portable fallback.
+HAVE_SHA256SUM=false
+command -v sha256sum >/dev/null 2>&1 && HAVE_SHA256SUM=true
+HAVE_SHASUM=false
+command -v shasum >/dev/null 2>&1 && HAVE_SHASUM=true
+
 json_sha256() {
-  node -e '
-    const crypto = require("crypto");
-    process.stdout.write(crypto.createHash("sha256").update(process.argv[1]).digest("hex"));
-  ' "$1"
+  if [[ "$HAVE_SHA256SUM" == "true" ]]; then
+    printf '%s' "$1" | sha256sum | cut -d' ' -f1
+  elif [[ "$HAVE_SHASUM" == "true" ]]; then
+    printf '%s' "$1" | shasum -a 256 | cut -d' ' -f1
+  else
+    node -e '
+      const crypto = require("crypto");
+      process.stdout.write(crypto.createHash("sha256").update(process.argv[1]).digest("hex"));
+    ' "$1"
+  fi
+}
+
+# "sha256:<hex>" of a string — the engine's standard prefixed form.
+sha256_string() {
+  printf 'sha256:%s' "$(json_sha256 "$1")"
+}
+
+# Milliseconds since epoch without a node spawn (bash 5 EPOCHREALTIME).
+now_ms() {
+  if [[ -n "${EPOCHREALTIME:-}" ]]; then
+    local s="${EPOCHREALTIME%.*}" us="${EPOCHREALTIME#*.}"
+    printf '%s%s' "$s" "${us:0:3}"
+  else
+    node -e 'process.stdout.write(String(Date.now()))'
+  fi
 }
 
 atomic_write_text() {
@@ -1097,36 +1160,29 @@ ledger_append() {
   local event_type=$1 payload_json="{}"
   [[ $# -ge 2 ]] && payload_json=$2
   [[ "$RUN_LEDGER_READY" == "true" ]] || return 0
+  # Incremental append against the in-memory chain cursor. The old
+  # implementation re-read and re-verified the ENTIRE chain on every append —
+  # O(n^2) JSON parsing per run and the single largest engine overhead. Full
+  # chain verification still happens at every checkpoint
+  # (verify_durable_evidence), at completion (ledger_verify), and on resume;
+  # each of those also refreshes this cursor from the verified tail, so
+  # out-of-band tampering is detected at the next verification boundary.
   local appended
   appended=$(node -e '
     const fs = require("fs");
     const crypto = require("crypto");
-    const [file, runId, type, schemaVersion, payloadText] = process.argv.slice(1);
+    const [file, runId, type, schemaVersion, payloadText, lastSeqText, lastHash] =
+      process.argv.slice(1);
     const hashEvent = event => {
       const unsigned = { ...event };
       delete unsigned.eventHash;
       return "sha256:" + crypto.createHash("sha256")
         .update(JSON.stringify(unsigned)).digest("hex");
     };
-    const lines = fs.existsSync(file)
-      ? fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean)
-      : [];
-    let previous = null;
-    for (let index = 0; index < lines.length; index++) {
-      const event = JSON.parse(lines[index]);
-      if (String(event.schemaVersion || "").split(".")[0] !== "1")
-        throw new Error(`unsupported schema at event ${index + 1}`);
-      if (event.runId !== runId || event.sequence !== index + 1)
-        throw new Error(`identity/sequence mismatch at event ${index + 1}`);
-      if ((event.prevEventHash ?? null) !== previous ||
-          event.eventHash !== hashEvent(event))
-        throw new Error(`broken ledger chain at event ${index + 1}`);
-      previous = event.eventHash;
-    }
     const payload = JSON.parse(payloadText);
     if (!payload || Array.isArray(payload) || typeof payload !== "object")
       throw new Error("event payload must be an object");
-    const sequence = lines.length + 1;
+    const sequence = (parseInt(lastSeqText, 10) || 0) + 1;
     const event = {
       schemaVersion,
       eventId: `${runId}:${String(sequence).padStart(6, "0")}`,
@@ -1135,7 +1191,7 @@ ledger_append() {
       runId,
       type,
       payload,
-      prevEventHash: previous
+      prevEventHash: lastHash || null
     };
     event.eventHash = hashEvent(event);
     const fd = fs.openSync(file, "a", 0o600);
@@ -1147,6 +1203,7 @@ ledger_append() {
     }
     process.stdout.write(`${sequence}|${event.eventHash}`);
   ' "$LEDGER_FILE" "$SESSION_ID" "$event_type" "$LEDGER_SCHEMA_VERSION" "$payload_json" \
+    "${LEDGER_LAST_SEQUENCE:-0}" "${LEDGER_LAST_HASH:-}" \
     2>"$ARTIFACTS/ledger-error.log") || {
     local ledger_reason
     ledger_reason=$(tr '\r\n' ' ' < "$ARTIFACTS/ledger-error.log" 2>/dev/null || true)
@@ -1490,11 +1547,7 @@ write_checkpoint() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "checkpoint-writer:version-1") || return 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "checkpoint-writer:version-1") || return 1
   CURRENT_CACHE_KEY=""
   attempt_begin "DETERMINISTIC" "$phase" "CHECKPOINT" \
     "cursor=$cursor; prior_event=$LEDGER_LAST_HASH; candidate_generation=$CANDIDATE_GENERATION" \
@@ -1711,11 +1764,10 @@ compute_run_identity() {
     PIPELINE_RETENTION_DAYS="$RETENTION_DAYS" \
     PIPELINE_RETENTION_MAX_RUNS="$RETENTION_MAX_RUNS" \
     PIPELINE_GATE_MODE="$GATE_MODE" \
+    PIPELINE_COLLAPSED="$COLLAPSED_PLANNING" \
     PIPELINE_AUTO_COMMIT="$AUTO_COMMIT" \
     PIPELINE_ALLOW_DIRTY="$ALLOW_DIRTY" \
     PIPELINE_ALLOW_UNTESTED="$ALLOW_UNTESTED_COMMIT" \
-    PIPELINE_PHASE_BUDGET="$MAX_BUDGET_PER_PHASE" \
-    PIPELINE_RUN_BUDGET="$MAX_RUN_BUDGET" \
     PIPELINE_MAX_RETRIES="$MAX_RETRIES" \
     PIPELINE_MAX_HEALS="$MAX_CODE_REVIEW_HEALS" \
     PIPELINE_TIMEOUT="$COMMAND_TIMEOUT_SECONDS" \
@@ -1749,14 +1801,15 @@ compute_run_identity() {
       },
       sloPolicyVersion: process.env.PIPELINE_SLO_POLICY_VERSION,
       gateMode: process.env.PIPELINE_GATE_MODE,
+      collapsedPlanning: process.env.PIPELINE_COLLAPSED === "1",
       skipPhases: JSON.parse(process.env.PIPELINE_SKIP_JSON),
       autoCommit: process.env.PIPELINE_AUTO_COMMIT === "true",
       allowDirty: process.env.PIPELINE_ALLOW_DIRTY === "true",
       allowUntestedCommit: process.env.PIPELINE_ALLOW_UNTESTED === "true",
-      budgets: {
-        phaseUsd: process.env.PIPELINE_PHASE_BUDGET,
-        runUsd: process.env.PIPELINE_RUN_BUDGET
-      },
+      // Budgets are deliberately NOT part of the resume identity: caps are
+      // operational limits, and the sanctioned recovery from a run-cap halt
+      // is `--resume` with a higher --max-run-budget-usd. Genesis still
+      // records the caps in the run_started payload for provenance.
       retries: {
         phase: Number(process.env.PIPELINE_MAX_RETRIES),
         reviewHeals: Number(process.env.PIPELINE_MAX_HEALS)
@@ -2280,6 +2333,8 @@ initialize_run_ledger() {
     RUN_LEDGER_READY=true
     restore_worktree_from_checkpoint || return 1
     verify_resume_state || return 1
+    # Seed the incremental-append chain cursor from the just-verified tail.
+    ledger_verify || return 1
     local payload
     payload=$(node -e '
       process.stdout.write(JSON.stringify({
@@ -2303,6 +2358,8 @@ initialize_run_ledger() {
     "$ARTIFACTS/manifests" "$ARTIFACTS/objects" "$ARTIFACTS/invalidated" 2>/dev/null || true
   : > "$LEDGER_FILE" || return 1
   chmod 600 "$LEDGER_FILE" 2>/dev/null || true
+  LEDGER_LAST_SEQUENCE=0
+  LEDGER_LAST_HASH=""
   RUN_LEDGER_READY=true
   local repo_root baseline_dirty start_worktree payload
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)
@@ -2422,7 +2479,7 @@ attempt_begin() {
   ordinal=$(printf '%04d' "$ATTEMPT_SEQUENCE")
   CURRENT_ATTEMPT_ID="p${phase_token}-${purpose_token}-${ordinal}"
   CURRENT_ATTEMPT_DIR="$ARTIFACTS/attempts/$CURRENT_ATTEMPT_ID"
-  CURRENT_ATTEMPT_STARTED_MS=$(node -e 'process.stdout.write(String(Date.now()))')
+  CURRENT_ATTEMPT_STARTED_MS=$(now_ms)
   CURRENT_ATTEMPT_BEFORE=$(worktree_fingerprint 2>/dev/null || printf 'unavailable')
   CURRENT_ATTEMPT_EXECUTOR="$executor"
   CURRENT_ATTEMPT_PHASE="$phase"
@@ -2431,11 +2488,7 @@ attempt_begin() {
   CURRENT_ATTEMPT_EFFORT="$effort"
   CURRENT_ATTEMPT_SANDBOX="$sandbox"
   CURRENT_ATTEMPT_TOOLS="$tools"
-  CURRENT_ATTEMPT_PROMPT_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "$input_text") || return 1
+  CURRENT_ATTEMPT_PROMPT_SHA=$(sha256_string "$input_text") || return 1
   mkdir -p "$CURRENT_ATTEMPT_DIR" || return 1
   chmod 700 "$CURRENT_ATTEMPT_DIR" 2>/dev/null || true
   local prior_output_sha=""
@@ -2517,7 +2570,7 @@ attempt_finish() {
   local status=$1 exit_code=$2 output_file=$3 verdict_code="${4:-}"
   [[ -n "$CURRENT_ATTEMPT_ID" && -d "$CURRENT_ATTEMPT_DIR" ]] || return 1
   local ended_ms duration_ms after_fingerprint generation_before
-  ended_ms=$(node -e 'process.stdout.write(String(Date.now()))')
+  ended_ms=$(now_ms)
   duration_ms=$((ended_ms - CURRENT_ATTEMPT_STARTED_MS))
   after_fingerprint=$(worktree_fingerprint 2>/dev/null || printf 'unavailable')
   generation_before=$CANDIDATE_GENERATION
@@ -3231,11 +3284,7 @@ run_tests() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "deterministic-test:${VERIFICATION_PLAN_SHA}") || exit 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "deterministic-test:${VERIFICATION_PLAN_SHA}") || exit 1
   CURRENT_CACHE_KEY=""
   local deterministic_input
   deterministic_input="reason=$reason; verification_plan=$VERIFICATION_PLAN_SHA; command=$(command_display "${TEST_COMMAND_ARGS[@]}")"
@@ -3262,7 +3311,7 @@ run_tests() {
     pre_control=""
   fi
   printf '%s\n' "$pre_tree" > "$attempt_pre_tree"
-  started_ms=$(node -e 'process.stdout.write(String(Date.now()))')
+  started_ms=$(now_ms)
 
   if [[ "$hard_integrity_failure" == "true" ]]; then
     :
@@ -3284,7 +3333,7 @@ run_tests() {
     esac
   fi
 
-  ended_ms=$(node -e 'process.stdout.write(String(Date.now()))')
+  ended_ms=$(now_ms)
   duration_ms=$((ended_ms - started_ms))
   if [[ "$git_bound" == "true" ]]; then
     post_tree=$(candidate_tree_oid 2>/dev/null || true)
@@ -3399,11 +3448,7 @@ run_release_check() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "deterministic-${check_name}:${VERIFICATION_PLAN_SHA}") || exit 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "deterministic-${check_name}:${VERIFICATION_PLAN_SHA}") || exit 1
   CURRENT_CACHE_KEY=""
   local deterministic_input
   deterministic_input="check=$check_name; verification_plan=$VERIFICATION_PLAN_SHA; command=$(command_display "${command_args[@]}")"
@@ -3426,7 +3471,7 @@ run_release_check() {
     pre_tree=""
     pre_control=""
   fi
-  started_ms=$(node -e 'process.stdout.write(String(Date.now()))')
+  started_ms=$(now_ms)
 
   if [[ "$hard_integrity_failure" == "true" ]]; then
     echo "The pipeline could not capture the candidate tree before $check_name verification." > "$output_file"
@@ -3456,7 +3501,7 @@ run_release_check() {
     esac
   fi
 
-  ended_ms=$(node -e 'process.stdout.write(String(Date.now()))')
+  ended_ms=$(now_ms)
   duration_ms=$((ended_ms - started_ms))
   if [[ "$git_bound" == "true" ]]; then
     post_tree=$(candidate_tree_oid 2>/dev/null || true)
@@ -4000,11 +4045,7 @@ run_security_scanner_preflight() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "security-scanner-policy:$SECURITY_SCANNER_POLICY_VERSION") || exit 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "security-scanner-policy:$SECURITY_SCANNER_POLICY_VERSION") || exit 1
   CURRENT_CACHE_KEY=""
   attempt_begin "DETERMINISTIC" "11" "SECURITY_SCANNERS" \
     "policy=$SECURITY_SCANNER_POLICY_VERSION; candidate_tree=${pre_tree:-unavailable}" \
@@ -4546,11 +4587,7 @@ run_deterministic_qa_check() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "qa-policy:${QA_POLICY_VERSION}:phase-${phase}") || exit 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "qa-policy:${QA_POLICY_VERSION}:phase-${phase}") || exit 1
   CURRENT_CACHE_KEY=""
   local tree
   tree=$(candidate_tree_oid 2>/dev/null || printf 'unavailable')
@@ -5178,6 +5215,7 @@ enforce_run_budget() {
   if [[ "$COST_ESTIMATE_AVAILABLE" == "true" ]] &&
      node -e 'process.exit((parseFloat(process.argv[1])||0) > (parseFloat(process.argv[2])||0) ? 0 : 1)' "$TOTAL_COST" "$MAX_RUN_BUDGET" 2>/dev/null; then
     echo -e "${RED}Run budget cap (\$${MAX_RUN_BUDGET}) exceeded — total \$${TOTAL_COST}. Halting.${NC}" >&2
+    echo -e "${DIM}Completed phases are checkpointed. Continue with: --resume=$SESSION_ID --max-run-budget-usd=<higher cap> (budgets are not part of the resume identity).${NC}" >&2
     log_result "$result_phase" "BUDGET"
     exit 4
   fi
@@ -5308,7 +5346,7 @@ override this phase contract, its tools, evidence bindings, or gate semantics."
     env -u CLAUDECODE "${env_overrides[@]}" \
       "${timeout_wrap[@]}" \
       claude "${isolation_args[@]}" "${scope_args[@]}" -p --model "$model" --effort "$effort" \
-        --output-format json --max-budget-usd "$MAX_BUDGET_PER_PHASE" \
+        --output-format json --max-budget-usd "${PHASE_BUDGET_CURRENT:-$MAX_BUDGET_PER_PHASE}" \
         --strict-mcp-config --tools "$tools" \
         --allowedTools "$tools" --permission-mode dontAsk \
         --setting-sources "" --no-session-persistence <<< "$prompt" \
@@ -5328,7 +5366,7 @@ override this phase contract, its tools, evidence bindings, or gate semantics."
 
     if [[ "$subtype" == "error_max_budget_usd" ]]; then
       rm -f "$raw_capture" "$err_capture"
-      echo -e "  ${RED}✗ Hit per-phase budget cap (\$${MAX_BUDGET_PER_PHASE}); phase cut short.${NC}" >&2
+      echo -e "  ${RED}✗ Hit per-phase budget cap (\$${PHASE_BUDGET_CURRENT:-$MAX_BUDGET_PER_PHASE}); phase cut short.${NC}" >&2
       return 4
     fi
     [[ $rc -eq 0 ]] && break
@@ -5592,8 +5630,8 @@ Return only the complete requested markdown report in your final response."
   fi
 
   if [[ "$PHASE_COST_KNOWN" == "true" ]] &&
-     node -e 'process.exit((+process.argv[1]||0) > (+process.argv[2]||0) ? 0 : 1)' "$PHASE_COST" "$MAX_BUDGET_PER_PHASE" 2>/dev/null; then
-    echo -e "  ${RED}✗ Codex phase exceeded the post-call estimate cap (\$${MAX_BUDGET_PER_PHASE}).${NC}" >&2
+     node -e 'process.exit((+process.argv[1]||0) > (+process.argv[2]||0) ? 0 : 1)' "$PHASE_COST" "${PHASE_BUDGET_CURRENT:-$MAX_BUDGET_PER_PHASE}" 2>/dev/null; then
+    echo -e "  ${RED}✗ Codex phase exceeded the post-call estimate cap (\$${PHASE_BUDGET_CURRENT:-$MAX_BUDGET_PER_PHASE}).${NC}" >&2
     return 4
   fi
 
@@ -5601,7 +5639,56 @@ Return only the complete requested markdown report in your final response."
   return 0
 }
 
+# Elastic budget wrapper. A phase that hits its cap is retried with a doubled
+# cap while the projected total still fits inside the hard run cap; every
+# extension is announced and ledger-recorded. Each retry is a fresh attempt
+# envelope (the spent attempt stays durable evidence). strict policy, no
+# extension headroom, or a non-budget failure all fall straight through.
 run_model() {
+  local rc=0 extensions=0 next_cap
+  PHASE_BUDGET_CURRENT="$MAX_BUDGET_PER_PHASE"
+  while :; do
+    rc=0
+    run_model_attempt "$@" || rc=$?
+    [[ $rc -eq 4 && "$BUDGET_POLICY" == "elastic" ]] || break
+    [[ $extensions -lt $MAX_BUDGET_EXTENSIONS ]] || break
+    next_cap=$(node -e '
+      process.stdout.write(((parseFloat(process.argv[1]) || 0) * 2).toFixed(2));
+    ' "$PHASE_BUDGET_CURRENT" 2>/dev/null || true)
+    [[ -n "$next_cap" ]] || break
+    # Feasible only if what we have already spent plus a full extended attempt
+    # still fits under the run cap.
+    if ! node -e '
+      const spent = parseFloat(process.argv[1]) || 0;
+      const next = parseFloat(process.argv[2]) || 0;
+      const cap = parseFloat(process.argv[3]) || 0;
+      process.exit(spent + next <= cap ? 0 : 1);
+    ' "$TOTAL_COST" "$next_cap" "$MAX_RUN_BUDGET" 2>/dev/null; then
+      echo -e "  ${YELLOW}No budget headroom to extend (spent \$${TOTAL_COST}, run cap \$${MAX_RUN_BUDGET}).${NC}" >&2
+      break
+    fi
+    extensions=$((extensions + 1))
+    echo -e "  ${YELLOW}Phase hit its \$${PHASE_BUDGET_CURRENT} cap — extending to \$${next_cap} within the \$${MAX_RUN_BUDGET} run cap (extension ${extensions}/${MAX_BUDGET_EXTENSIONS}).${NC}"
+    local extension_payload
+    extension_payload=$(node -e '
+      process.stdout.write(JSON.stringify({
+        phase: process.argv[1],
+        fromUsd: process.argv[2],
+        toUsd: process.argv[3],
+        runCapUsd: process.argv[4],
+        spentUsd: process.argv[5],
+        extension: Number(process.argv[6])
+      }));
+    ' "${8:-unknown}" "$PHASE_BUDGET_CURRENT" "$next_cap" "$MAX_RUN_BUDGET" \
+       "$TOTAL_COST" "$extensions") || break
+    ledger_append "budget_extended" "$extension_payload" || break
+    PHASE_BUDGET_CURRENT="$next_cap"
+  done
+  PHASE_BUDGET_CURRENT="$MAX_BUDGET_PER_PHASE"
+  return $rc
+}
+
+run_model_attempt() {
   local prompt="${1:-}"
   local output_file="${2:-}"
   local model="${3:-$MODEL_FAST}"
@@ -5617,11 +5704,7 @@ run_model() {
   esac
   local stable_prefix
   stable_prefix=$(stable_phase_prefix "$phase" "$schema" "$tools") || return 1
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "$stable_prefix") || return 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "$stable_prefix") || return 1
   CURRENT_CACHE_KEY=$(node -e '
     const crypto = require("crypto");
     process.stdout.write("sha256:" + crypto.createHash("sha256")
@@ -6159,11 +6242,7 @@ run_gate() {
   PHASE_OUTPUT_TOKENS=0
   PHASE_CACHED_TOKENS=0
   PHASE_CACHE_WRITE_TOKENS=0
-  CURRENT_STABLE_PREFIX_SHA=$(node -e '
-    const crypto = require("crypto");
-    process.stdout.write("sha256:" + crypto.createHash("sha256")
-      .update(process.argv[1]).digest("hex"));
-  ' "validator:${validate_fn}:version-1") || exit 1
+  CURRENT_STABLE_PREFIX_SHA=$(sha256_string "validator:${validate_fn}:version-1") || exit 1
   CURRENT_CACHE_KEY=""
   attempt_begin "DETERMINISTIC" "$phase" "VALIDATION" \
     "validator=$validate_fn; candidate_generation=$CANDIDATE_GENERATION" \
@@ -6351,6 +6430,11 @@ Verdict rule: REVISE_DESIGN only when at least one BLOCKER is raised by 2+ angle
     4)
       prompt="You are the Planning Agent. Read $ARTIFACTS/design.md and convert it into implementation steps.
 
+Plan at INTENT level, not exact text: the Builder edits the live files, so a
+plan that pastes replacement code goes stale the moment anything shifts.
+Every step names where to work (file + a unique anchor snippet that exists in
+the file today), what to change, and how to verify it.
+
 Return a markdown report with:
 ## Verdict: [READY | NEEDS_DETAIL]
 ## Steps (table: # | File | Action | Depends)
@@ -6358,12 +6442,13 @@ Then for each step:
 ### Step N: {title}
 **File:** path [MODIFY|CREATE]
 **Deps:** list or None
-**Before:** (current code, 3-5 lines context)
-**After:** (new code, paste-ready)
-**Test:** {input} -> {expected output}
+**Anchor:** \`a short verbatim snippet or symbol that uniquely locates the change site\` (MODIFY only; must exist in the file right now)
+**Intent:** what to change and why — precise enough that two competent developers would produce equivalent code
+**Test:** {input} -> {expected observable output}
 
 Max 15 steps (prefer fewer; a multi-file consolidation may legitimately need
-more than a toy change). All MODIFY paths must exist on disk."
+more than a toy change). All MODIFY paths must exist on disk; anchors are
+verified mechanically against the working tree before the build starts."
       ;;
     5)
       prompt="You are the Drift Detection Agent. Read $ARTIFACTS/design.md and $ARTIFACTS/plan.md. Verify that the plan covers every design requirement and adds no unrequested scope.
@@ -6378,7 +6463,11 @@ Return a markdown report with:
     6)
       prompt="You are the Builder Agent. Read $ARTIFACTS/plan.md and execute it step by step.
 
-For each step: read only referenced files, verify BEFORE matches, apply AFTER exactly, run tests. No improvisation, no refactoring untouched code.
+For each step: read the LIVE file, locate the step's Anchor, and implement the
+step's Intent against the code as it exists right now — the plan describes
+intent, not exact replacement text. Match the file's existing conventions.
+Stay strictly within each step's stated scope: no refactoring untouched code,
+no unrequested changes. Run available tests as you go.
 
 Return a markdown report with:
 ## Verdict: [SUCCESS | PARTIAL | FAILED]
@@ -6464,9 +6553,99 @@ Return a markdown review with:
 
 Copy both attestation values exactly. Verdict rule: REQUEST_CHANGES only when at least one BLOCKER meets the full evidence contract, or a success criterion is genuinely unsatisfied by the diff. If every finding is WARN or PRE-EXISTING, the verdict MUST be APPROVE — nits alone can never withhold approval."
       ;;
+    collapsed-plan)
+      prompt="You are the Unified Plan Agent. Your task: $TASK
+
+Produce requirements, design, and an implementation plan in ONE pass. Read the pre-check context at $ARTIFACTS/pre-check.md, analyze the codebase, and research live documentation for design decisions. Output THREE sections separated by EXACTLY these marker lines, each alone on its own line with no formatting around it:
+
+===BRIEF===
+===DESIGN===
+===PLAN===
+
+The BRIEF section (after ===BRIEF===) must contain:
+## Verdict: [CLEAR | NEEDS_INPUT]
+## Problem (1-2 sentences)
+## Success Criteria (numbered, testable)
+## Scope (In/Out)
+## Constraints
+## Context Found
+## Assumptions
+This pipeline runs unattended: resolve underspecification with the most conservative reasonable assumption, record it under ## Assumptions, and output CLEAR. NEEDS_INPUT only when no reasonable assumption exists.
+
+The DESIGN section must contain:
+## Decisions (max 6, each: **{choice}** — {rationale} — Source: {URL or file:line})
+## Components (table, max 4: Name | Purpose | Interface)
+## Data Changes (SQL or 'None')
+## Risks (table: Risk | Mitigation)
+Every decision must cite a source.
+
+The PLAN section must contain:
+## Verdict: [READY | NEEDS_DETAIL]
+## Steps (table: # | File | Action | Depends)
+Then for each step:
+### Step N: {title}
+**File:** path [MODIFY|CREATE]
+**Deps:** list or None
+**Anchor:** \`a short verbatim snippet that uniquely locates the change site\` (MODIFY only; must exist in the file right now)
+**Intent:** what to change and why — precise enough that two competent developers would produce equivalent code
+**Test:** {input} -> {expected observable output}
+Max 15 steps. All MODIFY paths must exist on disk; anchors are verified mechanically before the build starts."
+      ;;
   esac
 
   echo "$prompt"
+}
+
+# Split the collapsed-plan artifact into the three standard artifacts on the
+# exact marker lines (tolerating stray emphasis/heading characters around a
+# marker). All three sections must be non-empty or the split fails.
+split_collapsed_plan() {
+  local source="$1"
+  [[ -s "$source" ]] || return 1
+  awk -v brief="$ARTIFACTS/brief.md" -v design="$ARTIFACTS/design.md" \
+      -v plan="$ARTIFACTS/plan.md" '
+    /^[[:space:]#*`]*===BRIEF===[[:space:]#*`]*$/  { section = "brief";  next }
+    /^[[:space:]#*`]*===DESIGN===[[:space:]#*`]*$/ { section = "design"; next }
+    /^[[:space:]#*`]*===PLAN===[[:space:]#*`]*$/   { section = "plan";   next }
+    section == "brief"  { print > brief }
+    section == "design" { print > design }
+    section == "plan"   { print > plan }
+  ' "$source" || return 1
+  [[ -s "$ARTIFACTS/brief.md" && -s "$ARTIFACTS/design.md" && -s "$ARTIFACTS/plan.md" ]]
+}
+
+# The collapsed model call for yolo/fast: one strong-lane invocation produces
+# brief + design + plan; gates and checkpoints for phases 1/2/4 then run
+# against the split artifacts exactly as in the full ladder.
+run_collapsed_plan_call() {
+  log_phase 1 "Unified Plan (collapsed 1+2+4)" "SOFT"
+  local prompt
+  prompt=$(build_prompt "collapsed-plan")
+  prompt="${PROJECT_CONTEXT}${prompt}"
+  select_phase_route 2 "PRIMARY" || {
+    echo -e "${RED}Could not persist the collapsed-plan routing decision.${NC}" >&2
+    exit 1
+  }
+  local rc=0
+  run_model "$prompt" "$ARTIFACTS/collapsed-plan.md" "$ROUTED_MODEL" "$ROUTED_EFFORT" "" "$(phase_tools 2)" "replace" "2" "COLLAPSED_PLAN" || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    if [[ $rc -eq 4 ]]; then
+      echo -e "  ${RED}Collapsed plan call exceeded its budget. Halting.${NC}" >&2
+      log_result 1 "BUDGET"
+      exit 4
+    fi
+    echo -e "  ${RED}Collapsed plan call FAILED — no artifact produced. Halting.${NC}" >&2
+    log_result 1 "ERROR"
+    exit 1
+  fi
+  enforce_run_budget 1
+  if ! split_collapsed_plan "$ARTIFACTS/collapsed-plan.md"; then
+    echo -e "  ${RED}Collapsed plan is missing its ===BRIEF===/===DESIGN===/===PLAN=== sections. Halting.${NC}" >&2
+    log_result 1 "ERROR"
+    exit 1
+  fi
+  COLLAPSED_DESIGN_SHA=$(sha256_file "$ARTIFACTS/design.md" 2>/dev/null || true)
+  echo -e "  ${GREEN}✓ Split into brief.md, design.md, plan.md${NC}"
 }
 
 # ---------------------------------------------------------------------------
@@ -6632,6 +6811,70 @@ Every decision must cite a source."
   run_gate 3
 }
 
+# Deterministic plan lint: every MODIFY path must exist in the working tree
+# and every anchor must literally occur in its file — checked BEFORE Phase 6
+# spends anything. Populates PLAN_LINT_ERRORS on failure.
+lint_plan() {
+  local file="$1"
+  PLAN_LINT_ERRORS=""
+  [[ -s "$file" ]] || return 0
+  local file_re='^\*\*File:\*\*[[:space:]]+([^[:space:]]+)[[:space:]]+\[(MODIFY|CREATE)\]'
+  local anchor_re='^\*\*Anchor:\*\*[[:space:]]+`(.+)`'
+  local line current_file="" current_action="" anchor
+  while IFS= read -r line; do
+    if [[ "$line" =~ $file_re ]]; then
+      current_file="${BASH_REMATCH[1]}"
+      current_action="${BASH_REMATCH[2]}"
+      if [[ "$current_action" == "MODIFY" && ! -f "$current_file" ]]; then
+        PLAN_LINT_ERRORS+="MODIFY path does not exist on disk: $current_file"$'\n'
+      fi
+    elif [[ "$line" =~ $anchor_re ]]; then
+      anchor="${BASH_REMATCH[1]}"
+      if [[ "$current_action" == "MODIFY" && -f "$current_file" ]] &&
+         ! grep -qF -- "$anchor" "$current_file" 2>/dev/null; then
+        PLAN_LINT_ERRORS+="anchor not found in $current_file: $anchor"$'\n'
+      fi
+    fi
+  done < "$file"
+  [[ -z "$PLAN_LINT_ERRORS" ]]
+}
+
+# One bounded re-plan when the lint rejects the plan, then a human halt. The
+# re-plan prompt carries the exact lint findings, so the second attempt fixes
+# real addressing errors instead of regenerating blindly.
+handle_phase_4_lint_retry() {
+  echo -e "${YELLOW}  Plan lint found addressing errors:${NC}" >&2
+  printf '%s' "$PLAN_LINT_ERRORS" | sed 's/^/    - /' >&2
+  record_recovery_dispatched "4" "PLAN_LINT" "1" || exit 1
+  local prompt="You are the Planning Agent. Read $ARTIFACTS/plan.md and $ARTIFACTS/design.md. The deterministic plan lint rejected the plan for these addressing errors (paths or anchors that do not exist in the working tree):
+
+$PLAN_LINT_ERRORS
+Fix ONLY the addressing problems: correct the paths, re-derive each anchor from the file's actual current content, and keep every valid step unchanged. Return the complete updated plan as markdown in the same format (File/Deps/Anchor/Intent/Test per step)."
+  local recovery_rc=0
+  select_phase_route "4" "RECOVERY" || exit 1
+  run_model "$prompt" "$ARTIFACTS/plan.md" "$ROUTED_MODEL" "$ROUTED_EFFORT" "" "$(phase_tools 4)" "replace" "4" "RECOVERY" || recovery_rc=$?
+  if [[ $recovery_rc -ne 0 ]]; then
+    if [[ $recovery_rc -eq 4 ]]; then
+      echo -e "${RED}Plan lint recovery exceeded its phase budget. Halting.${NC}" >&2
+      log_result 4 "BUDGET"
+      exit 4
+    fi
+    echo -e "${RED}Plan lint recovery failed to produce a revised plan. Halting.${NC}" >&2
+    log_result 4 "ERROR"
+    exit 1
+  fi
+  enforce_run_budget 4
+  run_gate 4
+  if ! lint_plan "$ARTIFACTS/plan.md"; then
+    echo -e "${RED}  Plan still fails the lint after recovery:${NC}" >&2
+    printf '%s' "$PLAN_LINT_ERRORS" | sed 's/^/    - /' >&2
+    log_result 4 "PAUSE"
+    pause_for_human 4
+  else
+    echo -e "  ${GREEN}✓ Plan lint clean after recovery${NC}"
+  fi
+}
+
 handle_phase_5_retry() {
   local retries=0
   while [[ $retries -lt $MAX_RETRIES ]]; do
@@ -6671,6 +6914,76 @@ handle_phase_5_retry() {
   # Mixed/soft profiles may warn and continue; paranoid/hard pauses here only
   # after the bounded plan recovery has actually run.
   run_gate 5
+}
+
+# Verify-inside-build: run the frozen test/typecheck commands immediately
+# after Phase 6, while the change is hot, and give the model bounded fix
+# attempts seeded with the real failing output. Failures caught here cost one
+# cheap call; the same failure at Phase 9/12 costs a heal cycle plus a
+# mandatory security re-run. This loop is ADVISORY — it never halts the run
+# and never replaces the authoritative Phase 9 / release-verification gates.
+build_verify_fix_loop() {
+  local max_attempts="${PIPELINE_BUILD_FIX_ATTEMPTS:-2}"
+  [[ "$max_attempts" =~ ^[0-9]+$ && "$max_attempts" -gt 0 ]] || return 0
+  [[ ${#TEST_COMMAND_ARGS[@]} -gt 0 || ${#TYPECHECK_COMMAND_ARGS[@]} -gt 0 ]] || return 0
+  assert_verification_plan_integrity
+
+  local attempt=0 failures fix_rc check_rc
+  while :; do
+    failures=""
+    if [[ ${#TEST_COMMAND_ARGS[@]} -gt 0 ]]; then
+      check_rc=0
+      run_trusted_command "$ARTIFACTS/build-verify-$((attempt + 1))-test.txt" \
+        "${TEST_COMMAND_ARGS[@]}" || check_rc=$?
+      if [[ $check_rc -ne 0 ]]; then
+        failures+="TEST FAILED (exit $check_rc) — output tail:"$'\n'
+        failures+="$(tail -c 3000 "$ARTIFACTS/build-verify-$((attempt + 1))-test.txt" 2>/dev/null)"$'\n\n'
+      fi
+    fi
+    if [[ ${#TYPECHECK_COMMAND_ARGS[@]} -gt 0 ]]; then
+      check_rc=0
+      run_trusted_command "$ARTIFACTS/build-verify-$((attempt + 1))-typecheck.txt" \
+        "${TYPECHECK_COMMAND_ARGS[@]}" || check_rc=$?
+      if [[ $check_rc -ne 0 ]]; then
+        failures+="TYPECHECK FAILED (exit $check_rc) — output tail:"$'\n'
+        failures+="$(tail -c 3000 "$ARTIFACTS/build-verify-$((attempt + 1))-typecheck.txt" 2>/dev/null)"$'\n\n'
+      fi
+    fi
+
+    local verify_payload
+    verify_payload=$(node -e '
+      process.stdout.write(JSON.stringify({
+        attempt: Number(process.argv[1]),
+        clean: process.argv[2] === "clean"
+      }));
+    ' "$((attempt + 1))" "$([[ -z "$failures" ]] && echo clean || echo failing)") || return 0
+    ledger_append "build_verification" "$verify_payload" || true
+
+    if [[ -z "$failures" ]]; then
+      [[ $attempt -gt 0 ]] &&
+        echo -e "  ${GREEN}✓ Build verification green after $attempt in-phase fix attempt(s)${NC}"
+      return 0
+    fi
+    if [[ $attempt -ge $max_attempts ]]; then
+      echo -e "  ${YELLOW}Build verification still failing after $attempt fix attempt(s); Phase 9 will gate on it.${NC}"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    echo -e "  ${YELLOW}Build verification failing — in-phase fix attempt $attempt/$max_attempts...${NC}"
+
+    local fix_prompt="You are the Builder Agent. Your build just failed its verification checks. Read $ARTIFACTS/plan.md for context. Fix the failures below in the working tree — smallest correct change, no unrelated edits, never weaken or delete tests merely to make them pass.
+
+$failures
+Return a concise markdown summary of the exact fixes."
+    fix_rc=0
+    select_phase_route "6" "RECOVERY" || return 0
+    run_model "$fix_prompt" "$ARTIFACTS/build-fix-report.md" "$ROUTED_MODEL" "$ROUTED_EFFORT" "" "$(phase_tools 6)" "replace" "6" "BUILD_FIX" || fix_rc=$?
+    if [[ $fix_rc -ne 0 ]]; then
+      echo -e "  ${YELLOW}In-phase fix attempt failed (exit $fix_rc); Phase 9 will gate on the real state.${NC}"
+      return 0
+    fi
+    enforce_run_budget 6
+  done
 }
 
 # Create the run branch before the first code-writing phase. This keeps a halted
@@ -6787,13 +7100,19 @@ candidate_control_state_sha() {
 }
 
 sha256_file() {
-  node -e '
-    const fs = require("fs");
-    const crypto = require("crypto");
-    const hash = crypto.createHash("sha256");
-    hash.update(fs.readFileSync(process.argv[1]));
-    process.stdout.write(hash.digest("hex") + "\n");
-  ' "$1"
+  if [[ "$HAVE_SHA256SUM" == "true" ]]; then
+    sha256sum -- "$1" | cut -d' ' -f1
+  elif [[ "$HAVE_SHASUM" == "true" ]]; then
+    shasum -a 256 -- "$1" | cut -d' ' -f1
+  else
+    node -e '
+      const fs = require("fs");
+      const crypto = require("crypto");
+      const hash = crypto.createHash("sha256");
+      hash.update(fs.readFileSync(process.argv[1]));
+      process.stdout.write(hash.digest("hex") + "\n");
+    ' "$1"
+  fi
 }
 
 capture_unbound_worktree_diff() {
@@ -7152,11 +7471,17 @@ else
   write_checkpoint "phase-0" "0" || exit 1
 fi
 
-# Phase 1: Requirements
+# Phase 1: Requirements (collapsed profiles produce brief+design+plan here in
+# one strong-model call; the standard ladder calls per phase)
 if resume_stage_done "phase-1"; then
   log_resume_skip "Phase 1"
 else
-  run_phase 1 "Requirements" "SOFT" "brief.md"
+  if [[ "$COLLAPSED_PLANNING" == "1" ]]; then
+    run_collapsed_plan_call
+    run_gate 1 || true
+  else
+    run_phase 1 "Requirements" "SOFT" "brief.md"
+  fi
   write_checkpoint "phase-1" "1" || exit 1
 fi
 
@@ -7164,7 +7489,12 @@ fi
 if resume_stage_done "phase-2"; then
   log_resume_skip "Phase 2"
 else
-  run_phase 2 "Design" "SOFT" "design.md"
+  if [[ "$COLLAPSED_PLANNING" == "1" ]]; then
+    log_phase 2 "Design (from collapsed plan)" "SOFT"
+    run_gate 2 || true
+  else
+    run_phase 2 "Design" "SOFT" "design.md"
+  fi
   write_checkpoint "phase-2" "2" || exit 1
 fi
 
@@ -7186,11 +7516,32 @@ else
   write_checkpoint "phase-3" "3" || exit 1
 fi
 
-# Phase 4: Planning
+# Phase 4: Planning (plan-lint verified against the live tree before Phase 6).
+# Collapsed profiles reuse the plan from the unified call — UNLESS Phase 3
+# recovery revised the design after it was written, in which case the plan is
+# regenerated against the revised design like the full ladder would.
 if resume_stage_done "phase-4"; then
   log_resume_skip "Phase 4"
 else
-  run_phase 4 "Planning" "SOFT" "plan.md"
+  _current_design_sha=$(sha256_file "$ARTIFACTS/design.md" 2>/dev/null || true)
+  if [[ "$COLLAPSED_PLANNING" == "1" && -n "$COLLAPSED_DESIGN_SHA" &&
+        "$_current_design_sha" == "$COLLAPSED_DESIGN_SHA" ]]; then
+    log_phase 4 "Planning (from collapsed plan)" "SOFT"
+    run_gate 4 || true
+    if ! lint_plan "$ARTIFACTS/plan.md"; then
+      handle_phase_4_lint_retry
+    fi
+  else
+    if [[ "$COLLAPSED_PLANNING" == "1" ]]; then
+      echo -e "  ${YELLOW}Design was revised after the collapsed plan; regenerating the plan.${NC}"
+      COLLAPSED_DESIGN_SHA=""
+    fi
+    run_phase 4 "Planning" "SOFT" "plan.md"
+    if ! is_skipped 4 && ! lint_plan "$ARTIFACTS/plan.md"; then
+      handle_phase_4_lint_retry
+    fi
+  fi
+  unset _current_design_sha
   write_checkpoint "phase-4" "4" || exit 1
 fi
 
@@ -7198,7 +7549,18 @@ fi
 if resume_stage_done "phase-5"; then
   log_resume_skip "Phase 5"
 else
-  if is_skipped 5; then
+  if [[ "$COLLAPSED_PLANNING" == "1" && -n "$COLLAPSED_DESIGN_SHA" ]] && ! is_skipped 5; then
+    # Plan and design came from the same unified call and the design was not
+    # revised since — a drift check would compare an artifact against itself.
+    log_phase 5 "Drift Detection" "SOFT"
+    echo -e "  ${DIM}Skipped: plan and design originate from the same collapsed call (no drift possible).${NC}"
+    log_result 5 "SKIP"
+    _collapse_skip_payload=$(node -e '
+      process.stdout.write(JSON.stringify({phase:5,name:"Drift Detection",profile:process.argv[1],reason:"collapsed-plan-same-source"}));
+    ' "$PROFILE") || exit 1
+    ledger_append "phase_skipped" "$_collapse_skip_payload" || exit 1
+    unset _collapse_skip_payload
+  elif is_skipped 5; then
     run_phase 5 "Drift Detection" "SOFT" "drift-report.md" "true"
   else
     run_phase 5 "Drift Detection" "SOFT" "drift-report.md" "true"
@@ -7216,6 +7578,9 @@ if resume_stage_done "phase-6"; then
 else
   prepare_build_branch
   run_phase 6 "Build" "HARD" "build-report.md"
+  if ! is_skipped 6; then
+    build_verify_fix_loop
+  fi
   write_checkpoint "phase-6" "6" || exit 1
 fi
 
