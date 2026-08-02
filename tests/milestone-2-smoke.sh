@@ -208,11 +208,9 @@ set -e
 [[ $config_rc -ne 0 ]]
 grep -qi "configuration hash mismatch" "$TMP_ROOT/config-mismatch.log"
 
-# Worktree, artifact, ledger, schema, engine, and baseline mutations all fail closed.
-cp "$REPO/README.md" "$TMP_ROOT/README.backup"
-printf '%s\n' "mutation" >> "$REPO/README.md"
-expect_resume_failure worktree-mismatch "worktree fingerprint mismatch" "$ENGINE"
-mv -f "$TMP_ROOT/README.backup" "$REPO/README.md"
+# Artifact, ledger, schema, and engine mutations all fail closed. (User-tree
+# mutation no longer refuses resume: worktree isolation makes it survivable —
+# asserted on the final compatible resume below.)
 
 cp "$SESSION_DIR/pre-check.md" "$TMP_ROOT/pre-check.backup"
 printf '%s\n' "tamper" >> "$SESSION_DIR/pre-check.md"
@@ -249,13 +247,17 @@ cp "$ENGINE" "$ENGINE_COPY"
 printf '\n# test-only engine hash mutation\n' >> "$ENGINE_COPY"
 expect_resume_failure engine-mismatch "engine hash mismatch" "$ENGINE_COPY"
 
-git -C "$REPO" checkout -q -b resume-mismatch
-git -C "$REPO" commit -q --allow-empty -m "moved baseline"
-expect_resume_failure baseline-mismatch "baseline commit mismatch" "$ENGINE"
-git -C "$REPO" checkout -q master
+# Worktree isolation contract: user-checkout edits, user commits that move
+# the branch, and even damage to the engine-owned run worktree must NOT break
+# resume — the run re-enters its own worktree and restores it from the pinned
+# checkpoint tree.
+printf '%s\n' "user edit during pause" >> "$REPO/README.md"
+git -C "$REPO" commit -q -am "user moved master during the run"
+printf '%s\n' "junk" > "$STATE/worktrees/$RUN_ID/interrupted-junk.txt"
 
 # A compatible resume reuses Phase 0/1 and completes from the next checkpoint.
 run_pipeline "$ENGINE" --resume="$RUN_ID" >"$TMP_ROOT/resumed.log" 2>&1
+grep -q "Worktree restored to checkpointed candidate tree" "$TMP_ROOT/resumed.log"
 [[ "$(grep -c '^phase-0$' "$MOCK_CALL_LOG")" -eq 1 ]]
 [[ "$(grep -c '^collapsed-plan$' "$MOCK_CALL_LOG")" -eq 1 ]]
 grep -q "Resume verified" "$TMP_ROOT/resumed.log"
