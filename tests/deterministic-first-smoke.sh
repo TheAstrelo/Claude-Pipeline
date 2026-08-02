@@ -506,6 +506,8 @@ run_scenario_capture() {
       PIPELINE_STATE_DIR="$state_dir" \
       PIPELINE_NO_NOTIFY=1 \
       PIPELINE_NONINTERACTIVE=1 \
+      PIPELINE_BASELINE_CHECKS=0 \
+      PIPELINE_BUILD_FIX_ATTEMPTS=0 \
       bash "$ROOT/run-pipeline.sh" \
         --provider=codex \
         --profile="$profile" \
