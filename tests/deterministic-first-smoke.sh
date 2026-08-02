@@ -221,7 +221,11 @@ case "$prompt" in
       fi
       if [[ "$FAKE_SCENARIO" == "review-anchor-tampering" ]]; then
         printf '%s\n' "mutated after the review anchors were captured" > reviewer-mutated.txt
-        anchor_dir=$(dirname "$last_file")
+        # The engine hands providers a redaction TEMP path as $last_file, so
+        # dirname($last_file) is /tmp, not the session dir. The prompt names
+        # the real orchestrator-owned review.diff — forge next to that.
+        anchor_dir=$(printf '%s' "$prompt" | grep -oE '[^ ]+/review\.diff' | head -1 | sed 's|/review\.diff$||')
+        [[ -n "$anchor_dir" && -d "$anchor_dir" ]] || anchor_dir=$(dirname "$last_file")
         attacker_index=$(mktemp "${TMPDIR:-/tmp}/fake-review-index.XXXXXX")
         rm -f "$attacker_index"
         GIT_INDEX_FILE="$attacker_index" git read-tree HEAD
