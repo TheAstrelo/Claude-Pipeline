@@ -43,6 +43,9 @@ Flags the engine actually parses: `--provider=auto|claude|codex`,
 (explicit recorded no-test auto-commit waiver), `--resume=RUN_ID`,
 `--policy-rollout=legacy|shadow|enforced`, `--retention-days=`,
 `--retention-max-runs=`, `--help`.
+Env knobs: `PIPELINE_PROVIDER_TIMEOUT_SECONDS` (default 2400),
+`PIPELINE_PROVIDER_RETRIES` (default 1), `PIPELINE_AUTH_PREFLIGHT=0`,
+`PIPELINE_BASELINE_CHECKS=0`, `PIPELINE_COMMAND_TIMEOUT_SECONDS` (default 900).
 Resume requires the original task and an exact engine/config/Git/evidence
 match. Anything else (
 `--template`, `--batch-qa`, `--fix`, `--pr`,
@@ -77,6 +80,23 @@ Phase 12: Commit Code-Review (HARD, STRONG model) → Review the real git diff, 
 Phase 9's gate is driven by the **real exit code** of the project's test command, which the
 orchestrator (not a model) runs and captures — the one signal a phase cannot fake.
 
+**BLOCKER-lane calibration.** Review phases (3, 11, 12) tag findings
+BLOCKER / WARN / PRE-EXISTING and may block only from the BLOCKER lane: a
+defect in this change that would produce wrong behavior, data loss, a crash,
+or a security breach, backed by a concrete trigger and evidence citation.
+REVISE_DESIGN / REQUEST_CHANGES verdicts that cite zero BLOCKER findings are
+mechanically demoted to proceed-with-notes (recorded in the ledger). Style,
+lint, and docs are out of scope for gating phases — the NONE-gated phases own
+them. Phase 11 additionally uses confidence bands (below 0.7 unreported,
+0.7-0.8 advisory, above 0.8 with a written exploit path verdict-driving).
+
+**Baseline verification.** At startup the engine runs the frozen
+test/build/typecheck/lint/docs matrix once against the untouched baseline
+tree (`PIPELINE_BASELINE_CHECKS=0` skips). Checks already failing at baseline
+are reported as `FAIL_PREEXISTING` later and never gate the run; red baseline
+tests switch the run to review-only up front instead of halting after full
+model spend. Regressions the run introduces still gate exactly as before.
+
 ### Model Routing (Balanced)
 
 Model tier and effort are independent:
@@ -97,14 +117,22 @@ Model tier and effort are independent:
 
 ### Context: per-phase tool scoping
 
-Claude production calls require `--bare`, use a phase-specific tool allowlist,
-an empty settings-source set, `--strict-mcp-config`, and disabled
-CLAUDE.md/auto-memory/background features. Codex production calls require
-`--ignore-user-config`, suppress project-document loading, reject a repository
-`.codex/config.toml`, disable supported plugin/memory/subagent features, and use
-read-only/workspace-write sandboxes. Codex has no general per-tool allowlist.
-Both providers turn web search off outside research phases. Older CLIs are
-audit-only with `--no-commit`.
+Claude isolation is credential-aware: `--bare` (CLAUDE_CODE_SIMPLE=1) reads
+auth strictly from `ANTHROPIC_API_KEY`/apiKeyHelper and never OAuth, so bare
+mode is used only when such a credential exists; otherwise phases run the
+OAuth-compatible isolation set (explicit `CLAUDE_CODE_DISABLE_*` env, empty
+settings sources, `--strict-mcp-config`) so subscription logins and Claude
+Code cloud sessions work. Every Claude run starts with a cheap auth-preflight
+spawn probe that halts early, with the real API error and a fix, when nested
+subprocesses cannot authenticate (`PIPELINE_AUTH_PREFLIGHT=0` skips). All
+provider subprocesses are wall-clock-bounded
+(`PIPELINE_PROVIDER_TIMEOUT_SECONDS`, default 2400s) with one retry on
+transient API errors (`PIPELINE_PROVIDER_RETRIES`). Codex production calls
+require `--ignore-user-config`, suppress project-document loading, reject a
+repository `.codex/config.toml`, disable supported plugin/memory/subagent
+features, and use read-only/workspace-write sandboxes. Codex has no general
+per-tool allowlist. Both providers turn web search off outside research
+phases. Older CLIs are audit-only with `--no-commit`.
 
 ### File Structure
 

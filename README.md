@@ -171,11 +171,18 @@ Each trusted command has a 900-second default bound; set
 change it.
 
 Production provider calls are capability-gated, not version-string-gated.
-Claude auto-commit requires a CLI with `--bare`; Codex auto-commit requires
-`codex exec --ignore-user-config` and rejects a repository
-`.codex/config.toml`. Older CLIs remain available only with `--no-commit`.
-This prevents a mutable memory/config layer from silently changing a later
-security or review phase. Update the selected CLI if the preflight rejects it.
+Claude isolation is credential-aware: `--bare` reads auth strictly from
+`ANTHROPIC_API_KEY`/apiKeyHelper (OAuth is never read), so the engine uses
+bare mode only when such a credential exists and otherwise runs the
+OAuth-compatible isolation set (explicit `CLAUDE_CODE_DISABLE_*` env, empty
+setting sources, `--strict-mcp-config`) so subscription-login users and cloud
+sessions can spawn phases at all. A startup auth preflight performs one cheap
+end-to-end `claude -p` probe and halts with an actionable message if nested
+spawns cannot authenticate (`PIPELINE_AUTH_PREFLIGHT=0` skips). Codex
+auto-commit requires `codex exec --ignore-user-config` and rejects a
+repository `.codex/config.toml`. Provider subprocesses are wall-clock-bounded
+(`PIPELINE_PROVIDER_TIMEOUT_SECONDS`, default 2400) and transient API
+failures are retried once (`PIPELINE_PROVIDER_RETRIES`).
 
 ### Examples
 
@@ -481,7 +488,8 @@ latency are relative units. The offline release-SLO corpus also passes every
 control-plane threshold, but explicitly records `gaEligible: false` until a
 controlled provider canary and security approval exist.
 
-Claude uses `--bare`, an empty settings-source set, strict MCP isolation,
+Claude uses `--bare` (only when an API credential is present — see the
+credential-aware isolation note above), an empty settings-source set, strict MCP isolation,
 disabled memory/background features, and only the built-in tools for that
 phase. Codex suppresses project-document injection, ignores user configuration,
 disables every supported plugin/memory/subagent feature, uses read-only versus
@@ -548,7 +556,7 @@ Claude-Pipeline/
 │       ├── manifests/            # Checkpoint artifact manifests
 │       └── objects/              # Content-addressed artifact snapshots
 ├── .claude/
-│   ├── commands/                 # 22 slash commands
+│   ├── commands/                 # 17 slash commands
 │   │   ├── auto-pipeline.md      # Thin wrapper that runs run-pipeline.sh
 │   │   ├── plan-review.md        # Plan → review (dispatches to agents)
 │   │   ├── design.md · ar.md · pmatch.md · security-review.md   # per-phase helpers
@@ -610,7 +618,8 @@ Add project-specific conventions in `.claude/rules/`:
 - Node.js for JSON parsing, evidence hashing, and usage accounting
 - Git for branch/review/commit behavior
 - A clean working tree, unless `--allow-dirty` is explicit
-- For auto-commit: Claude Code with `--bare`, or Codex CLI with
+- For auto-commit: Claude Code (bare mode with an API credential, or the
+  OAuth-compatible isolation fallback), or Codex CLI with
   `codex exec --ignore-user-config`
 
 ## Offline production checks

@@ -207,7 +207,7 @@ loop. Do not claim that it does.
 
 ## Rules Integration
 
-When generating code for projects using this pipeline, follow conventions in `.Codex/rules/`:
+When generating code for projects using this pipeline, follow conventions in `.claude/rules/`:
 - `api.md`: Authentication patterns, handler structure, Swagger docs
 - `database.md`: Connection pooling, parameterized queries, migration conventions
 - `react.md`: MUI Grid v2 syntax, @tanstack/react-query, theme tokens

@@ -11,43 +11,55 @@ if (!corpusPath) {
 }
 
 const corpus = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
-if (String(corpus.schemaVersion || "").split(".")[0] !== "1" ||
-    corpus.policyVersion !== "1.0") {
+if (
+  String(corpus.schemaVersion || "").split(".")[0] !== "1" ||
+  corpus.policyVersion !== "1.0"
+) {
   throw new Error("unsupported routing corpus or policy version");
 }
 
+// MUST stay in sync with initialize_routing_policy() in run-pipeline.sh —
+// this eval is meaningful only when it exercises the engine's actual rules.
 function classify(task) {
   const normalized = String(task || "").toLowerCase();
   const riskRules = [
-    /\b(auth|authentication|authorization|oauth|oidc|sso|jwt|login|password|permission|role)\b/,
+    /\b(auth|authentication|authorization|oauth|oidc|sso|jwt|login|password|rbac|access control)\b/,
     /\b(payment|billing|invoice|checkout|refund|payout|financial|bank)\b/,
-    /\b(secret|credential|token|api key|encryption|cryptograph|certificate)\b/,
-    /\b(drop|delete|purge|destructive|migration|schema change|backfill)\b/,
-    /\b(security|sandbox|privilege|admin|webhook|upload|ssrf|xss|injection)\b/
+    /\b(secret|credential|api key|private key|encryption|cryptograph|certificate)\b/,
+    /\b(drop (table|column|database)|truncate|purge|destructive|migration|schema change|backfill|data loss)\b/,
+    /\b(security|sandbox|privilege|ssrf|xss|csrf|injection)\b/,
   ];
   const ambiguityRules = [
     /\b(not sure|figure (it|this) out|whatever|somehow|maybe|tbd|unknown|unclear)\b/,
-    /\b(either|or maybe|conflicting|contradictory)\b/
+    /\b(either|or maybe|conflicting|contradictory)\b/,
   ];
   const words = normalized.match(/[a-z0-9]+/g) || [];
   return {
-    risk: riskRules.some(rule => rule.test(normalized)) ? "HIGH" : "NORMAL",
-    ambiguity: ambiguityRules.some(rule => rule.test(normalized)) || words.length <= 3
-      ? "HIGH" : "NORMAL"
+    risk: riskRules.some((rule) => rule.test(normalized)) ? "HIGH" : "NORMAL",
+    ambiguity:
+      ambiguityRules.some((rule) => rule.test(normalized)) || words.length <= 3
+        ? "HIGH"
+        : "NORMAL",
   };
 }
 
 function laneFor(test, labels) {
-  if (test.deterministicResult === "CLEAN" &&
-      [7, 8, 10].includes(test.phase)) return "none";
+  if (test.deterministicResult === "CLEAN" && [7, 8, 10].includes(test.phase))
+    return "none";
   if (["yolo"].includes(test.profile)) return "fast";
-  if (test.profile === "paranoid" &&
-      [1, 4, 5, 6, 11].includes(test.phase)) return "strong";
-  if (test.profile === "fast" && labels.risk === "HIGH" &&
-      [6, 11].includes(test.phase)) return "strong";
-  if (test.profile === "standard" &&
-      ((labels.risk === "HIGH" && [1, 4, 6, 11].includes(test.phase)) ||
-       (labels.ambiguity === "HIGH" && [1, 4].includes(test.phase)))) {
+  if (test.profile === "paranoid" && [1, 4, 5, 6, 11].includes(test.phase))
+    return "strong";
+  if (
+    test.profile === "fast" &&
+    labels.risk === "HIGH" &&
+    [6, 11].includes(test.phase)
+  )
+    return "strong";
+  if (
+    test.profile === "standard" &&
+    ((labels.risk === "HIGH" && [1, 4, 6, 11].includes(test.phase)) ||
+      (labels.ambiguity === "HIGH" && [1, 4].includes(test.phase)))
+  ) {
     return "strong";
   }
   if ([2, 3, 12].includes(test.phase)) return "strong";
@@ -79,16 +91,19 @@ for (const test of corpus.cases) {
   else if (test.labelRequiresStrong) falseNegative++;
   else trueNegative++;
 
-  if (labels.risk !== test.expectedRisk ||
-      labels.ambiguity !== test.expectedAmbiguity ||
-      lane !== test.expectedLane) {
+  if (
+    labels.risk !== test.expectedRisk ||
+    labels.ambiguity !== test.expectedAmbiguity ||
+    lane !== test.expectedLane
+  ) {
     throw new Error(
       `${test.id}: expected ${test.expectedRisk}/${test.expectedAmbiguity}/${test.expectedLane}, ` +
-      `got ${labels.risk}/${labels.ambiguity}/${lane}`
+        `got ${labels.risk}/${labels.ambiguity}/${lane}`,
     );
   }
   const selected = test[lane];
-  if (!selected) throw new Error(`${test.id}: missing outcome for selected lane ${lane}`);
+  if (!selected)
+    throw new Error(`${test.id}: missing outcome for selected lane ${lane}`);
   baselinePasses += test.baseline.passesRequiredChecks ? 1 : 0;
   adaptivePasses += selected.passesRequiredChecks ? 1 : 0;
   baselineCost += test.baseline.costUnits;
@@ -108,20 +123,22 @@ const precision = truePositive / Math.max(1, truePositive + falsePositive);
 const recall = truePositive / Math.max(1, truePositive + falseNegative);
 const baselinePassRate = baselinePasses / corpus.cases.length;
 const adaptivePassRate = adaptivePasses / corpus.cases.length;
-const cleanQaCallReduction = cleanQaCases
-  ? 1 - cleanQaCalls / cleanQaCases : 0;
+const cleanQaCallReduction = cleanQaCases ? 1 - cleanQaCalls / cleanQaCases : 0;
 const thresholds = corpus.thresholds;
 const passed =
   precision >= thresholds.classificationPrecision &&
   recall >= thresholds.classificationRecall &&
-  adaptivePassRate - baselinePassRate >= thresholds.requiredCheckPassRateDeltaMin &&
+  adaptivePassRate - baselinePassRate >=
+    thresholds.requiredCheckPassRateDeltaMin &&
   cleanQaCallReduction >= thresholds.minimumCleanQaCallReduction;
 
 const report = {
   schemaVersion: "1.0",
   policyVersion: corpus.policyVersion,
-  corpusSha256: require("crypto").createHash("sha256")
-    .update(fs.readFileSync(corpusPath)).digest("hex"),
+  corpusSha256: require("crypto")
+    .createHash("sha256")
+    .update(fs.readFileSync(corpusPath))
+    .digest("hex"),
   cases: corpus.cases.length,
   confusion: { truePositive, falsePositive, falseNegative, trueNegative },
   metrics: {
@@ -130,16 +147,19 @@ const report = {
     requiredCheckPassRate: {
       baseline: baselinePassRate,
       adaptive: adaptivePassRate,
-      delta: adaptivePassRate - baselinePassRate
+      delta: adaptivePassRate - baselinePassRate,
     },
     cleanQaCallReduction,
     costUnits: { baseline: baselineCost, adaptive: adaptiveCost },
     latencyUnits: { baseline: baselineLatency, adaptive: adaptiveLatency },
-    recoverySuccesses: { baseline: baselineRecovery, adaptive: adaptiveRecovery }
+    recoverySuccesses: {
+      baseline: baselineRecovery,
+      adaptive: adaptiveRecovery,
+    },
   },
   thresholds,
   passed,
-  results
+  results,
 };
 
 const rendered = JSON.stringify(report, null, 2) + "\n";

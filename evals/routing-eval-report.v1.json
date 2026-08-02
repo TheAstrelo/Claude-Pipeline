@@ -1,34 +1,34 @@
 {
   "schemaVersion": "1.0",
   "policyVersion": "1.0",
-  "corpusSha256": "67c20184824d926ef3af5aa6a441b57da050fb96ab74464988aebf67c7640d43",
-  "cases": 12,
+  "corpusSha256": "35701be5fc04c9cba3b6c4c93d8e2d10ed5eb844824c2254a49852cb1dafbce4",
+  "cases": 15,
   "confusion": {
     "truePositive": 5,
     "falsePositive": 0,
     "falseNegative": 0,
-    "trueNegative": 7
+    "trueNegative": 10
   },
   "metrics": {
     "classificationPrecision": 1,
     "classificationRecall": 1,
     "requiredCheckPassRate": {
-      "baseline": 0.6666666666666666,
+      "baseline": 0.7333333333333333,
       "adaptive": 1,
-      "delta": 0.33333333333333337
+      "delta": 0.2666666666666667
     },
     "cleanQaCallReduction": 1,
     "costUnits": {
-      "baseline": 13,
-      "adaptive": 14
+      "baseline": 16,
+      "adaptive": 17
     },
     "latencyUnits": {
-      "baseline": 13,
-      "adaptive": 14
+      "baseline": 16,
+      "adaptive": 17
     },
     "recoverySuccesses": {
-      "baseline": 8,
-      "adaptive": 12
+      "baseline": 11,
+      "adaptive": 15
     }
   },
   "thresholds": {
@@ -129,6 +129,30 @@
     },
     {
       "id": "docs-finding-remediation",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "crud-consolidation-delete",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "routine-upload-feature",
+      "labels": {
+        "risk": "NORMAL",
+        "ambiguity": "NORMAL"
+      },
+      "selectedLane": "fast"
+    },
+    {
+      "id": "routine-admin-listing",
       "labels": {
         "risk": "NORMAL",
         "ambiguity": "NORMAL"
