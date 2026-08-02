@@ -41,7 +41,15 @@ repo-root guard; baseline verification; CI=1 for trusted commands; branch
 guidance. Validated by 4 smoke suites, 15/15 routing eval, and a live cloud
 run (7 phases, 22/22 validators, $1.11).
 
-## Milestone 1 — Runs can never hurt you (isolation & resume)
+## Milestone 1 — Runs can never hurt you (isolation & resume) — DONE
+
+Landed: per-run worktree isolation (dirty user trees allowed; user checkout
+provably untouched; committed runs auto-clean their worktree), checkpoint
+candidate-tree pinning + mid-mutation restore on resume, per-invariant resume
+hints, deterministic `detect-project.sh`, recorded scanner waivers
+(placeholder/fixture/`.env.*.example`/`PIPELINE_ALLOW_REMOTE_DEPS`), and
+`tests/resume-kill-matrix.sh` (interrupt-at-checkpoint × resume, plus a
+damaged-worktree restore case).
 
 1. **Per-run git worktree for Phases 6–12.** `git worktree add
    $PIPELINE_STATE_DIR/worktrees/<run> $BASE_HEAD`; point the frozen

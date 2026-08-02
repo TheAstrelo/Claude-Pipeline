@@ -617,7 +617,10 @@ Add project-specific conventions in `.claude/rules/`:
 - Bash (Git Bash on native Windows)
 - Node.js for JSON parsing, evidence hashing, and usage accounting
 - Git for branch/review/commit behavior
-- A clean working tree, unless `--allow-dirty` is explicit
+- A clean working tree is no longer required: runs execute in an isolated
+  per-run git worktree from the HEAD commit (uncommitted changes are not part
+  of the run; `PIPELINE_WORKTREE=0` restores in-place mode, which does
+  require a clean tree; `--allow-dirty` reviews in place without commit)
 - For auto-commit: Claude Code (bare mode with an API credential, or the
   OAuth-compatible isolation fallback), or Codex CLI with
   `codex exec --ignore-user-config`

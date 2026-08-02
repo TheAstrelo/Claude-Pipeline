@@ -235,8 +235,15 @@ git -C "$COMMIT_REPO" commit -q -m "seed"
       --allow-untested-commit \
       "commit safety smoke" >/dev/null
 )
-[[ "$(git -C "$COMMIT_REPO" branch --show-current)" == pipeline/* ]]
-git -C "$COMMIT_REPO" show --format= --name-only HEAD | grep -q '^smoke-built.txt$'
+# Worktree isolation: the user's checkout must remain on its original branch
+# with a clean tree; the result lives only on the published pipeline/* branch.
+[[ "$(git -C "$COMMIT_REPO" branch --show-current)" == "master" ||
+   "$(git -C "$COMMIT_REPO" branch --show-current)" == "main" ]]
+PIPELINE_RUN_BRANCH=$(git -C "$COMMIT_REPO" for-each-ref --format='%(refname:short)' 'refs/heads/pipeline/*' | head -1)
+[[ -n "$PIPELINE_RUN_BRANCH" ]]
+git -C "$COMMIT_REPO" show --format= --name-only "$PIPELINE_RUN_BRANCH" | grep -q '^smoke-built.txt$'
 [[ -z "$(git -C "$COMMIT_REPO" status --porcelain)" ]]
+# Committed-run worktree is auto-removed; only the main checkout remains.
+[[ "$(git -C "$COMMIT_REPO" worktree list | wc -l)" -eq 1 ]]
 
 echo "provider adapter smoke tests passed"

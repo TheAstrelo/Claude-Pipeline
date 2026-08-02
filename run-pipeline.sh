@@ -59,7 +59,10 @@ ROUTED_EFFORT=""
 ROUTED_ACTION=""
 ROUTED_RULE=""
 QA_POLICY_VERSION="1.0"
-SECURITY_SCANNER_POLICY_VERSION="1.0"
+# 1.1: recorded-waiver allowlists (placeholder-marker secrets, fixture paths,
+# .env.*.example shapes, PIPELINE_ALLOW_REMOTE_DEPS) — every waiver is durable
+# evidence; deterministic BLOCK remains non-waivable for real findings.
+SECURITY_SCANNER_POLICY_VERSION="1.1"
 REDACTION_POLICY_VERSION="1.0"
 RETENTION_POLICY_VERSION="1.0"
 SLO_POLICY_VERSION="1.0"
@@ -99,6 +102,18 @@ CODEX_IGNORE_RULES=false
 CLAUDE_BARE_MODE=false
 PIPELINE_STATE_DIR="${PIPELINE_STATE_DIR:-.pipeline}"
 PIPELINE_BRANCH=""
+# Worktree isolation: every phase runs inside an engine-owned git worktree
+# created from the immutable baseline, so a run can NEVER dirty the user's
+# checkout — results land only as the published run branch. PIPELINE_WORKTREE=0
+# restores the legacy in-place mode (which requires a clean tree).
+ORIGIN_ROOT=""
+RUN_WORKTREE=""
+WORKTREE_MODE="${PIPELINE_WORKTREE:-1}"
+# Gitignored build state shared into the worktree by symlink (worktrees start
+# from the committed tree only, so npm/pytest tooling would otherwise miss
+# node_modules etc.). Only paths that are BOTH present and gitignored in the
+# origin checkout are linked; candidate capture ignores them either way.
+WORKTREE_LINK_PATHS="${PIPELINE_WORKTREE_LINK_PATHS:-node_modules .venv venv vendor}"
 BASE_HEAD=""
 BASE_TREE_OID=""
 ORIGINAL_BASE_BRANCH=""
@@ -240,6 +255,41 @@ init_candidate_pathspec() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
   if ! git check-ignore -q .claude/artifacts 2>/dev/null; then
     CANDIDATE_PATHSPEC+=(':(exclude).claude/artifacts')
+  fi
+}
+
+# Create the engine-owned run worktree from the immutable baseline and move
+# execution into it. The run branch is born WITH the worktree, so the user's
+# checkout never changes branch, index, or files. Gitignored build state
+# (node_modules and friends) is shared by symlink because a fresh worktree
+# materializes only the committed tree.
+create_run_worktree() {
+  [[ "$WORKTREE_MODE" == "1" && "$ALLOW_DIRTY" != "true" ]] || return 0
+  command -v git >/dev/null 2>&1 || return 0
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  [[ -n "$BASE_HEAD" ]] || return 0
+
+  RUN_WORKTREE="$PIPELINE_STATE_DIR/worktrees/$SESSION_ID"
+  PIPELINE_BRANCH="pipeline/${SESSION_ID}"
+  if ! mkdir -p "$PIPELINE_STATE_DIR/worktrees"; then
+    echo -e "${RED}Error: could not create the worktree parent directory.${NC}" >&2
+    exit 1
+  fi
+  if ! git worktree add -b "$PIPELINE_BRANCH" "$RUN_WORKTREE" "$BASE_HEAD" >/dev/null 2>&1; then
+    echo -e "${RED}Error: could not create the run worktree at '$RUN_WORKTREE'.${NC}" >&2
+    echo -e "${DIM}Check 'git worktree list' for stale entries ('git worktree prune' clears them), or set PIPELINE_WORKTREE=0 for legacy in-place mode.${NC}" >&2
+    exit 1
+  fi
+  local link
+  for link in $WORKTREE_LINK_PATHS; do
+    if [[ -e "$ORIGIN_ROOT/$link" && ! -e "$RUN_WORKTREE/$link" ]] &&
+       git -C "$ORIGIN_ROOT" check-ignore -q "$link" 2>/dev/null; then
+      ln -s "$ORIGIN_ROOT/$link" "$RUN_WORKTREE/$link" 2>/dev/null || true
+    fi
+  done
+  if ! cd "$RUN_WORKTREE"; then
+    echo -e "${RED}Error: could not enter the run worktree '$RUN_WORKTREE'.${NC}" >&2
+    exit 1
   fi
 }
 
@@ -691,19 +741,54 @@ if command -v git >/dev/null 2>&1 &&
   unset _repo_toplevel
 fi
 
-# Auto-commit is safe only from a clean baseline. With --allow-dirty, the user
-# explicitly accepts a combined diff and the engine disables staging/commit.
-# Engine-owned state ($PIPELINE_STATE_DIR, .claude/artifacts) left behind by
-# earlier engine versions is filtered out: the engine's own scratch must never
-# block the user's next run.
+# With worktree isolation (the default), a dirty user tree is harmless: the
+# run executes in its own worktree created from the HEAD commit, and
+# uncommitted changes are simply not part of the run. Legacy in-place mode
+# (PIPELINE_WORKTREE=0) still demands a clean tree. With --allow-dirty, the
+# user explicitly accepts a combined in-place diff and the engine disables
+# staging/commit. Engine-owned state ($PIPELINE_STATE_DIR, .claude/artifacts)
+# left behind by earlier engine versions is filtered out either way: the
+# engine's own scratch must never block the user's next run.
 if [[ -z "$RESUME_RUN_ID" && "$ALLOW_DIRTY" != "true" ]] &&
    command -v git >/dev/null 2>&1 &&
    git rev-parse --is-inside-work-tree >/dev/null 2>&1 &&
    [[ -n "$(git status --porcelain --untracked-files=normal 2>/dev/null |
             grep -v -E "^\?\? (\"?)($PIPELINE_STATE_DIR|\.claude/artifacts)/" )" ]]; then
-  echo -e "${RED}Error: the pipeline requires a clean working tree by default.${NC}" >&2
-  echo -e "${DIM}Commit/stash existing work, or use --allow-dirty (which disables commit).${NC}" >&2
-  exit 1
+  if [[ "$WORKTREE_MODE" == "1" ]]; then
+    echo -e "${YELLOW}Working tree has uncommitted changes; they are NOT part of this run.${NC}"
+    echo -e "${DIM}The run executes in an isolated worktree from the HEAD commit. Commit your changes first if they belong in the baseline.${NC}"
+  else
+    echo -e "${RED}Error: the pipeline requires a clean working tree by default.${NC}" >&2
+    echo -e "${DIM}Commit/stash existing work, or use --allow-dirty (which disables commit).${NC}" >&2
+    exit 1
+  fi
+fi
+
+# Anchor engine state to the directory the user launched from, BEFORE any
+# worktree entry changes the working directory. All state paths become
+# absolute so cwd changes cannot re-root them.
+ORIGIN_ROOT="$PWD"
+if [[ "$PIPELINE_STATE_DIR" != /* &&
+      ! "$PIPELINE_STATE_DIR" =~ ^[A-Za-z]:[\\/] ]]; then
+  PIPELINE_STATE_DIR="$ORIGIN_ROOT/$PIPELINE_STATE_DIR"
+fi
+
+# Resuming a worktree-mode run re-enters the run's own worktree before the
+# baseline is captured, so the resumed baseline is the RUN's frozen baseline
+# (the run branch still sits on it) rather than whatever the user's checkout
+# has moved to since.
+if [[ -n "$RESUME_RUN_ID" && "$WORKTREE_MODE" == "1" && "$ALLOW_DIRTY" != "true" ]]; then
+  _resume_worktree="$PIPELINE_STATE_DIR/worktrees/$RESUME_RUN_ID"
+  if [[ -d "$_resume_worktree" ]] &&
+     git -C "$_resume_worktree" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    RUN_WORKTREE="$_resume_worktree"
+    if ! cd "$RUN_WORKTREE"; then
+      echo -e "${RED}Error: could not enter the run worktree '$RUN_WORKTREE'.${NC}" >&2
+      exit 1
+    fi
+    echo -e "  ${DIM}Resuming inside run worktree: $RUN_WORKTREE${NC}"
+  fi
+  unset _resume_worktree
 fi
 
 # Immutable repository provenance is captured before hooks or provider
@@ -762,16 +847,24 @@ if [[ -d "$PIPELINE_STATE_DIR" && ! -f "$PIPELINE_STATE_DIR/.gitignore" ]]; then
     exit 1
   }
 fi
+
+# Fresh runs execute inside an isolated worktree (resume re-entered its
+# worktree before the baseline was captured).
+if [[ -z "$RESUME_RUN_ID" ]]; then
+  create_run_worktree
+fi
 LEDGER_FILE="$ARTIFACTS/ledger.jsonl"
 RUN_SUMMARY_FILE="$ARTIFACTS/run.json"
 
 # Wired hook scripts (see the detect/notify wiring in "Main pipeline execution").
+# Anchored at the origin checkout (absolute): cwd may be the run worktree, and
+# the notify trap can fire after execution returns to the origin.
 if [[ -d "$PIPELINE_STATE_DIR/hooks" ]]; then
   HOOKS_DIR="$PIPELINE_STATE_DIR/hooks"
-elif [[ -d ".claude/hooks" ]]; then
-  HOOKS_DIR=".claude/hooks"
+elif [[ -d "$ORIGIN_ROOT/.claude/hooks" ]]; then
+  HOOKS_DIR="$ORIGIN_ROOT/.claude/hooks"
 else
-  HOOKS_DIR=".codex/hooks"
+  HOOKS_DIR="$ORIGIN_ROOT/.codex/hooks"
 fi
 # Stack detected by detect-project.sh at startup; prepended to every phase prompt
 # so phases match the real framework/conventions. Empty until detection runs.
@@ -793,6 +886,9 @@ echo -e "  Models:   ${CYAN}$MODEL_STRONG${NC} / ${CYAN}$MODEL_FAST${NC}"
 echo -e "  Profile:  ${CYAN}$PROFILE${NC}"
 echo -e "  Task:     $TASK_SAFE"
 echo -e "  Session:  $ARTIFACTS"
+if [[ -n "$RUN_WORKTREE" ]]; then
+  echo -e "  Worktree: ${CYAN}$RUN_WORKTREE${NC} (your checkout stays untouched)"
+fi
 echo -e "  Gate:     $GATE_MODE"
 echo -e "  Policy:   ${CYAN}$POLICY_ROLLOUT${NC}"
 if [[ ${#SKIP_PHASES[@]} -gt 0 ]]; then
@@ -1410,7 +1506,30 @@ write_checkpoint() {
   local manifest_sha worktree phase_results_json warnings_json
   manifest_sha=$(sha256_file "$manifest_path" 2>/dev/null || true)
   worktree=$(worktree_fingerprint 2>/dev/null || true)
-  [[ -n "$manifest_sha" && -n "$worktree" ]] || return 1
+  [[ -n "$manifest_sha" ]] || {
+    echo -e "${RED}Checkpoint '$cursor': artifact manifest could not be hashed.${NC}" >&2
+    return 1
+  }
+  [[ -n "$worktree" ]] || {
+    echo -e "${RED}Checkpoint '$cursor': worktree fingerprint is unavailable.${NC}" >&2
+    return 1
+  }
+
+  # Worktree mode: pin the exact candidate tree behind a per-run ref so (a)
+  # git gc can never prune it and (b) resume can RESTORE an interrupted
+  # workspace to this checkpoint instead of failing closed on the fingerprint.
+  local candidate_tree=""
+  if [[ -n "$RUN_WORKTREE" ]]; then
+    candidate_tree=$(candidate_tree_oid 2>/dev/null || true)
+    if [[ -n "$candidate_tree" ]]; then
+      local pin_commit
+      pin_commit=$(git -c commit.gpgSign=false commit-tree "$candidate_tree" \
+        -m "pipeline checkpoint $cursor ($SESSION_ID)" 2>/dev/null || true)
+      if [[ -n "$pin_commit" ]]; then
+        git update-ref "refs/pipeline-checkpoints/$SESSION_ID" "$pin_commit" 2>/dev/null || true
+      fi
+    fi
+  fi
   phase_results_json=$(node -e '
     const values = process.argv.slice(1);
     const result = {};
@@ -1431,6 +1550,7 @@ write_checkpoint() {
   PIPELINE_CHECKPOINT_MANIFEST="$manifest_rel" \
   PIPELINE_CHECKPOINT_MANIFEST_SHA="$manifest_sha" \
   PIPELINE_CHECKPOINT_WORKTREE="$worktree" \
+  PIPELINE_CHECKPOINT_CANDIDATE_TREE="$candidate_tree" \
   PIPELINE_CHECKPOINT_PHASE_RESULTS="$phase_results_json" \
   PIPELINE_CHECKPOINT_WARNINGS="$warnings_json" \
   PIPELINE_CHECKPOINT_PATH="$checkpoint_path" \
@@ -1509,6 +1629,7 @@ write_checkpoint() {
         currentBranch: process.env.PIPELINE_CHECKPOINT_BRANCH,
         verificationPlanSha256: process.env.PIPELINE_VERIFICATION_PLAN_SHA,
         worktreeFingerprint: process.env.PIPELINE_CHECKPOINT_WORKTREE,
+        candidateTreeOid: process.env.PIPELINE_CHECKPOINT_CANDIDATE_TREE || null,
         artifactManifest: {
           path: process.env.PIPELINE_CHECKPOINT_MANIFEST,
           sha256: `sha256:${process.env.PIPELINE_CHECKPOINT_MANIFEST_SHA}`
@@ -1713,6 +1834,47 @@ load_checkpoint_state() {
   [[ -n "$RESUME_CURSOR" && "$RESUME_CURSOR_RANK" =~ ^[0-9]+$ ]]
 }
 
+# A worktree-mode resume can RESTORE an interrupted workspace instead of
+# failing closed: the worktree is engine-owned (no user work to clobber) and
+# every checkpoint pinned its exact candidate tree as a real git object.
+# Restore = candidate files back on disk, junk removed, real index back to the
+# baseline shape — byte-for-byte the state the checkpoint fingerprinted.
+restore_worktree_from_checkpoint() {
+  [[ -n "$RUN_WORKTREE" ]] || return 0
+  local latest tree current
+  latest=$(ls -1 "$ARTIFACTS"/checkpoints/*.json 2>/dev/null | LC_ALL=C sort | tail -1)
+  [[ -n "$latest" ]] || return 0
+  tree=$(checkpoint_state_value "$latest" "candidateTreeOid" 2>/dev/null || true)
+  if [[ -z "$tree" ]]; then
+    echo -e "  ${DIM}Checkpoint predates worktree snapshots; resuming without workspace restore.${NC}"
+    return 0
+  fi
+  if ! git rev-parse --verify -q "${tree}^{tree}" >/dev/null 2>&1; then
+    echo -e "${RED}Resume restore failed: checkpointed candidate tree $tree is not in the object store.${NC}" >&2
+    return 1
+  fi
+  current=$(candidate_tree_oid 2>/dev/null || true)
+  [[ "$current" == "$tree" ]] && return 0
+  echo -e "  ${YELLOW}Run worktree drifted from its last checkpoint (interrupted mid-mutation); restoring...${NC}"
+  local -a clean_excludes=()
+  local link
+  for link in $WORKTREE_LINK_PATHS; do
+    clean_excludes+=(-e "$link")
+  done
+  if ! git read-tree --reset -u "$tree" ||
+     ! git clean -fdq "${clean_excludes[@]}" ||
+     ! git read-tree "$BASE_HEAD"; then
+    echo -e "${RED}Resume restore failed: could not rebuild the checkpointed workspace.${NC}" >&2
+    return 1
+  fi
+  current=$(candidate_tree_oid 2>/dev/null || true)
+  if [[ "$current" != "$tree" ]]; then
+    echo -e "${RED}Resume restore failed: workspace still differs from the checkpointed candidate tree.${NC}" >&2
+    return 1
+  fi
+  echo -e "  ${GREEN}✓ Worktree restored to checkpointed candidate tree${NC}"
+}
+
 verify_resume_state() {
   local current_fingerprint current_branch current_repo_root checkpoint_rel
   if ! command -v git >/dev/null 2>&1 ||
@@ -1846,10 +2008,29 @@ verify_resume_state() {
   ' "$LEDGER_FILE" "$ARTIFACTS" "$SESSION_ID" "$ENGINE_SHA" "$RUN_CONFIG_SHA" \
      "$TASK_SHA" "$BASE_HEAD" "$current_repo_root" "$current_branch" "$current_fingerprint" \
      "$VERIFICATION_PLAN_SHA" 2>"$ARTIFACTS/resume-validation.err") || {
-    local reason
+    local reason hint=""
     reason=$(tr '\r\n' ' ' < "$ARTIFACTS/resume-validation.err" 2>/dev/null || true)
     echo -e "${RED}Resume invariant failed: ${reason:-unknown state mismatch}.${NC}" >&2
-    echo -e "${DIM}Start a new run without --resume; unsafe state is never guessed or repaired in place.${NC}" >&2
+    case "$reason" in
+      *"run is already completed"*)
+        hint="This run finished; there is nothing to resume. Start a fresh run." ;;
+      *"engine hash mismatch"*|*"checkpoint engine mismatch"*)
+        hint="run-pipeline.sh changed since this run started; resume requires the exact same engine build." ;;
+      *"configuration hash mismatch"*|*"checkpoint configuration mismatch"*)
+        hint="Flags/profile/models/env differ from the original run; rerun --resume with the original configuration." ;;
+      *"task hash mismatch"*|*"checkpoint task mismatch"*)
+        hint="The task text must match the original run exactly (same quoting and whitespace)." ;;
+      *"baseline commit mismatch"*|*"checkpoint baseline mismatch"*)
+        hint="The baseline moved: new commits landed, or this run already published its result." ;;
+      *"worktree fingerprint mismatch"*)
+        hint="The workspace no longer matches the last checkpoint and could not be auto-restored." ;;
+      *"verification-plan mismatch"*)
+        hint="package.json scripts or verification tooling changed since the run started." ;;
+      *"branch mismatch"*)
+        hint="The checkout is on a different branch than the checkpoint recorded." ;;
+    esac
+    [[ -n "$hint" ]] && echo -e "${DIM}${hint}${NC}" >&2
+    echo -e "${DIM}Unsafe state is never guessed or repaired in place; start a new run without --resume if the hint does not apply.${NC}" >&2
     return 1
   }
   rm -f "$ARTIFACTS/resume-validation.err"
@@ -2097,6 +2278,7 @@ initialize_run_ledger() {
   }
   if [[ -n "$RESUME_RUN_ID" ]]; then
     RUN_LEDGER_READY=true
+    restore_worktree_from_checkpoint || return 1
     verify_resume_state || return 1
     local payload
     payload=$(node -e '
@@ -3833,6 +4015,7 @@ run_security_scanner_preflight() {
   PIPELINE_SECURITY_TARGET="$evidence" \
   PIPELINE_SECURITY_TREE="$pre_tree" \
   PIPELINE_SECURITY_GIT_BOUND="$git_bound" \
+  PIPELINE_ALLOW_REMOTE_DEPS="${PIPELINE_ALLOW_REMOTE_DEPS:-0}" \
     node -e '
       const fs = require("fs");
       const path = require("path");
@@ -3841,11 +4024,12 @@ run_security_scanner_preflight() {
       const names = fs.readFileSync(process.env.PIPELINE_SECURITY_PATHS)
         .toString("utf8").split("\0").filter(Boolean);
       const findings = [];
+      const waivers = [];
       const files = [];
       const adapters = [
-        { id: "protected-paths", version: "1.0", status: "PASS" },
-        { id: "secret-signatures", version: "1.0", status: "PASS" },
-        { id: "dependency-sources", version: "1.0", status: "PASS" },
+        { id: "protected-paths", version: "1.1", status: "PASS" },
+        { id: "secret-signatures", version: "1.1", status: "PASS" },
+        { id: "dependency-sources", version: "1.1", status: "PASS" },
         { id: "escaping-symlinks", version: "1.0", status: "PASS" }
       ];
       const add = (adapter, rule, name, line, severity, fingerprint = null) => {
@@ -3853,6 +4037,29 @@ run_security_scanner_preflight() {
         const item = adapters.find(value => value.id === adapter);
         if (item) item.status = "FAIL";
       };
+      // Allowlists never delete evidence: every skipped match is recorded as a
+      // waiver (adapter, rule, path, reason, fingerprint) in the durable
+      // evidence document and counted in the ledger event.
+      const waive = (adapter, rule, name, line, reason, fingerprint = null) => {
+        waivers.push({ adapter, rule, path: name, line, reason, fingerprint });
+      };
+      // Obvious non-secrets: the value itself announces it is a placeholder.
+      const placeholderLike = value =>
+        /(?:^|[^A-Za-z])(EXAMPLE|SAMPLE|PLACEHOLDER|CHANGE[-_]?ME|DUMMY|FAKE|REDACTED|XXXXXXXX|INSERT[-_]?(KEY|TOKEN)[-_]?HERE|YOUR[-_](API[-_]?)?(KEY|TOKEN|SECRET))(?:[^A-Za-z]|$)/i
+          .test(value);
+      // Test/fixture/example locations. Deliberately does NOT cover docs (.md):
+      // a live-shaped token pasted into a README is still a leak.
+      const fixturePath = name => {
+        const value = name.replace(/\\/g, "/");
+        return /(^|\/)(tests?|__tests__|specs?|fixtures?|mocks?|__mocks__|examples?|samples?)\//i.test(value) ||
+          /\.(test|spec)\.[A-Za-z0-9]+$/i.test(value) ||
+          /\.(example|sample|template)($|\.)/i.test(value);
+      };
+      // Live-shaped credentials (prefix-exact patterns like AKIA…, ghp_…)
+      // stay blocking even in fixtures: a real key committed under tests/ is
+      // still a real key. Generic-shaped rules may be fixture-waived.
+      const fixtureWaivableRules = new Set(["jwt", "api-key"]);
+      const allowRemoteDeps = process.env.PIPELINE_ALLOW_REMOTE_DEPS === "1";
       const inside = candidate => {
         const relative = path.relative(root, candidate);
         return relative !== ".." && !relative.startsWith(`..${path.sep}`) &&
@@ -3860,8 +4067,9 @@ run_security_scanner_preflight() {
       };
       const protectedPath = name => {
         const value = name.replace(/\\/g, "/").toLowerCase();
-        if (value === ".env.example" || value === ".env.sample" ||
-            value === ".env.template") return false;
+        // Documented placeholder shapes at any .env depth: .env.example,
+        // .env.local.example, config/.env.staging.sample, ...
+        if (/(^|\/)\.env([._-][a-z0-9._-]*)?\.(example|sample|template)$/.test(value)) return false;
         return value === ".env" || value.startsWith(".env.") ||
           value === ".npmrc" || value === ".pypirc" || value === ".netrc" ||
           value === ".aws/credentials" || value.startsWith(".ssh/") ||
@@ -3886,8 +4094,13 @@ run_security_scanner_preflight() {
           continue;
         }
         const stat = fs.lstatSync(full);
-        if (protectedPath(name))
-          add("protected-paths", "protected-control-or-secret-file", name, 1, "CRITICAL");
+        if (protectedPath(name)) {
+          if (fixturePath(name)) {
+            waive("protected-paths", "protected-control-or-secret-file", name, 1, "fixture-path");
+          } else {
+            add("protected-paths", "protected-control-or-secret-file", name, 1, "CRITICAL");
+          }
+        }
         if (stat.isSymbolicLink()) {
           const target = path.resolve(path.dirname(full), fs.readlinkSync(full));
           if (!inside(target))
@@ -3907,6 +4120,16 @@ run_security_scanner_preflight() {
         for (const [rule, pattern] of secretRules) {
           for (const match of text.matchAll(pattern)) {
             const line = text.slice(0, match.index).split(/\r?\n/).length;
+            if (placeholderLike(match[0])) {
+              waive("secret-signatures", rule, name, line, "placeholder-marker",
+                fingerprint(match[0]));
+              continue;
+            }
+            if (fixturePath(name) && fixtureWaivableRules.has(rule)) {
+              waive("secret-signatures", rule, name, line, "fixture-path",
+                fingerprint(match[0]));
+              continue;
+            }
             add("secret-signatures", rule, name, line, "CRITICAL",
               fingerprint(match[0]));
           }
@@ -3926,8 +4149,13 @@ run_security_scanner_preflight() {
               const value = String(specifier).trim();
               if (value === "*" || /^latest$/i.test(value) ||
                   /^(?:git(?:\+[^:]+)?|https?):/i.test(value)) {
-                add("dependency-sources", "unbounded-or-remote-dependency",
-                  name, 1, "HIGH", fingerprint(`${dependency}:${value}`));
+                if (allowRemoteDeps) {
+                  waive("dependency-sources", "unbounded-or-remote-dependency",
+                    name, 1, "explicit-env-waiver", fingerprint(`${dependency}:${value}`));
+                } else {
+                  add("dependency-sources", "unbounded-or-remote-dependency",
+                    name, 1, "HIGH", fingerprint(`${dependency}:${value}`));
+                }
               }
             }
           }
@@ -3943,7 +4171,8 @@ run_security_scanner_preflight() {
         result,
         adapters,
         files,
-        findings
+        findings,
+        waivers
       };
       const target = process.env.PIPELINE_SECURITY_TARGET;
       const temp = `${target}.tmp-${process.pid}-${Date.now()}`;
@@ -3978,6 +4207,14 @@ run_security_scanner_preflight() {
     process.stdout.write(String(d.result));
   ' "$evidence") || exit 1
   SECURITY_SCANNER_EVIDENCE="$evidence"
+  local waiver_count
+  waiver_count=$(node -e '
+    const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+    process.stdout.write(String((d.waivers||[]).length));
+  ' "$evidence" 2>/dev/null || echo 0)
+  if [[ "$waiver_count" -gt 0 ]]; then
+    echo -e "  ${YELLOW}Scanner waivers recorded: $waiver_count (placeholder/fixture/explicit — see $(basename "$evidence"))${NC}"
+  fi
   local status="SUCCEEDED" exit_code="0"
   if [[ "$SECURITY_SCANNER_RESULT" == "BLOCK" ]]; then
     status="FAILED"
@@ -3993,10 +4230,12 @@ run_security_scanner_preflight() {
       result: process.argv[2],
       candidateGeneration: Number(process.argv[3]),
       candidateTreeOid: process.argv[4] || null,
+      waiverCount: Number(process.argv[7]),
       evidence: { path: process.argv[5], sha256: `sha256:${process.argv[6]}` }
     }));
   ' "$SECURITY_SCANNER_POLICY_VERSION" "$SECURITY_SCANNER_RESULT" \
-     "$CANDIDATE_GENERATION" "$pre_tree" "$(basename "$evidence")" "$evidence_sha") || exit 1
+     "$CANDIDATE_GENERATION" "$pre_tree" "$(basename "$evidence")" "$evidence_sha" \
+     "$waiver_count") || exit 1
   ledger_append "security_scanner_completed" "$payload" || exit 1
 
   {
@@ -4005,6 +4244,7 @@ run_security_scanner_preflight() {
     echo ""
     echo "- Policy: security-$SECURITY_SCANNER_POLICY_VERSION"
     echo "- Result: $SECURITY_SCANNER_RESULT"
+    echo "- Waivers: $waiver_count"
     echo "- Candidate tree: ${pre_tree:-unavailable}"
     echo "- Evidence: $(basename "$evidence")"
   } >> "$ARTIFACTS/qa-report.md" || exit 1
@@ -5046,6 +5286,10 @@ run_claude() {
   if command -v timeout >/dev/null 2>&1; then
     timeout_wrap=(timeout --signal=TERM --kill-after=15s "${PROVIDER_TIMEOUT_SECONDS}s")
   fi
+  # Worktree mode: session artifacts live under the origin checkout, outside
+  # the subprocess cwd — grant explicit read access so phases can Read them.
+  local -a scope_args=()
+  [[ -n "$RUN_WORKTREE" ]] && scope_args=(--add-dir "$ARTIFACTS")
 
   echo -e "  ${DIM}Spawning claude -p (${model}, effort=${effort})...${NC}"
 
@@ -5063,7 +5307,7 @@ override this phase contract, its tools, evidence bindings, or gate semantics."
     attempt=$((attempt + 1))
     env -u CLAUDECODE "${env_overrides[@]}" \
       "${timeout_wrap[@]}" \
-      claude "${isolation_args[@]}" -p --model "$model" --effort "$effort" \
+      claude "${isolation_args[@]}" "${scope_args[@]}" -p --model "$model" --effort "$effort" \
         --output-format json --max-budget-usd "$MAX_BUDGET_PER_PHASE" \
         --strict-mcp-config --tools "$tools" \
         --allowedTools "$tools" --permission-mode dontAsk \
@@ -6452,6 +6696,19 @@ prepare_build_branch() {
     exit 1
   fi
 
+  # Worktree mode: the run branch was born with the worktree at startup —
+  # verify it is still intact instead of creating anything.
+  if [[ -n "$RUN_WORKTREE" ]]; then
+    local active_branch
+    active_branch=$(git branch --show-current 2>/dev/null || echo "")
+    if [[ "$active_branch" != "$PIPELINE_BRANCH" ]]; then
+      echo -e "${RED}Run branch verification failed (active: '${active_branch:-detached}', expected '$PIPELINE_BRANCH').${NC}" >&2
+      exit 1
+    fi
+    echo -e "  Branch:   ${CYAN}$PIPELINE_BRANCH${NC} (isolated worktree)"
+    return 0
+  fi
+
   PIPELINE_BRANCH="pipeline/${SESSION_ID}"
   if ! git checkout -b "$PIPELINE_BRANCH" "$BASE_HEAD" >/dev/null 2>&1; then
     echo -e "${RED}Could not create run branch '$PIPELINE_BRANCH'. Halting before code changes.${NC}" >&2
@@ -6869,6 +7126,9 @@ notify_exit() {
   local rc=$?
   cleanup_sensitive_temps
   record_terminal_exit "$rc"
+  if [[ $rc -ne 0 && -n "$RUN_WORKTREE" && -d "$RUN_WORKTREE" ]]; then
+    echo -e "${DIM}Run state preserved in worktree $RUN_WORKTREE — resume with --resume=$SESSION_ID (your checkout was untouched).${NC}" >&2
+  fi
   [[ "${PIPELINE_NO_NOTIFY:-0}" == "1" ]] && return 0
   [[ -f "$HOOKS_DIR/notify.sh" ]] || return 0
   if [[ $rc -eq 0 ]]; then
@@ -7184,12 +7444,6 @@ fi
 
 echo ""
 echo -e "  Artifacts: ${CYAN}$ARTIFACTS/${NC}"
-if [[ -n "$PIPELINE_BRANCH" ]]; then
-  echo ""
-  echo -e "  You are on the run branch ${CYAN}$PIPELINE_BRANCH${NC} (started from ${CYAN}${ORIGINAL_BASE_BRANCH}${NC})."
-  echo -e "    merge it:   ${DIM}git checkout ${ORIGINAL_BASE_BRANCH} && git merge $PIPELINE_BRANCH${NC}"
-  echo -e "    discard it: ${DIM}git checkout ${ORIGINAL_BASE_BRANCH} && git branch -D $PIPELINE_BRANCH${NC}"
-fi
 echo ""
 
 # The append-only ledger is authoritative. run.json and history.json are
@@ -7217,6 +7471,33 @@ update_run_summary \
   || echo -e "  ${YELLOW}Run completed, but the derived run.json could not be regenerated.${NC}" >&2
 rebuild_history_index || true
 rebuild_operational_dashboard || true
+
+# End-of-run workspace disposition. A committed worktree run holds nothing
+# unique (the tree IS the published commit) — remove it so a completed run
+# leaves only the run branch behind. Review-only results stay in the worktree,
+# clearly signposted. Legacy in-place runs keep the old branch guidance.
+if [[ -n "$RUN_WORKTREE" ]]; then
+  if [[ "$AUTO_COMMIT" == "true" &&
+        ( -f "$ARTIFACTS/commit.sha" || -f "$ARTIFACTS/commit.noop" ) ]] &&
+     cd "$ORIGIN_ROOT" 2>/dev/null &&
+     git worktree remove --force "$RUN_WORKTREE" >/dev/null 2>&1; then
+    git update-ref -d "refs/pipeline-checkpoints/$SESSION_ID" >/dev/null 2>&1 || true
+    echo ""
+    echo -e "  Your checkout was untouched. Result committed on branch ${CYAN}$PIPELINE_BRANCH${NC}; run worktree removed."
+    echo -e "    merge it:   ${DIM}git merge $PIPELINE_BRANCH${NC}"
+    echo -e "    discard it: ${DIM}git branch -D $PIPELINE_BRANCH${NC}"
+  else
+    echo ""
+    echo -e "  Your checkout was untouched. Run result is in the worktree ${CYAN}$RUN_WORKTREE${NC} (branch ${CYAN}$PIPELINE_BRANCH${NC})."
+    echo -e "    inspect it: ${DIM}cd $RUN_WORKTREE${NC}"
+    echo -e "    discard it: ${DIM}git worktree remove --force $RUN_WORKTREE && git branch -D $PIPELINE_BRANCH${NC}"
+  fi
+elif [[ -n "$PIPELINE_BRANCH" ]]; then
+  echo ""
+  echo -e "  You are on the run branch ${CYAN}$PIPELINE_BRANCH${NC} (started from ${CYAN}${ORIGINAL_BASE_BRANCH}${NC})."
+  echo -e "    merge it:   ${DIM}git checkout ${ORIGINAL_BASE_BRANCH} && git merge $PIPELINE_BRANCH${NC}"
+  echo -e "    discard it: ${DIM}git checkout ${ORIGINAL_BASE_BRANCH} && git branch -D $PIPELINE_BRANCH${NC}"
+fi
 echo ""
 
 # Explicit success exit so the notify_exit EXIT trap reports success, not the

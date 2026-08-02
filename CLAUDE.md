@@ -45,7 +45,11 @@ Flags the engine actually parses: `--provider=auto|claude|codex`,
 `--retention-max-runs=`, `--help`.
 Env knobs: `PIPELINE_PROVIDER_TIMEOUT_SECONDS` (default 2400),
 `PIPELINE_PROVIDER_RETRIES` (default 1), `PIPELINE_AUTH_PREFLIGHT=0`,
-`PIPELINE_BASELINE_CHECKS=0`, `PIPELINE_COMMAND_TIMEOUT_SECONDS` (default 900).
+`PIPELINE_BASELINE_CHECKS=0`, `PIPELINE_COMMAND_TIMEOUT_SECONDS` (default 900),
+`PIPELINE_WORKTREE=0` (legacy in-place mode), `PIPELINE_WORKTREE_LINK_PATHS`
+(gitignored build state symlinked into the run worktree; default
+`node_modules .venv venv vendor`), `PIPELINE_ALLOW_REMOTE_DEPS=1` (recorded
+waiver for git/https dependency specifiers).
 Resume requires the original task and an exact engine/config/Git/evidence
 match. Anything else (
 `--template`, `--batch-qa`, `--fix`, `--pr`,
@@ -161,22 +165,47 @@ Each phase runs as a separate provider subprocess. Claude reports actual USD and
 supports a native per-call cap. Codex reports JSONL token usage, so its
 API-price-equivalent estimate can only be enforced between calls.
 
+### Worktree isolation
+
+Every run executes inside an engine-owned git worktree
+(`.pipeline/worktrees/<run>`) created from the immutable baseline commit; the
+run branch is born with the worktree. The user's checkout never changes
+branch, index, or files — a dirty user tree is allowed (with a warning that
+uncommitted changes are not part of the run), and results land only as the
+published `pipeline/<run>` branch. Gitignored build state (`node_modules`
+etc.) is shared into the worktree by symlink. A committed run removes its
+worktree on completion; halted and review-only runs keep it for inspection
+and `--resume`. `PIPELINE_WORKTREE=0` restores legacy in-place mode (which
+requires a clean tree).
+
 ### Durable Evidence and Resume
 
 Each run's append-only, hash-linked `ledger.jsonl` is authoritative. Model calls
 and deterministic checks write distinct attempt envelopes with hashed inputs
-and outputs. Atomic checkpoints reference content-addressed artifact manifests;
+and outputs. Atomic checkpoints reference content-addressed artifact manifests
+and pin the exact candidate tree behind `refs/pipeline-checkpoints/<run>`;
 `run.json` and schema-2 `.pipeline/history.json` are derived views. Resume is
 Git-bound and fail-closed on run/schema/engine/config/task/baseline/branch/
-worktree/verification-policy/artifact mismatch. Stable prompt-prefix and cache
-telemetry are provider/model scoped and never influence validation or gating.
+worktree/verification-policy/artifact mismatch — but in worktree mode an
+interrupted-mid-mutation workspace is first RESTORED to its checkpointed
+candidate tree (the worktree is engine-owned, so nothing user-authored is at
+risk), and every resume refusal prints a per-invariant actionable hint.
+Stable prompt-prefix and cache telemetry are provider/model scoped and never
+influence validation or gating.
 
 ### Security, data, and rollout controls
 
-Security policy `1.0` scans current candidate paths and bytes for protected
+Security policy `1.1` scans current candidate paths and bytes for protected
 files, high-confidence secrets, risky dependency sources, and escaping symlinks
 before persisting `review.diff` or invoking Phase 11. A deterministic `BLOCK`
-cannot be waived. Provider and trusted-command output is redacted before
+cannot be waived. Recorded allowlists keep obvious non-secrets from blocking:
+values that announce themselves as placeholders (EXAMPLE/DUMMY/CHANGEME...),
+generic-shaped matches (jwt, api-key) in test/fixture/example paths,
+`.env.*.example`-shaped files, and `PIPELINE_ALLOW_REMOTE_DEPS=1` for
+git/https dependency specifiers. Live-shaped credentials (AKIA…, ghp_…, key
+blocks) block even in fixtures. Every allowlist hit is a durable waiver
+recorded in the scanner evidence and counted in the ledger event — nothing is
+silently dropped. Provider and trusted-command output is redacted before
 durable processing. Retention is disabled by default and only prunes terminal
 run directories when explicitly configured.
 
