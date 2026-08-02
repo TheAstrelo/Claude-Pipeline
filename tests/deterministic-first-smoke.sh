@@ -114,7 +114,7 @@ case "$prompt" in
     log_call "phase3-review"
     if [[ "$FAKE_SCENARIO" == "phase3-exhaustion" ]] ||
        [[ "$FAKE_SCENARIO" == "phase3-retry" && "$review_count" -eq 1 ]]; then
-      report=$'## Verdict: REVISE_DESIGN\n\n## Issues\n\n| # | Angle | Severity | Issue | Fix |\n|---|---|---|---|---|\n| 1 | Skeptic | HIGH | Recovery path is not explicit | Add a bounded retry |\n\n## Consensus\nNone.\n\n## Blocks\n- Add a bounded retry.'
+      report=$'## Verdict: REVISE_DESIGN\n\n## Issues\n\n| # | Angle | Severity | Issue | Evidence | Fix |\n|---|---|---|---|---|---|\n| 1 | Skeptic | BLOCKER | Recovery path is not explicit | design.md: no bounded retry; unattended halt -> wrong behavior | Add a bounded retry |\n\n## Consensus\nNone.\n\n## Blocks\n- Add a bounded retry.'
       verdict="REVISE_DESIGN"
     else
       report=$'## Verdict: APPROVED\n\n## Issues\n\n| # | Angle | Severity | Issue | Fix |\n|---|---|---|---|---|\n| 1 | Implementer | LOW | None | - |\n\n## Consensus\nNone.\n\n## Blocks\nNone.'
@@ -212,7 +212,7 @@ case "$prompt" in
     if [[ "$FAKE_SCENARIO" == "heal-exhaustion" ]] ||
        [[ "$FAKE_SCENARIO" == "heal-security" && "$code_review_count" -eq 1 ]] ||
        [[ "$FAKE_SCENARIO" == "heal-verification-failure" && "$code_review_count" -eq 1 ]]; then
-      report=$'## Findings\n\n| Severity | File:Line | Issue | Fix |\n|---|---|---|---|\n| MEDIUM | smoke-built.txt:1 | Needs follow-up | Create review-heal.txt |\n\n## Criteria Coverage\n\n| Criterion | Satisfied by the diff? (Yes/No) | Evidence in diff |\n|---|---|---|\n| Pipeline completes | No | Follow-up required |\n\n## Verdict: REQUEST_CHANGES'
+      report=$'## Findings\n\n| Severity | File:Line | Issue | Trigger | Fix |\n|---|---|---|---|---|\n| BLOCKER | smoke-built.txt:1 | Needs follow-up | run without review-heal.txt -> wrong output | Create review-heal.txt |\n\n## Criteria Coverage\n\n| Criterion | Satisfied by the diff? (Yes/No) | Evidence in diff |\n|---|---|---|\n| Pipeline completes | No | Follow-up required |\n\n## Verdict: REQUEST_CHANGES'
       verdict="REQUEST_CHANGES"
     else
       if [[ "$FAKE_SCENARIO" == "reviewer-mutation" ]]; then
