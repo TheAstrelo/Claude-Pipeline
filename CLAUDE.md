@@ -191,12 +191,12 @@ tests/                   # provider, deterministic-first, M2, M3, and M4 fixture
 ├── commands/            # 17 slash commands (auto-pipeline.md is the engine wrapper)
 ├── agents/              # 15 agents — the set reachable from a live slash command
 │                        #   (interactive helpers only; the engine inlines its prompts)
-├── rules/               # Project conventions (api.md, database.md, react.md)
+├── rules/               # YOUR project conventions; review-precedents.md is engine-read
 ├── templates/           # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
 ├── skills/              # Scaffolding skills (new-migration, scaffold-api)
 ├── hooks/               # protect-files.sh + auto-format.sh (Claude Code hooks via settings.json);
 │                        #   detect-project.sh + notify.sh (wired into run-pipeline.sh startup/exit)
-└── settings.json        # Hooks + profiles (protected by protect-files.sh)
+└── settings.json        # Claude Code hooks (protected by protect-files.sh)
 
 demo/                    # Demo kit with a starter Express project + red acceptance test
 ```
@@ -326,7 +326,17 @@ The Bash engine does not currently implement a per-step Phase 6 retry loop.
 
 ## Rules Integration
 
-When generating code for projects using this pipeline, follow conventions in `.claude/rules/`:
-- `api.md`: Authentication patterns, handler structure, Swagger docs
-- `database.md`: Connection pooling, parameterized queries, migration conventions
-- `react.md`: MUI Grid v2 syntax, @tanstack/react-query, theme tokens
+`.claude/rules/*.md` are loaded as project instructions in every Claude Code
+session. Put YOUR project's conventions there. The engine
+(`run-pipeline.sh`) does not read them; only interactive Claude Code sessions
+and the per-phase slash-command helpers do — except
+`.claude/rules/review-precedents.md`, which the engine appends to the
+Phase 3/11/12 review prompts (it accumulates findings you mark as false
+positives).
+
+A worked example of convention rules from a real Next.js + PostgreSQL app
+lives in `examples/reference-project-rules/` (api/database/react). Those are
+that project's specifics — imitate their shape, not their content. They used
+to sit in `.claude/rules/`, where copying `.claude/` into another project
+silently injected the wrong schema and conventions; they were relocated so
+that no longer happens.

@@ -38,7 +38,7 @@ Verify that the implemented code behaves correctly. Run tests, validate outputs 
 2. **Run build** — `npm run build`
 3. **Run tests** — `npm test` (if tests exist)
 4. **Validate key behaviors** — Check specific outputs against spec
-5. **Output report** — Append to `.claude/artifacts/current/qa-report.md`
+5. **Output report** — Append to `.pipeline/artifacts/current/qa-report.md`
 
 ## Validation Commands
 
@@ -58,7 +58,7 @@ find src -name "*.test.ts" -o -name "*.spec.ts"
 
 ## Output Format
 
-Append to `.claude/artifacts/current/qa-report.md`:
+Append to `.pipeline/artifacts/current/qa-report.md`:
 
 ```markdown
 ## Quality Behavior Report

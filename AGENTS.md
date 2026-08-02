@@ -40,10 +40,10 @@ Flags the engine actually parses: `--provider=auto|claude|codex`,
 `--model-strong=`, `--model-fast=`, `--max-budget-usd=` (per-phase cap), `--max-run-budget-usd=`
 (whole-run cap), `--no-commit`, `--allow-dirty`, `--allow-untested-commit`,
 `--resume=RUN_ID`, `--policy-rollout=legacy|shadow|enforced`,
-`--retention-days=`, `--retention-max-runs=`, `--help`. Resume requires the original task and an exact
-engine/config/Git/evidence match. Anything else (
-`--template`, `--batch-qa`, `--fix`, `--pr`,
-`--yolo` shorthand) is **not** implemented.
+`--retention-days=`, `--retention-max-runs=`, `--help`, plus `--push` (publish the committed
+run branch to the remote) and `--pr` (`--push` plus PR guidance). Resume requires the original
+task and an exact engine/config/Git/evidence match. Still not implemented:
+`--template`, `--batch-qa`, `--fix`, and a `--yolo` shorthand.
 
 ## Architecture
 
@@ -116,12 +116,12 @@ tests/                    # provider, deterministic-first, M2, M3, and M4 fixtur
 ├── commands/            # 17 slash commands (auto-pipeline.md is the engine wrapper)
 ├── agents/              # 15 agents — the set reachable from a live slash command
 │                        #   (interactive helpers only; the engine inlines its prompts)
-├── rules/               # Project conventions (api.md, database.md, react.md)
+├── rules/               # YOUR project conventions; review-precedents.md is engine-read
 ├── templates/           # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
 ├── skills/              # Scaffolding skills (new-migration, scaffold-api)
 ├── hooks/               # protect-files.sh + auto-format.sh (Claude hooks via settings.json);
 │                        #   detect-project.sh + notify.sh (wired into run-pipeline.sh startup/exit)
-└── settings.json        # Hooks + profiles (protected by protect-files.sh)
+└── settings.json        # Claude Code hooks (protected by protect-files.sh)
 
 demo/                    # Demo kit with a starter Express project + red acceptance test
 ```

@@ -23,14 +23,14 @@ Every step must include:
 
 ## Process
 
-1. **Read the design** — Load `.claude/artifacts/current/design.md` and `.claude/artifacts/current/critique.md` (if exists).
+1. **Read the design** — Load `.pipeline/artifacts/current/design.md` and `.pipeline/artifacts/current/critique.md` (if exists).
 2. **Verify file paths** — Use Glob to confirm every file mentioned exists.
 3. **Read existing code** — For every file to be modified, read and understand current state.
 4. **Create atomic steps** — Each step modifies ONE logical unit (one function, one component, one endpoint).
 5. **Add code examples** — Show exact BEFORE and AFTER code for every change.
 6. **Define test cases** — Concrete inputs and expected outputs.
 7. **Order by dependency** — Steps must be executable in order.
-8. **Output the plan** — Write to `.claude/artifacts/current/plan.md`.
+8. **Output the plan** — Write to `.pipeline/artifacts/current/plan.md`.
 
 ## Step Structure
 
@@ -67,7 +67,7 @@ Each step MUST include:
 
 ## Output Format
 
-Write to `.claude/artifacts/current/plan.md`:
+Write to `.pipeline/artifacts/current/plan.md`:
 
 ```markdown
 # Implementation Plan: [Task Title]

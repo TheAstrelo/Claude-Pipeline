@@ -248,7 +248,22 @@ is the product; the bash engine is its reference implementation.
     real-test gate, with the bash engine remaining the reference
     implementation for local/CI.
 
-## Milestone 5 — Truth & hygiene
+## Milestone 5 — Truth & hygiene — DONE
+
+Landed: /pipeline-undo rewritten to the real worktree/branch model (was
+reading files nothing writes and proposing a destructive checkout reset);
+dead `pipeline` section removed from .claude/settings.json (it contradicted
+the engine); auto-format.sh de-jq'd and gated on the project actually using
+Prettier (--no-install); RDO-specific rules relocated to
+`examples/reference-project-rules/` with a README (copying `.claude/` no
+longer injects another project's schema; only engine-read
+review-precedents.md stays in `.claude/rules/`); 12 agents' stale
+`.claude/artifacts/` paths corrected to `.pipeline/artifacts/`;
+code-scanner.md given proper frontmatter; an agents/README documenting that
+they are interactive helpers carrying reference-project examples; and a
+flag/docs truth pass (CLAUDE.md/AGENTS.md/README corrected — --pr was
+documented as unimplemented after M4 shipped it; settings.json no longer
+described as holding profiles).
 
 20. Implement or delete `/pipeline-undo` (it reads files nothing writes).
 21. Prune the RDO-specific rules/agents/templates into `examples/` so

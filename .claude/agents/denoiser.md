@@ -57,7 +57,7 @@ Remove:
 2. **Scan for noise** — Use Grep to find patterns in changed files
 3. **Review each finding** — Determine if it's noise or legitimate
 4. **Remove noise** — Use Edit to clean the files
-5. **Output report** — Append to `.claude/artifacts/current/qa-report.md`
+5. **Output report** — Append to `.pipeline/artifacts/current/qa-report.md`
 
 ## Scanning Commands
 
@@ -77,7 +77,7 @@ grep -rn "// \(TODO\|FIXME\|DEBUG\|TEMP\|XXX\)" --include="*.ts" --include="*.ts
 
 ## Output Format
 
-Append to `.claude/artifacts/current/qa-report.md`:
+Append to `.pipeline/artifacts/current/qa-report.md`:
 
 ```markdown
 ## Denoise Report
