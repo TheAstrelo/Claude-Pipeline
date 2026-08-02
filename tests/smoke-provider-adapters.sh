@@ -251,4 +251,35 @@ git -C "$COMMIT_REPO" show --format= --name-only "$PIPELINE_RUN_BRANCH" | grep -
 # Committed-run worktree is auto-removed; only the main checkout remains.
 [[ "$(git -C "$COMMIT_REPO" worktree list | wc -l)" -eq 1 ]]
 
+# --push publishes the committed run branch to the configured remote (M4
+# terminal delivery). Bare remote, seeded, cloned, then a committed run with
+# --push must land the pipeline/* branch on the remote.
+PUSH_REMOTE_DIR="$TMP_ROOT/push-remote.git"
+git init -q --bare "$PUSH_REMOTE_DIR"
+PUSH_REPO="$TMP_ROOT/push-repo"
+git clone -q "$PUSH_REMOTE_DIR" "$PUSH_REPO"
+git -C "$PUSH_REPO" config user.name "Pipeline Smoke"
+git -C "$PUSH_REPO" config user.email "pipeline-smoke@example.invalid"
+printf '%s\n' "seed" > "$PUSH_REPO/README.md"
+git -C "$PUSH_REPO" add README.md
+git -C "$PUSH_REPO" commit -q -m "seed"
+git -C "$PUSH_REPO" push -q origin HEAD
+(
+  cd "$PUSH_REPO"
+  PATH="$MOCK_BIN:$PATH" \
+    MOCK_WRITE_CODE=1 \
+    PIPELINE_STATE_DIR="$TMP_ROOT/state-push" \
+    PIPELINE_NO_NOTIFY=1 \
+    PIPELINE_NONINTERACTIVE=1 \
+    bash "$ROOT/run-pipeline.sh" \
+      --provider=codex \
+      --profile=yolo \
+      --allow-untested-commit \
+      --push \
+      "push delivery smoke" >/dev/null
+)
+PUSHED_BRANCH=$(git -C "$PUSH_REMOTE_DIR" for-each-ref --format='%(refname:short)' 'refs/heads/pipeline/*' | head -1)
+[[ -n "$PUSHED_BRANCH" ]] || { echo "--push did not publish a pipeline/* branch to the remote" >&2; exit 1; }
+git -C "$PUSH_REMOTE_DIR" show --format= --name-only "$PUSHED_BRANCH" | grep -q '^smoke-built.txt$'
+
 echo "provider adapter smoke tests passed"

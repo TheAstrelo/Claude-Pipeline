@@ -36,7 +36,9 @@ npm install && npm test
 ```
 
 Flags the engine actually parses: `--provider=auto|claude|codex`,
-`--profile=yolo|fast|standard|paranoid`, `--mode=auto|dev`,
+`--profile=yolo|fast|standard|paranoid`, `--mode=auto|dev`, `--push`
+(publish the committed run branch to the remote), `--pr` (`--push` plus
+pull-request guidance), `--budget=elastic|strict`,
 `--skip-arm` (skip Phase 1), `--skip-ar` (skip Phase 3), `--skip-pmatch` (skip Phase 5),
 `--model-strong=`, `--model-fast=`, `--max-budget-usd=` (per-phase cap), `--max-run-budget-usd=`
 (whole-run cap), `--no-commit`, `--allow-dirty`, `--allow-untested-commit`
@@ -141,6 +143,23 @@ Model tier and effort are independent:
 - Phases 7, 8, and 10 run deterministic checks first. Clean evidence records
   `SKIP_MODEL`; findings or unavailable checks permit one balanced-lane
   remediation followed by a deterministic post-check.
+
+### Portability: the spec is the product
+
+`PIPELINE-SPEC.md` defines the pipeline independently of any model vendor —
+roles, the worktree contract, phases/artifacts, gate semantics, the
+trusted-vs-claimed evidence contract, and an **executor adapter contract**
+with a capability/trust matrix (adapters lacking isolation or sandboxing run
+audit-only; `paranoid` can require a strong-tier reviewer). `run-pipeline.sh`
+is the reference implementation. The premise is structured distrust: any
+model via any agentic runtime may produce work, but only
+orchestrator-verified evidence opens the commit gate. Build/heal Claude
+spawns receive a runtime-generated `--settings` file whose only hook is
+protect-files (absolute path), so protected-file edits are blocked at attempt
+time rather than surfacing as a late scanner BLOCK. When the auth preflight
+reports no authenticated subprocess can spawn (true cloud sandboxes),
+`/auto-pipeline` falls back to in-session orchestration via `.claude/agents`,
+never auto-committing.
 
 ### Context: per-phase tool scoping
 

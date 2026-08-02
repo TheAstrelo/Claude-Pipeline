@@ -34,6 +34,13 @@ MODE="auto"                      # auto | dev
 PROVIDER="${PIPELINE_PROVIDER:-auto}" # auto | claude | codex
 AUTO_COMMIT=true
 ALLOW_DIRTY=false
+# Terminal delivery (M4): after a committed run, publish the run branch to the
+# configured remote. --pr additionally prints PR-creation guidance (native PR
+# creation needs a GitHub CLI/API the engine can't assume; the push is the
+# portable core that works wherever git does).
+PUSH_BRANCH=false
+CREATE_PR=false
+PUSH_REMOTE="${PIPELINE_PUSH_REMOTE:-origin}"
 ALLOW_UNTESTED_COMMIT=false
 MAX_RETRIES_STANDARD=2
 MAX_RETRIES_YOLO=1
@@ -337,6 +344,8 @@ for arg in "$@"; do
     --skip-ar)        SKIP_AR=true ;;
     --skip-pmatch)    SKIP_PMATCH=true ;;
     --no-commit)      AUTO_COMMIT=false ;;
+    --push)           PUSH_BRANCH=true ;;
+    --pr)             PUSH_BRANCH=true; CREATE_PR=true ;;
     --allow-dirty)    ALLOW_DIRTY=true; AUTO_COMMIT=false ;;
     --allow-untested-commit) ALLOW_UNTESTED_COMMIT=true ;;
     --resume=*)       RESUME_RUN_ID="${arg#*=}" ;;
@@ -372,6 +381,8 @@ for arg in "$@"; do
       echo "  --max-budget-usd=N       Per-phase cap (Codex: post-call estimate)"
       echo "  --budget=elastic|strict  elastic (default): a capped phase retries with a doubled cap"
       echo "                           inside the run cap (ledger-recorded); strict: first cap halts"
+      echo "  --push                   after a committed run, publish the run branch to the remote"
+      echo "  --pr                     --push plus pull-request creation guidance"
       echo "  --max-run-budget-usd=N   Whole-run spend cap in USD (default: 15.00)"
       echo "  --no-commit              Disable final commit; clean runs still branch for isolation"
       echo "  --allow-dirty            Permit a dirty start; implies --no-commit"
@@ -5288,6 +5299,32 @@ claude_auth_preflight() {
   exit 1
 }
 
+# Materialize (once) a build-phase settings file whose ONLY hook is
+# protect-files, with an ABSOLUTE command path so it resolves regardless of
+# the subprocess cwd (the run worktree) or how the pipeline was installed.
+# Returns the path, or empty if protect-files.sh is not available.
+build_phase_settings_file() {
+  local hook="$HOOKS_DIR/protect-files.sh"
+  [[ -f "$hook" ]] || return 0
+  local abs_hook target="$ARTIFACTS/build-phase-settings.json"
+  abs_hook=$(cd "$(dirname "$hook")" 2>/dev/null && printf '%s/%s' "$(pwd)" "$(basename "$hook")") || return 0
+  if [[ ! -f "$target" ]]; then
+    PIPELINE_HOOK_CMD="bash $abs_hook" node -e '
+      const fs = require("fs");
+      fs.writeFileSync(process.argv[1], JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "Edit|Write", hooks: [
+              { type: "command", command: process.env.PIPELINE_HOOK_CMD }
+            ] }
+          ]
+        }
+      }, null, 2) + "\n");
+    ' "$target" 2>/dev/null || return 0
+  fi
+  printf '%s' "$target"
+}
+
 run_claude() {
   local prompt="$1"
   local output_file="$2"
@@ -5296,6 +5333,7 @@ run_claude() {
   local schema="${5:-}"
   local tools="${6:-Read,Grep,Glob}"
   local mode="${7:-replace}"
+  local phase="${8:-unknown}"
   local report_file="$output_file.report"
   local raw_capture err_capture
   raw_capture=$(mktemp "${TMPDIR:-/tmp}/pipeline-provider-raw.XXXXXX") || return 1
@@ -5331,6 +5369,19 @@ run_claude() {
   # the subprocess cwd — grant explicit read access so phases can Read them.
   local -a scope_args=()
   [[ -n "$RUN_WORKTREE" ]] && scope_args=(--add-dir "$ARTIFACTS")
+
+  # Build/heal phases write files. Inject the protect-files PreToolUse hook so
+  # a protected-path edit is blocked AT ATTEMPT TIME (exit 2, model
+  # self-corrects) instead of surfacing three phases later as a non-waivable
+  # scanner BLOCK. Read-only phases don't need it. --settings composes with
+  # --setting-sources "" (still no ambient config; only this explicit hook).
+  case "$phase" in
+    6|7|8|10|heal)
+      local hook_settings
+      hook_settings=$(build_phase_settings_file)
+      [[ -n "$hook_settings" ]] && scope_args+=(--settings "$hook_settings")
+      ;;
+  esac
 
   echo -e "  ${DIM}Spawning claude -p (${model}, effort=${effort})...${NC}"
 
@@ -7553,6 +7604,62 @@ commit_reviewed_tree() {
   return 0
 }
 
+# Terminal delivery: publish the committed run branch to the remote. Portable
+# and testable (works against any git remote); native PR creation is gated
+# behind tool availability because the engine cannot assume a GitHub CLI/API.
+publish_run_branch() {
+  [[ "$PUSH_BRANCH" == "true" ]] || return 0
+  [[ -n "$PIPELINE_BRANCH" ]] || return 0
+  command -v git >/dev/null 2>&1 || return 0
+  # Only publish a real committed result (commit.sha exists on a committed run;
+  # a no-op run has nothing new to push).
+  [[ -f "$ARTIFACTS/commit.sha" ]] || {
+    echo -e "  ${DIM}--push: nothing committed on the run branch; skipping publish.${NC}"
+    return 0
+  }
+  if ! git remote get-url "$PUSH_REMOTE" >/dev/null 2>&1; then
+    echo -e "  ${YELLOW}--push: remote '$PUSH_REMOTE' is not configured; branch remains local ($PIPELINE_BRANCH).${NC}"
+    return 0
+  fi
+  echo -e "  ${DIM}Publishing $PIPELINE_BRANCH to $PUSH_REMOTE...${NC}"
+  local attempt=0 pushed=false
+  while [[ $attempt -lt 4 ]]; do
+    if git push -u "$PUSH_REMOTE" "$PIPELINE_BRANCH" >/dev/null 2>&1; then
+      pushed=true
+      break
+    fi
+    attempt=$((attempt + 1))
+    [[ $attempt -lt 4 ]] && sleep $((2 ** attempt))
+  done
+  if [[ "$pushed" != "true" ]]; then
+    echo -e "  ${YELLOW}--push: could not publish $PIPELINE_BRANCH to $PUSH_REMOTE after retries (branch is committed locally).${NC}"
+    return 0
+  fi
+  local push_payload
+  push_payload=$(node -e '
+    process.stdout.write(JSON.stringify({ branch: process.argv[1], remote: process.argv[2] }));
+  ' "$PIPELINE_BRANCH" "$PUSH_REMOTE" 2>/dev/null || true)
+  [[ -n "$push_payload" ]] && ledger_append "branch_published" "$push_payload" || true
+  echo -e "  ${GREEN}Published $PIPELINE_BRANCH to $PUSH_REMOTE${NC}"
+  if [[ "$CREATE_PR" == "true" ]]; then
+    local remote_url
+    remote_url=$(git remote get-url "$PUSH_REMOTE" 2>/dev/null || true)
+    echo -e "  ${CYAN}Open a pull request for $PIPELINE_BRANCH → ${ORIGINAL_BASE_BRANCH}:${NC}"
+    case "$remote_url" in
+      *github.com[:/]*)
+        local slug
+        slug=$(printf '%s' "$remote_url" | sed -E 's#^.*github.com[:/]##; s#\.git$##')
+        echo -e "    ${DIM}https://github.com/${slug}/compare/${ORIGINAL_BASE_BRANCH}...${PIPELINE_BRANCH}?expand=1${NC}"
+        echo -e "    ${DIM}or: gh pr create --base ${ORIGINAL_BASE_BRANCH} --head ${PIPELINE_BRANCH} --fill${NC}"
+        ;;
+      *)
+        echo -e "    ${DIM}gh pr create --base ${ORIGINAL_BASE_BRANCH} --head ${PIPELINE_BRANCH} --fill${NC}"
+        ;;
+    esac
+    echo -e "    ${DIM}The run branch carries the reviewed commit; its message holds the review attestation. Body sources: brief.md, the release verification table, and code-review.md.${NC}"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Main pipeline execution
 # ---------------------------------------------------------------------------
@@ -7624,6 +7731,11 @@ notify_exit() {
   fi
 }
 trap notify_exit EXIT
+
+# Materialize the build-phase hook settings ONCE, up front — writing it lazily
+# inside a phase call would mutate the artifacts dir mid-call and trip the
+# provider-artifact integrity guard.
+build_phase_settings_file >/dev/null || true
 
 # Baseline check evidence: what was already red BEFORE this run existed. Runs
 # before any model spend so pre-existing failures are classified up front and
@@ -8039,6 +8151,10 @@ update_run_summary \
   || echo -e "  ${YELLOW}Run completed, but the derived run.json could not be regenerated.${NC}" >&2
 rebuild_history_index || true
 rebuild_operational_dashboard || true
+
+# Terminal delivery: publish the committed run branch before cleanup removes
+# the worktree (publish reads only refs, but ordering keeps output coherent).
+publish_run_branch
 
 # End-of-run workspace disposition. A committed worktree run holds nothing
 # unique (the tree IS the published commit) — remove it so a completed run

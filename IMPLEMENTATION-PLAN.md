@@ -29,7 +29,7 @@ direction. Never stack unrelated milestones in one PR.
 | Model calls per `fast`-profile run | ~9 → 6 (post-M2: collapsed 1+2+4, auto-skipped 5) | ≤ 5 |
 | User worktree ever dirtied by a run | yes (by design) | never |
 | Runs killed mid-phase by a budget cap (money spent, nothing delivered) | possible | 0 — caps halt only at resumable checkpoints |
-| Executors supported via the adapter contract | 2 (claude, codex) | ≥ 3 (+ opencode), spec published |
+| Executors supported via the adapter contract | 2 (claude, codex); spec published (adapter contract in PIPELINE-SPEC.md §6) | ≥ 3 (+ opencode) once opencode can be validated |
 
 ## Milestone 0 — Stop the bleeding (DONE, commit 097b3d5)
 
@@ -186,7 +186,21 @@ test state — green commits, still-red completes review-only).
     *Acceptance (M3 overall):* false-block benchmark at 0; a seeded
     real-bug task is still caught (no fail-open drift).
 
-## Milestone 4 — Any model, one trust architecture (portability & delivery)
+## Milestone 4 — Any model, one trust architecture (portability & delivery) — PARTIAL
+
+Landed: PIPELINE-SPEC.md (the portable, vendor-independent spec + executor
+adapter contract with capability/trust matrix and reviewer floor — the
+centerpiece), build-phase protect-files hook injection (runtime-generated
+--settings, absolute path, verified on build spawns only), --push / --pr
+terminal delivery (publishes the committed run branch to the remote with
+retry + PR guidance; smoke-tested against a bare remote), and the
+/auto-pipeline in-session cloud fallback.
+
+Deferred as untestable in this environment (kept honest per the standing "no
+untested speculative code" rule): the concrete `run_opencode()` adapter
+(opencode not installed here) and cross-adapter review routing (needs two
+live provider CLIs). Both are fully specified in PIPELINE-SPEC.md §6 and are
+mechanical to add where the tools exist.
 
 The identity shift: the pipeline is a **provider-neutral verification
 harness** — structured distrust of any AI executor. The model is untrusted
