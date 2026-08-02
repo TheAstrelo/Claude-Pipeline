@@ -163,7 +163,7 @@ RUN_ID=$(node -e '
 ' "$SESSION_DIR/ledger.jsonl")
 [[ -n "$RUN_ID" ]]
 [[ "$(grep -c '^phase-0$' "$MOCK_CALL_LOG")" -eq 1 ]]
-[[ "$(grep -c '^phase-1$' "$MOCK_CALL_LOG")" -eq 1 ]]
+[[ "$(grep -c '^collapsed-plan$' "$MOCK_CALL_LOG")" -eq 1 ]]
 
 expect_resume_failure() {
   local label=$1 expected=$2 engine=${3:-$ENGINE}
@@ -257,7 +257,7 @@ git -C "$REPO" checkout -q master
 # A compatible resume reuses Phase 0/1 and completes from the next checkpoint.
 run_pipeline "$ENGINE" --resume="$RUN_ID" >"$TMP_ROOT/resumed.log" 2>&1
 [[ "$(grep -c '^phase-0$' "$MOCK_CALL_LOG")" -eq 1 ]]
-[[ "$(grep -c '^phase-1$' "$MOCK_CALL_LOG")" -eq 1 ]]
+[[ "$(grep -c '^collapsed-plan$' "$MOCK_CALL_LOG")" -eq 1 ]]
 grep -q "Resume verified" "$TMP_ROOT/resumed.log"
 
 node -e '

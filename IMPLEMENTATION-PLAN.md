@@ -151,7 +151,19 @@ overhead 94s → ~55s; full <10s target continues in later passes).
    seeded formatting change) still builds green; plan-lint rejects plans
    citing nonexistent anchors before Phase 6 spends anything.
 
-## Milestone 3 — Verdicts you can trust (evidence-grounded review)
+## Milestone 3 — Verdicts you can trust (evidence-grounded review) — DONE
+
+Landed: mechanical citation verification feeding every gate decision (Phase 3
+blockers need real Evidence cells; Phase 12 blockers must cite files present
+in review.diff; malformed rows fail closed; refuted/stripped rows recorded),
+refute-before-block in standard/paranoid (one cheap fast-lane refuter per
+surviving BLOCKER, capped at 3, ledger-recorded, zero cost on clean runs),
+the repo-local precedents loop (.claude/rules/review-precedents.md injected
+into review prompts + interactive [f] disposition capture), and
+spec-to-failing-tests (acceptance-first planning prompts when a test command
+exists, the demo's red acceptance test shipped, and the TDD baseline policy:
+red-at-baseline tests keep commit armed and the decision lands on the final
+test state — green commits, still-red completes review-only).
 
 9. **Mechanically verified citations.** Validators for Phases 3/11/12 grep
    each BLOCKER's quoted evidence (file:line or diff-hunk text) against the

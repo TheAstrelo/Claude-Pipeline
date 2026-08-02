@@ -3932,9 +3932,12 @@ run_baseline_verification() {
   fi
   if [[ "$BASELINE_STATUS_TEST" == "FAIL" && "$AUTO_COMMIT" == "true" &&
         "$ALLOW_UNTESTED_COMMIT" != "true" ]]; then
-    AUTO_COMMIT=false
-    echo -e "  ${YELLOW}Tests are red on the untouched baseline: auto-commit is off for this run (review-only).${NC}"
-    echo -e "  ${DIM}Fix the failing tests first, or rerun with --allow-untested-commit to record an explicit waiver.${NC}"
+    # Red baseline tests are legitimate in a TDD flow (a red acceptance test
+    # the task must turn green), so the run continues with commit still
+    # armed. The commit decision happens at the END on the real final test
+    # state: green -> commit; still red -> the run completes review-only.
+    echo -e "  ${YELLOW}Tests are red on the untouched baseline. Commit requires them GREEN at the end${NC}"
+    echo -e "  ${YELLOW}(TDD flow supported) — otherwise this run completes review-only.${NC}"
   fi
 }
 
@@ -5794,6 +5797,9 @@ pause_for_human() {
   echo ""
   echo "  [c] continue   — accept the artifact as-is and proceed"
   echo "  [o] override   — same as continue (recorded in the phase log)"
+  if [[ "$phase" == "3" || "$phase" == "11" || "$phase" == "12" ]]; then
+    echo "  [f] false pos. — record the BLOCKER findings as repo precedents and proceed"
+  fi
   echo "  [q] quit       — stop the pipeline"
   echo ""
   # Non-interactive (headless CI, or invoked from a tool with no TTY on stdin):
@@ -5805,10 +5811,38 @@ pause_for_human() {
     echo -e "${RED}Halting for review — inspect $ARTIFACTS/. Resume only if the last atomic checkpoint invariants still match.${NC}" >&2
     exit 3
   fi
-  read -rp "  Choice [c/o/q]: " choice
+  read -rp "  Choice [c/o/f/q]: " choice
   case "$choice" in
     c|C) return 0 ;;
     o|O) return 0 ;;
+    f|F)
+      # Record the halting findings as repo-local false-positive precedents:
+      # future review prompts carry them and will not re-raise them.
+      local disposition_src=""
+      case "$phase" in
+        3)  disposition_src="$ARTIFACTS/critique.md" ;;
+        11) disposition_src="$ARTIFACTS/qa-report.md" ;;
+        12) disposition_src="$ARTIFACTS/code-review.md" ;;
+      esac
+      if [[ -n "$disposition_src" && -s "$disposition_src" ]]; then
+        local precedents_target="${ORIGIN_ROOT:-.}/.claude/rules/review-precedents.md"
+        mkdir -p "$(dirname "$precedents_target")" 2>/dev/null || true
+        [[ -f "$precedents_target" ]] || printf '# Review Precedents\n\n' > "$precedents_target"
+        grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$disposition_src" 2>/dev/null |
+          sed "s/^/- (phase $phase, run $SESSION_ID) FALSE_POSITIVE: /" >> "$precedents_target"
+        local disposition_payload
+        disposition_payload=$(node -e '
+          process.stdout.write(JSON.stringify({
+            phase: Number(process.argv[1]),
+            disposition: "FALSE_POSITIVE"
+          }));
+        ' "$phase" 2>/dev/null || true)
+        [[ -n "$disposition_payload" ]] &&
+          ledger_append "finding_disposition" "$disposition_payload" || true
+        echo -e "  ${GREEN}Recorded as false-positive precedents in .claude/rules/review-precedents.md${NC}"
+      fi
+      return 0
+      ;;
     q|Q)
       echo -e "${RED}Pipeline aborted by user.${NC}"
       exit 1
@@ -5987,9 +6021,126 @@ validate_phase_3() {
   GATE_SOFT=$soft
 }
 
-# A finding gates only from the BLOCKER severity lane in the findings table.
+# A finding gates only from the BLOCKER severity lane, and only when its
+# citation survives mechanical verification (the Codex-cloud rule: uncited
+# findings don't gate). Refuted rows (see refute_blockers) are excluded via
+# the artifact's .refuted sidecar. Malformed rows count as blockers — parsing
+# failures must fail CLOSED, never silently unblock a gate.
 critique_has_blockers() {
-  grep -qE '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$1" 2>/dev/null
+  [[ "$(count_gating_blockers "$1")" -gt 0 ]]
+}
+
+count_gating_blockers() {
+  local artifact=$1
+  local mode="evidence"
+  case "$(basename "$artifact")" in
+    code-review.md) mode="diff" ;;
+  esac
+  local refuted="$artifact.refuted"
+  local diff_file="$ARTIFACTS/review.diff"
+  local count=0 row cells cell matched p
+  local -a diff_paths=()
+  if [[ "$mode" == "diff" && -s "$diff_file" ]]; then
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && diff_paths+=("$p")
+    done < <(grep -E '^(\+\+\+|---) [ab]/' "$diff_file" 2>/dev/null |
+             sed -E 's/^[+-]+ [ab]\///' | sort -u)
+  fi
+  while IFS= read -r row; do
+    if [[ -s "$refuted" ]] && grep -Fxq -- "$row" "$refuted" 2>/dev/null; then
+      continue
+    fi
+    case "$mode" in
+      evidence)
+        # Phase-3 table: | # | Angle | Severity | Issue | Evidence | Fix |
+        # A well-formed row whose Evidence cell is empty or a dash is uncited
+        # and cannot gate.
+        cells=$(awk -F'|' '{print NF}' <<< "$row")
+        if [[ "$cells" -ge 8 ]]; then
+          cell=$(awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $6); print $6}' <<< "$row")
+          case "$cell" in
+            ""|"-"|"—"|"–"|"N/A"|"n/a") continue ;;
+          esac
+        fi
+        count=$((count + 1))
+        ;;
+      diff)
+        # Phase-12 table: | Severity | File:Line | Issue | Trigger | Fix |
+        # A BLOCKER citing no file present in the reviewed diff is by
+        # definition PRE-EXISTING or invented; it cannot gate this change.
+        if [[ ${#diff_paths[@]} -gt 0 ]]; then
+          matched=false
+          for p in "${diff_paths[@]}"; do
+            if [[ "$row" == *"$p"* ]]; then
+              matched=true
+              break
+            fi
+          done
+          [[ "$matched" == "true" ]] || continue
+        fi
+        count=$((count + 1))
+        ;;
+    esac
+  done < <(grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$artifact" 2>/dev/null)
+  printf '%s\n' "$count"
+}
+
+# Refute-before-block (Bugbot/audit-methodology pattern): in the adaptive
+# profiles, every gating BLOCKER gets one cheap fast-lane refuter call before
+# it may halt the run. REFUTED rows land in the .refuted sidecar (and the
+# ledger); a finding the refuter cannot parse or refute stays CONFIRMED —
+# fail closed. Cost is zero on clean runs: this only fires when a blocking
+# verdict already exists.
+refute_blockers() {
+  local phase=$1 artifact=$2
+  case "$ROUTING_POLICY_MODE" in
+    adaptive|adaptive-paranoid) ;;
+    *) return 0 ;;
+  esac
+  local refuted="$artifact.refuted"
+  : > "$refuted"
+  local -a rows=()
+  local row
+  while IFS= read -r row; do
+    rows+=("$row")
+  done < <(grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$artifact" 2>/dev/null | head -3)
+  [[ ${#rows[@]} -gt 0 ]] || return 0
+  local index=0 verdict rc
+  for row in "${rows[@]}"; do
+    index=$((index + 1))
+    echo -e "  ${DIM}Refuting BLOCKER $index/${#rows[@]} before it may gate...${NC}"
+    local refute_prompt="You are an adversarial verifier. A phase-$phase reviewer reported this BLOCKER finding (one markdown table row):
+
+$row
+
+Read the actual evidence — $ARTIFACTS/design.md, $ARTIFACTS/plan.md, $ARTIFACTS/review.diff, and the working tree — and attempt to REFUTE it. It is REFUTED if the claimed failure cannot actually occur as described, the cited location does not support the claim, or the trigger is impossible. It is CONFIRMED only if you can restate the concrete trigger and wrong outcome from the evidence.
+
+Return markdown with:
+## Verdict: [CONFIRMED | REFUTED]
+## Reason (2-3 sentences citing the evidence)"
+    rc=0
+    run_model "$refute_prompt" "$ARTIFACTS/refute-phase${phase}-${index}.md" \
+      "$MODEL_FAST" "medium" "" "Read,Grep,Glob" "replace" "$phase" "REFUTE" || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      echo -e "  ${YELLOW}Refuter call failed (exit $rc); finding stays CONFIRMED.${NC}"
+      continue
+    fi
+    enforce_run_budget "$phase"
+    verdict=$(read_verdict "$ARTIFACTS/refute-phase${phase}-${index}.md" "CONFIRMED|REFUTED")
+    if [[ "$verdict" == "REFUTED" ]]; then
+      printf '%s\n' "$row" >> "$refuted"
+      echo -e "  ${YELLOW}BLOCKER $index refuted — excluded from the gate (recorded).${NC}"
+      local refute_payload
+      refute_payload=$(node -e '
+        process.stdout.write(JSON.stringify({
+          phase: Number(process.argv[1]),
+          rowSha256: process.argv[2],
+          evidence: process.argv[3]
+        }));
+      ' "$phase" "$(json_sha256 "$row")" "refute-phase${phase}-${index}.md") || true
+      [[ -n "$refute_payload" ]] && ledger_append "finding_refuted" "$refute_payload" || true
+    fi
+  done
 }
 
 validate_phase_4() {
@@ -6359,6 +6510,18 @@ build_prompt() {
 This is re-review ${CODE_REVIEW_ROUND} after an auto-heal. Convergence rules: verify each prior BLOCKER is fixed, and raise NEW BLOCKERs only for defects introduced by the heal itself, citing the changed lines. Do not raise new WARN or nit findings. If all prior BLOCKERs are fixed and the heal introduced no new BLOCKER, the verdict is APPROVE."
   fi
 
+  # Repo-local calibration: findings previously judged FALSE POSITIVE here are
+  # injected into the review phases so they are not re-raised run after run
+  # (prompt tuning alone plateaus — Greptile's published result).
+  local PRECEDENTS_CONTEXT=""
+  local precedents_file="${ORIGIN_ROOT:-.}/.claude/rules/review-precedents.md"
+  if [[ -f "$precedents_file" ]] && grep -qE '^- ' "$precedents_file" 2>/dev/null; then
+    PRECEDENTS_CONTEXT="
+
+REPO-LOCAL PRECEDENTS — the following were previously judged FALSE POSITIVE in this repository; do not re-raise them or close variants:
+$(grep -E '^- ' "$precedents_file")"
+  fi
+
   case $phase in
     0)
       prompt="You are the Pre-Check Agent. Your task: $TASK
@@ -6425,7 +6588,7 @@ Return a markdown report with:
 ## Consensus (issues raised by 2+ angles)
 ## Blocks (if REVISE_DESIGN: the BLOCKER items that must be fixed)
 
-Verdict rule: REVISE_DESIGN only when at least one BLOCKER is raised by 2+ angles, or by one angle WITH a complete concrete failing scenario. If every issue is WARN or PRE-EXISTING, the verdict MUST be APPROVED."
+Verdict rule: REVISE_DESIGN only when at least one BLOCKER is raised by 2+ angles, or by one angle WITH a complete concrete failing scenario. If every issue is WARN or PRE-EXISTING, the verdict MUST be APPROVED.${PRECEDENTS_CONTEXT}"
       ;;
     4)
       prompt="You are the Planning Agent. Read $ARTIFACTS/design.md and convert it into implementation steps.
@@ -6448,7 +6611,9 @@ Then for each step:
 
 Max 15 steps (prefer fewer; a multi-file consolidation may legitimately need
 more than a toy change). All MODIFY paths must exist on disk; anchors are
-verified mechanically against the working tree before the build starts."
+verified mechanically against the working tree before the build starts.${TEST_COMMAND:+
+
+Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}"
       ;;
     5)
       prompt="You are the Drift Detection Agent. Read $ARTIFACTS/design.md and $ARTIFACTS/plan.md. Verify that the plan covers every design requirement and adds no unrequested scope.
@@ -6522,7 +6687,7 @@ Return markdown containing:
 ## Scanned Tree OID: ${SECURITY_TREE_SHA:-unavailable}
 ## Verdict: [PASS | FAIL | CRITICAL]
 
-Copy both attestation values exactly. CRITICAL = a verdict-driving injection or live secret. FAIL = any other verdict-driving exploit-path finding. PASS = no verdict-driving findings (advisories alone are still PASS)."
+Copy both attestation values exactly. CRITICAL = a verdict-driving injection or live secret. FAIL = any other verdict-driving exploit-path finding. PASS = no verdict-driving findings (advisories alone are still PASS).${PRECEDENTS_CONTEXT}"
       ;;
     12)
       prompt="You are the Commit Code-Review Agent — the final gate before this code is committed. Review the REAL diff, not the builder's claims.
@@ -6551,7 +6716,7 @@ Return a markdown review with:
 ## Reviewed Tree OID: ${REVIEWED_TREE_SHA:-unavailable}
 ## Verdict: [APPROVE | REQUEST_CHANGES]
 
-Copy both attestation values exactly. Verdict rule: REQUEST_CHANGES only when at least one BLOCKER meets the full evidence contract, or a success criterion is genuinely unsatisfied by the diff. If every finding is WARN or PRE-EXISTING, the verdict MUST be APPROVE — nits alone can never withhold approval."
+Copy both attestation values exactly. Verdict rule: REQUEST_CHANGES only when at least one BLOCKER meets the full evidence contract, or a success criterion is genuinely unsatisfied by the diff. If every finding is WARN or PRE-EXISTING, the verdict MUST be APPROVE — nits alone can never withhold approval.${PRECEDENTS_CONTEXT}"
       ;;
     collapsed-plan)
       prompt="You are the Unified Plan Agent. Your task: $TASK
@@ -6589,7 +6754,9 @@ Then for each step:
 **Anchor:** \`a short verbatim snippet that uniquely locates the change site\` (MODIFY only; must exist in the file right now)
 **Intent:** what to change and why — precise enough that two competent developers would produce equivalent code
 **Test:** {input} -> {expected observable output}
-Max 15 steps. All MODIFY paths must exist on disk; anchors are verified mechanically before the build starts."
+Max 15 steps. All MODIFY paths must exist on disk; anchors are verified mechanically before the build starts.${TEST_COMMAND:+
+
+Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}"
       ;;
   esac
 
@@ -7507,10 +7674,18 @@ else
   else
     run_phase 3 "Adversarial Review" "HARD" "critique.md" "true"
     # Auto-recover only on a BLOCKER-bearing REVISE_DESIGN; a blocker-free one
-    # was already demoted by the gate and needs no design rework.
+    # was already demoted by the gate and needs no design rework. Surviving
+    # BLOCKERs face one refuter each first — only CONFIRMED findings may
+    # trigger the recovery loop.
     if [[ "$(read_verdict "$ARTIFACTS/critique.md" "APPROVED|REVISE_DESIGN")" == "REVISE_DESIGN" ]] &&
        critique_has_blockers "$ARTIFACTS/critique.md"; then
-      handle_phase_3_retry
+      refute_blockers 3 "$ARTIFACTS/critique.md"
+      if critique_has_blockers "$ARTIFACTS/critique.md"; then
+        handle_phase_3_retry
+      else
+        echo -e "  ${YELLOW}Every BLOCKER was refuted — proceeding with the critique recorded as notes.${NC}"
+        run_gate 3 || true
+      fi
     fi
   fi
   write_checkpoint "phase-3" "3" || exit 1
@@ -7648,6 +7823,16 @@ elif command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev
 
   cr_verdict() { read_verdict "$ARTIFACTS/code-review.md" "APPROVE|REQUEST_CHANGES"; }
 
+  # Surviving BLOCKERs face one refuter each before they may cost a heal
+  # cycle (each heal re-runs verification, security, and review).
+  if [[ "$(cr_verdict)" == "REQUEST_CHANGES" ]] &&
+     critique_has_blockers "$ARTIFACTS/code-review.md"; then
+    refute_blockers 12 "$ARTIFACTS/code-review.md"
+    if ! critique_has_blockers "$ARTIFACTS/code-review.md"; then
+      run_gate 12 || true
+    fi
+  fi
+
   # REQUEST_CHANGES carrying zero BLOCKER findings gates on nothing: per the
   # BLOCKER-lane contract it is demoted to APPROVE-with-notes (recorded in the
   # ledger) instead of burning heal cycles on nits.
@@ -7705,9 +7890,27 @@ elif command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev
     require_review_capture 12
     remember_reviewed_candidate
     run_phase 12 "Commit Code-Review (re-review after heal $heals)" "HARD" "code-review.md" "true"
+    if [[ "$(cr_verdict)" == "REQUEST_CHANGES" ]] &&
+       critique_has_blockers "$ARTIFACTS/code-review.md"; then
+      refute_blockers 12 "$ARTIFACTS/code-review.md"
+      if ! critique_has_blockers "$ARTIFACTS/code-review.md"; then
+        run_gate 12 || true
+      fi
+    fi
   done
 
   if [[ "$(cr_effective_verdict)" == "APPROVE" ]]; then
+    # Pre-existing red tests that STAYED red downgrade the run to review-only
+    # here — a clean completion with the work preserved on the run branch —
+    # instead of the old late exit-1 that threw the whole run away.
+    if [[ "$AUTO_COMMIT" == "true" && "$TEST_EXIT" != "0" &&
+          "$ALLOW_UNTESTED_COMMIT" != "true" &&
+          "$BASELINE_EVIDENCE_READY" == "true" &&
+          "$(baseline_status_for test)" == "FAIL" ]]; then
+      AUTO_COMMIT=false
+      echo -e "  ${YELLOW}Tests were red at baseline and are still red — completing review-only.${NC}"
+      echo -e "  ${DIM}Turn them green (or use --allow-untested-commit) to commit.${NC}"
+    fi
     # Approval is useful only for the exact current evidence chain. These
     # invariants also run in review-only mode; --no-commit is not --no-verify.
     require_phase_attestation 12 "$ARTIFACTS/code-review.md"

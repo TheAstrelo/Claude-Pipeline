@@ -100,12 +100,29 @@ lint, and docs are out of scope for gating phases — the NONE-gated phases own
 them. Phase 11 additionally uses confidence bands (below 0.7 unreported,
 0.7-0.8 advisory, above 0.8 with a written exploit path verdict-driving).
 
+**Evidence-grounded gating.** Citations are verified mechanically before a
+BLOCKER may gate: a Phase 3 blocker with an empty/dash Evidence cell, or a
+Phase 12 blocker citing no file present in `review.diff`, is stripped from
+the gate (malformed rows fail CLOSED and still gate). In `standard`/`paranoid`,
+each surviving BLOCKER then faces one cheap fast-lane refuter call — only
+CONFIRMED findings may trigger recovery loops or halts; REFUTED rows are
+recorded in the ledger and a `.refuted` sidecar. Repo-local precedents
+(`.claude/rules/review-precedents.md`) are injected into review prompts so
+findings a human already judged FALSE POSITIVE are not re-raised; the
+interactive gate menu's `[f]` option records them.
+
 **Baseline verification.** At startup the engine runs the frozen
 test/build/typecheck/lint/docs matrix once against the untouched baseline
 tree (`PIPELINE_BASELINE_CHECKS=0` skips). Checks already failing at baseline
-are reported as `FAIL_PREEXISTING` later and never gate the run; red baseline
-tests switch the run to review-only up front instead of halting after full
-model spend. Regressions the run introduces still gate exactly as before.
+are reported as `FAIL_PREEXISTING` later and never gate the run. Red baseline
+tests support the TDD flow: the run continues with commit armed, and the
+decision lands on the FINAL test state — turned green commits normally;
+still red completes review-only (never a late hard failure). Regressions the
+run introduces still gate exactly as before. When a test command exists,
+planning is acceptance-first: the earliest plan steps author failing tests
+from the Success Criteria so Phase 9 certifies the task was done, not merely
+that nothing regressed (the demo kit ships this pattern as
+`src/acceptance/version.test.js`).
 
 ### Model Routing (Balanced)
 
