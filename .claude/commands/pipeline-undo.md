@@ -1,82 +1,77 @@
 # Pipeline Undo Command
 
-Revert the last pipeline run by restoring the git checkpoint.
+Undo a pipeline run's result. With worktree isolation (the current engine),
+this is clean and low-risk: a run never touches your checkout — its result
+lives only on a `pipeline/<session>` branch (and, for a `--push` run, on the
+remote). "Undo" therefore means deleting that branch and its worktree, not
+reverting your working tree.
 
 ## Arguments
 
-- `$ARGUMENTS` - Optional: session ID to undo (defaults to last session)
+- `$ARGUMENTS` — optional session ID to undo. Defaults to the most recent run.
 
 ## Instructions
 
-### 1. Find Checkpoint
+### 1. Find the run
 
-If session ID provided in `$ARGUMENTS`:
-- Look for `.claude/artifacts/{session}/checkpoint.txt`
+- Read `.pipeline/artifacts/current.txt` for the most recent session
+  directory (or resolve the directory matching the `$ARGUMENTS` session ID
+  under `.pipeline/artifacts/`).
+- The session's `ledger.jsonl` is authoritative. Find:
+  - the `run_started` event → the run's baseline and branch;
+  - a `commit_published` event and `commit.sha` → whether a commit was made;
+  - a `branch_published` event → whether it was pushed, and to which remote.
+- The run branch is `pipeline/<session-id>`.
 
-Otherwise:
-- Read `.claude/artifacts/current.txt` for last session ID
-- Look for checkpoint in that session's directory
+### 2. Report what will be removed
 
-### 2. Verify Checkpoint Exists
+Show the user, and ask to confirm (`y/n`):
+- Session ID and task (from the `run_started` payload).
+- The run branch `pipeline/<session-id>` and whether it holds a commit.
+- Whether a worktree exists at `.pipeline/worktrees/<session-id>`.
+- Whether the branch was pushed to a remote.
+- Confirm explicitly that **your current checkout will not change** — only
+  the run branch/worktree are removed.
 
-If no checkpoint found:
-- Output: "No checkpoint found. Cannot undo."
-- Suggest: "Pipeline may not have made any changes, or was run without git."
-- Exit
+### 3. Execute (only after confirmation)
 
-### 3. Get Checkpoint Type
-
-Read checkpoint file to determine type:
-- If starts with `stash@`: it's a git stash
-- If 40-char hex: it's a commit hash
-
-### 4. Confirm with User
-
-Show what will be undone:
-- Session ID
-- Task description (from status.json)
-- Files that were changed
-- Checkpoint type
-
-Ask: "Revert these changes? [y/n]"
-
-### 5. Execute Undo
-
-**For stash checkpoint:**
 ```bash
-git stash pop {stash-ref}
+# Remove the run worktree if it is still present (review-only / halted runs).
+git worktree remove --force ".pipeline/worktrees/<session-id>" 2>/dev/null || true
+git worktree prune
+
+# Delete the local run branch.
+git branch -D "pipeline/<session-id>"
+
+# Remove the per-run checkpoint ref, if any.
+git update-ref -d "refs/pipeline-checkpoints/<session-id>" 2>/dev/null || true
 ```
 
-**For commit checkpoint:**
+If the branch was pushed and the user wants the remote branch removed too
+(ask separately — this affects shared state):
+
 ```bash
-git revert --no-commit HEAD~N..HEAD
-```
-Where N is the number of commits since checkpoint.
-
-Or for clean revert:
-```bash
-git reset --hard {commit-hash}
+git push <remote> --delete "pipeline/<session-id>"
 ```
 
-### 6. Clean Up
+### 4. Do NOT
 
-- Remove session from `.claude/artifacts/current.txt`
-- Update history.json to mark session as "reverted"
-- Output success message
+- Do not `git reset`/`git revert` the user's checkout. A worktree-isolated
+  run never committed to it, so there is nothing there to revert; doing so
+  would destroy unrelated work.
+- Do not delete the session's `.pipeline/artifacts/<session>` directory — it
+  is the durable audit record. (Retention is configured separately.)
 
-### 7. Output
+### 5. Legacy in-place runs (`PIPELINE_WORKTREE=0`)
 
-```
-Reverted pipeline run: {session}
-Task: {task description}
-Files restored: {count}
+An older or `PIPELINE_WORKTREE=0` run may have committed on the pipeline
+branch after switching your checkout to it. If HEAD is on `pipeline/<session>`
+with the run's commit, return to the original branch first
+(`git checkout <original-branch>`, named in the `run_started` payload), then
+delete the run branch as above. Never `git reset --hard` without confirming
+the target with the user.
 
-Current state matches pre-pipeline checkpoint.
-```
+## Error handling
 
-## Error Handling
-
-If git operations fail:
-- Show git error message
-- Suggest manual resolution
-- Provide checkpoint hash for manual recovery
+If a git operation fails, show the exact error and the branch/commit SHAs
+from the ledger so the user can finish manually. Never guess.

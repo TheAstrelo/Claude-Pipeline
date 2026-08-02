@@ -203,9 +203,11 @@ bash run-pipeline.sh --mode=dev --profile=paranoid "handle payments"
 bash run-pipeline.sh --resume=RUN_ID --provider=codex "add user authentication"
 ```
 
+> **Implemented delivery flags:** `--push` (publish the committed run branch
+> to the remote) and `--pr` (`--push` plus pull-request guidance).
 > **Roadmap (not yet implemented):** `--batch-qa`, `--template`,
-> `--dry-run`, `--test`, `--branch`, `--pr`, `--estimate`, `--fix`, and `--only`.
-> The engine rejects these today. See `PIPELINE-AUDIT-2026-07.md` for current gaps.
+> `--dry-run`, `--test`, `--branch`, `--estimate`, `--fix`, and `--only`.
+> The engine rejects these today. See `PIPELINE-AUDIT-2026-08.md` for current gaps.
 
 ---
 
@@ -265,8 +267,9 @@ Skip requirements gathering with pre-configured templates:
 
 > **Illustrative / aspirational.** The mock terminal output below shows an *intended* suggestion
 > UX. `/pipeline-scan` is backed by the `code-scanner` agent, but the on-failure and on-success
-> suggestion flows — and the `--fix`, `--test`, and `--pr` flags they reference — are not yet
-> wired into the engine.
+> suggestion flows — and the `--fix` and `--test` flags they reference — are not yet
+> wired into the engine. (`--pr` *is* implemented — it publishes the run branch and prints
+> PR-creation guidance.)
 
 ### On Failure
 

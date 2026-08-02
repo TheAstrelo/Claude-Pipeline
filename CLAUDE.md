@@ -58,10 +58,10 @@ the resume identity so a run-cap halt resumes with a higher cap),
 `PIPELINE_BUDGET_EXTENSIONS` (default 2), `PIPELINE_COLLAPSE=0` (full
 planning ladder in yolo/fast), `PIPELINE_BUILD_FIX_ATTEMPTS` (default 2;
 in-build verify/fix loop, 0 disables).
+`PIPELINE_PUSH_REMOTE` (default `origin`).
 Resume requires the original task and an exact engine/config/Git/evidence
-match. Anything else (
-`--template`, `--batch-qa`, `--fix`, `--pr`,
-`--yolo` shorthand) is **not** implemented.
+match. Still not implemented: `--template`, `--batch-qa`, `--fix`, and a
+`--yolo` shorthand.
 
 ## Architecture
 
