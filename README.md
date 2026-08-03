@@ -631,7 +631,20 @@ Add project-specific conventions in `.claude/rules/`:
 ## Offline production checks
 
 These fixtures use fake provider CLIs and temporary repositories; they make no
-paid model or network calls:
+paid model or network calls.
+
+**Run the whole battery with one command** — `tests/run-all.sh`
+auto-discovers every `tests/*.sh` suite (so a new suite can never be silently
+dropped), runs each, reads its real exit code, and prints a pass/fail table.
+It exits non-zero if any suite fails:
+
+```bash
+bash tests/run-all.sh        # everything, sequentially
+bash tests/run-all.sh -p     # everything, in parallel (faster)
+bash tests/run-all.sh m2 kill-matrix   # only suites whose name matches
+```
+
+Individual suites still run standalone:
 
 ```bash
 bash tests/smoke-provider-adapters.sh
@@ -639,6 +652,7 @@ bash tests/deterministic-first-smoke.sh
 bash tests/milestone-2-smoke.sh
 bash tests/milestone-3-smoke.sh
 bash tests/milestone-4-smoke.sh
+bash tests/resume-kill-matrix.sh
 node tests/evaluate-routing-policy.js \
   evals/routing-corpus.v1.json \
   evals/routing-eval-report.v1.json

@@ -33,6 +33,10 @@ bash run-pipeline.sh --profile=paranoid --mode=dev "handle payments"
 
 # Demo starter project (demo/starter-project/)
 npm install && npm test
+
+# Full test battery (one command; auto-discovers every tests/*.sh suite)
+bash tests/run-all.sh          # sequential
+bash tests/run-all.sh -p       # parallel
 ```
 
 Flags the engine actually parses: `--provider=auto|claude|codex`,
