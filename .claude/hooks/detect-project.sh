@@ -137,8 +137,7 @@ cat > "$OUTPUT_FILE" << EOF
     "build": "$BUILD_COMMAND",
     "lint": "$LINT_COMMAND"
   },
-  "searchDirectories": "$SEARCH_DIRS",
-  "detectedAt": "$(date -Iseconds 2>/dev/null || date)"
+  "searchDirectories": "$SEARCH_DIRS"
 }
 EOF
 

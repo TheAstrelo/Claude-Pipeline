@@ -60,8 +60,24 @@ this file.)
    - **any other non-zero** — a phase's subprocess failed to write its artifact.
      Read that phase's `*.err` file and report the failing phase to the user.
 
-4. **Do not** re-run phases yourself, edit artifacts by hand, or "improvise" the
-   pipeline. Your only job is to launch the engine and relay its outcome.
+4. **Cloud/no-subprocess fallback.** If the engine exits at its **auth
+   preflight** ("this environment cannot spawn an authenticated claude
+   subprocess"), the subprocess engine cannot run here. Fall back to
+   **in-session orchestration**: run the phases yourself in phase order using
+   the per-phase agents in `.claude/agents/` via the Task tool (pre-check →
+   requirements-crystallizer → architect → adversarial-coordinator →
+   atomic-planner → drift-detector → builder → security-auditor →
+   plan-reviewer for the final review), honoring the same artifacts
+   directory layout, running the project's real test command yourself between
+   build and review, and applying the BLOCKER-lane rule from
+   `PIPELINE-SPEC.md` §4: only evidence-cited BLOCKER findings may stop the
+   run. In this mode NEVER auto-commit — end by presenting the diff and the
+   test results, and let the user commit. Tell the user explicitly that the
+   run used in-session mode (weaker isolation than the engine).
+
+5. **Do not** re-run phases yourself while the engine mode is in use, edit
+   artifacts by hand, or "improvise" the pipeline. In engine mode your only
+   job is to launch the engine and relay its outcome.
 
 ## Model routing (Balanced profile)
 

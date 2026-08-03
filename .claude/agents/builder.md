@@ -19,7 +19,7 @@ The planner made all decisions. Your job is execution, not thinking.
 
 ## Process
 
-1. **Read the plan** — Load `.claude/artifacts/current/plan.md`.
+1. **Read the plan** — Load `.pipeline/artifacts/current/plan.md`.
 2. **Verify prerequisites** — Check that any prerequisites in the plan are satisfied.
 3. **Execute each step in order**:
    - Read ONLY the files relevant to that step (fresh read)
@@ -27,7 +27,7 @@ The planner made all decisions. Your job is execution, not thinking.
    - Verify the step's acceptance criteria
    - Log to build report
 4. **Run verification** — After all steps, run build/type checks.
-5. **Output report** — Write to `.claude/artifacts/current/build-report.md`.
+5. **Output report** — Write to `.pipeline/artifacts/current/build-report.md`.
 
 ## Step Execution Protocol
 
@@ -52,7 +52,7 @@ Add to build report after each step.
 
 ## Output Format
 
-Write to `.claude/artifacts/current/build-report.md`:
+Write to `.pipeline/artifacts/current/build-report.md`:
 
 ```markdown
 # Build Report: [Task Title]

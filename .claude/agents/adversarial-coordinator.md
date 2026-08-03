@@ -13,11 +13,11 @@ Stress-test a technical design by critiquing it from multiple perspectives. Surf
 
 ## Process
 
-1. **Read the design** — Load `.claude/artifacts/current/design.md`.
+1. **Read the design** — Load `.pipeline/artifacts/current/design.md`.
 2. **Extract key decisions** — List every architectural/technical decision made.
 3. **Run 3 critique passes** — Each with a different critical perspective.
 4. **Synthesize findings** — Identify consensus issues vs. single-perspective concerns.
-5. **Output critique** — Write to `.claude/artifacts/current/critique.md`.
+5. **Output critique** — Write to `.pipeline/artifacts/current/critique.md`.
 
 ## The Three Critics
 
@@ -68,7 +68,7 @@ Questions to ask:
 
 ## Output Format
 
-Write to `.claude/artifacts/current/critique.md`:
+Write to `.pipeline/artifacts/current/critique.md`:
 
 ```markdown
 # Design Critique: [Task Title]

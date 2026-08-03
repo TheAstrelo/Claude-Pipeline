@@ -2,8 +2,8 @@
   "schemaVersion": "1.0",
   "policyVersion": "1.0",
   "thresholds": {
-    "classificationPrecision": 1.0,
-    "classificationRecall": 1.0,
+    "classificationPrecision": 1,
+    "classificationRecall": 1,
     "requiredCheckPassRateDeltaMin": 0,
     "minimumCleanQaCallReduction": 0.75
   },
@@ -17,9 +17,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "fast",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "fast": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "authentication-build",
@@ -30,9 +45,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "strong",
       "labelRequiresStrong": true,
-      "baseline": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "fast": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "fast": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "payment-planning",
@@ -43,9 +73,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "strong",
       "labelRequiresStrong": true,
-      "baseline": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "fast": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "fast": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "destructive-migration-fast-profile",
@@ -56,9 +101,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "strong",
       "labelRequiresStrong": true,
-      "baseline": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "fast": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "fast": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "yolo-is-explicitly-fixed",
@@ -69,9 +129,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "fast",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "fast": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "short-ambiguous-plan",
@@ -82,9 +157,24 @@
       "expectedAmbiguity": "HIGH",
       "expectedLane": "strong",
       "labelRequiresStrong": true,
-      "baseline": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "fast": { "passesRequiredChecks": false, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": false },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "fast": {
+        "passesRequiredChecks": false,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": false
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "routine-plan",
@@ -95,9 +185,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "fast",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "fast": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "paranoid-semantic-default",
@@ -108,9 +213,24 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "strong",
       "labelRequiresStrong": true,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true },
-      "fast": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "clean-denoise",
@@ -122,8 +242,18 @@
       "expectedAmbiguity": "HIGH",
       "expectedLane": "none",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "none": { "passesRequiredChecks": true, "costUnits": 0, "latencyUnits": 0, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "none": {
+        "passesRequiredChecks": true,
+        "costUnits": 0,
+        "latencyUnits": 0,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "clean-fit",
@@ -135,8 +265,18 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "none",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "none": { "passesRequiredChecks": true, "costUnits": 0, "latencyUnits": 0, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "none": {
+        "passesRequiredChecks": true,
+        "costUnits": 0,
+        "latencyUnits": 0,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "clean-docs",
@@ -148,8 +288,18 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "none",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "none": { "passesRequiredChecks": true, "costUnits": 0, "latencyUnits": 0, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "none": {
+        "passesRequiredChecks": true,
+        "costUnits": 0,
+        "latencyUnits": 0,
+        "recoverySuccess": true
+      }
     },
     {
       "id": "docs-finding-remediation",
@@ -161,9 +311,108 @@
       "expectedAmbiguity": "NORMAL",
       "expectedLane": "fast",
       "labelRequiresStrong": false,
-      "baseline": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "fast": { "passesRequiredChecks": true, "costUnits": 1, "latencyUnits": 1, "recoverySuccess": true },
-      "strong": { "passesRequiredChecks": true, "costUnits": 2, "latencyUnits": 2, "recoverySuccess": true }
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
+    },
+    {
+      "id": "crud-consolidation-delete",
+      "task": "condense the contact CRUD actions (create, read, update, delete) into one file",
+      "profile": "standard",
+      "phase": 6,
+      "expectedRisk": "NORMAL",
+      "expectedAmbiguity": "NORMAL",
+      "expectedLane": "fast",
+      "labelRequiresStrong": false,
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
+    },
+    {
+      "id": "routine-upload-feature",
+      "task": "add drag-and-drop image upload to the profile page",
+      "profile": "standard",
+      "phase": 6,
+      "expectedRisk": "NORMAL",
+      "expectedAmbiguity": "NORMAL",
+      "expectedLane": "fast",
+      "labelRequiresStrong": false,
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
+    },
+    {
+      "id": "routine-admin-listing",
+      "task": "show the admin dashboard user list with each role displayed as a token chip",
+      "profile": "standard",
+      "phase": 4,
+      "expectedRisk": "NORMAL",
+      "expectedAmbiguity": "NORMAL",
+      "expectedLane": "fast",
+      "labelRequiresStrong": false,
+      "baseline": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "fast": {
+        "passesRequiredChecks": true,
+        "costUnits": 1,
+        "latencyUnits": 1,
+        "recoverySuccess": true
+      },
+      "strong": {
+        "passesRequiredChecks": true,
+        "costUnits": 2,
+        "latencyUnits": 2,
+        "recoverySuccess": true
+      }
     }
   ]
 }

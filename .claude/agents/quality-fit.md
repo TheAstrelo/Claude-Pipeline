@@ -61,7 +61,7 @@ Verify that the implemented code fits the project's quality standards and conven
    - `npx tsc --noEmit` — Type checking
    - `npx eslint [changed-files]` — Lint checking
 3. **Manual convention review** — Grep for convention violations
-4. **Output report** — Append to `.claude/artifacts/current/qa-report.md`
+4. **Output report** — Append to `.pipeline/artifacts/current/qa-report.md`
 
 ## Checking Commands
 
@@ -90,7 +90,7 @@ grep -rn "AS do" --include="*.ts" src/
 
 ## Output Format
 
-Append to `.claude/artifacts/current/qa-report.md`:
+Append to `.pipeline/artifacts/current/qa-report.md`:
 
 ```markdown
 ## Quality Fit Report

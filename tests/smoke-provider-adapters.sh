@@ -51,6 +51,9 @@ done
 prompt=$(cat)
 
 case "$prompt" in
+  *"Unified Plan Agent"*)
+    report=$'===BRIEF===\n## Verdict: CLEAR\n\n## Problem\nSmoke test.\n\n## Success Criteria\n1. Pass.\n\n## Scope\nIn.\n\n## Constraints\nNone.\n\n## Context Found\nMock.\n\n## Assumptions\nNone.\n===DESIGN===\n## Decisions\n\n**Use mock** — deterministic — Source: tests/mock:1\n\n## Components\n\n| Name | Purpose | Interface |\n|---|---|---|\n| Mock | Test | CLI |\n\n## Data Changes\nNone\n\n## Risks\n\n| Risk | Mitigation |\n|---|---|\n| none | — |\n===PLAN===\n## Verdict: READY\n\n## Steps\n\n| # | File | Action | Depends |\n|---|---|---|---|\n| 1 | README.md | MODIFY | None |\n\n### Step 1: Smoke\n**File:** README.md [MODIFY]\n**Deps:** None\n**Anchor:** \x60seed\x60\n**Intent:** keep the seed line as-is\n**Test:** run -> pass'
+    verdict="" ;;
   *"Pre-Check Agent"*)
     report=$'## Codebase Matches\n\n| Type | Path | Relevance |\n|---|---|---|\n| none | — | none |\n\n## Installed Libraries\n\n| Package | Version | Purpose |\n|---|---|---|\n| none | — | — |\n\n## Recommendation\n\nBUILD_NEW\n\n**Reasoning:** No match exists.'
     verdict="" ;;
@@ -124,6 +127,8 @@ prompt=$(cat)
 bound_diff=$(printf '%s\n' "$prompt" | sed -nE 's/^- Diff SHA-256: ([0-9a-f]{64})$/\1/p' | tail -1)
 bound_tree=$(printf '%s\n' "$prompt" | sed -nE 's/^- Candidate tree OID: ([0-9a-f]{40}|[0-9a-f]{64}|unavailable)$/\1/p' | tail -1)
 case "$prompt" in
+  *"Unified Plan Agent"*)
+    report=$'===BRIEF===\n## Verdict: CLEAR\n\n## Problem\nSmoke test.\n\n## Success Criteria\n1. Pass.\n\n## Scope\nIn.\n\n## Constraints\nNone.\n\n## Context Found\nMock.\n\n## Assumptions\nNone.\n===DESIGN===\n## Decisions\n\n**Use mock** — deterministic — Source: tests/mock:1\n\n## Components\n\n| Name | Purpose | Interface |\n|---|---|---|\n| Mock | Test | CLI |\n\n## Data Changes\nNone\n\n## Risks\n\n| Risk | Mitigation |\n|---|---|\n| none | — |\n===PLAN===\n## Verdict: READY\n\n## Steps\n\n| # | File | Action | Depends |\n|---|---|---|---|\n| 1 | README.md | MODIFY | None |\n\n### Step 1: Smoke\n**File:** README.md [MODIFY]\n**Deps:** None\n**Anchor:** \x60seed\x60\n**Intent:** keep the seed line as-is\n**Test:** run -> pass' ;;
   *"Pre-Check Agent"*)
     report=$'## Codebase Matches\n\n| Type | Path | Relevance |\n|---|---|---|\n| none | — | none |\n\n## Installed Libraries\n\n| Package | Version | Purpose |\n|---|---|---|\n| none | — | — |\n\n## Recommendation\n\nBUILD_NEW\n\n**Reasoning:** No match exists.' ;;
   *"Requirements Agent"*)
@@ -235,8 +240,46 @@ git -C "$COMMIT_REPO" commit -q -m "seed"
       --allow-untested-commit \
       "commit safety smoke" >/dev/null
 )
-[[ "$(git -C "$COMMIT_REPO" branch --show-current)" == pipeline/* ]]
-git -C "$COMMIT_REPO" show --format= --name-only HEAD | grep -q '^smoke-built.txt$'
+# Worktree isolation: the user's checkout must remain on its original branch
+# with a clean tree; the result lives only on the published pipeline/* branch.
+[[ "$(git -C "$COMMIT_REPO" branch --show-current)" == "master" ||
+   "$(git -C "$COMMIT_REPO" branch --show-current)" == "main" ]]
+PIPELINE_RUN_BRANCH=$(git -C "$COMMIT_REPO" for-each-ref --format='%(refname:short)' 'refs/heads/pipeline/*' | head -1)
+[[ -n "$PIPELINE_RUN_BRANCH" ]]
+git -C "$COMMIT_REPO" show --format= --name-only "$PIPELINE_RUN_BRANCH" | grep -q '^smoke-built.txt$'
 [[ -z "$(git -C "$COMMIT_REPO" status --porcelain)" ]]
+# Committed-run worktree is auto-removed; only the main checkout remains.
+[[ "$(git -C "$COMMIT_REPO" worktree list | wc -l)" -eq 1 ]]
+
+# --push publishes the committed run branch to the configured remote (M4
+# terminal delivery). Bare remote, seeded, cloned, then a committed run with
+# --push must land the pipeline/* branch on the remote.
+PUSH_REMOTE_DIR="$TMP_ROOT/push-remote.git"
+git init -q --bare "$PUSH_REMOTE_DIR"
+PUSH_REPO="$TMP_ROOT/push-repo"
+git clone -q "$PUSH_REMOTE_DIR" "$PUSH_REPO"
+git -C "$PUSH_REPO" config user.name "Pipeline Smoke"
+git -C "$PUSH_REPO" config user.email "pipeline-smoke@example.invalid"
+printf '%s\n' "seed" > "$PUSH_REPO/README.md"
+git -C "$PUSH_REPO" add README.md
+git -C "$PUSH_REPO" commit -q -m "seed"
+git -C "$PUSH_REPO" push -q origin HEAD
+(
+  cd "$PUSH_REPO"
+  PATH="$MOCK_BIN:$PATH" \
+    MOCK_WRITE_CODE=1 \
+    PIPELINE_STATE_DIR="$TMP_ROOT/state-push" \
+    PIPELINE_NO_NOTIFY=1 \
+    PIPELINE_NONINTERACTIVE=1 \
+    bash "$ROOT/run-pipeline.sh" \
+      --provider=codex \
+      --profile=yolo \
+      --allow-untested-commit \
+      --push \
+      "push delivery smoke" >/dev/null
+)
+PUSHED_BRANCH=$(git -C "$PUSH_REMOTE_DIR" for-each-ref --format='%(refname:short)' 'refs/heads/pipeline/*' | head -1)
+[[ -n "$PUSHED_BRANCH" ]] || { echo "--push did not publish a pipeline/* branch to the remote" >&2; exit 1; }
+git -C "$PUSH_REMOTE_DIR" show --format= --name-only "$PUSHED_BRANCH" | grep -q '^smoke-built.txt$'
 
 echo "provider adapter smoke tests passed"

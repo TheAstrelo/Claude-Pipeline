@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  battery:
+    name: Full test battery
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The suites use fake provider CLIs and temporary git repos (no paid
+      # model or network calls), but a few create commits, so give git a
+      # global identity.
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@pipeline.invalid"
+          git config --global user.name "Pipeline CI"
+
+      # One command runs (and auto-discovers) every tests/*.sh suite plus the
+      # node evaluators, reads each suite's real exit code, and fails the job
+      # if any suite fails.
+      - name: Run full test battery
+        run: bash tests/run-all.sh

@@ -21,8 +21,8 @@ Verify that the implementation plan faithfully implements the design. Catch drif
 ## Process
 
 1. **Read both documents**:
-   - `.claude/artifacts/current/design.md`
-   - `.claude/artifacts/current/plan.md`
+   - `.pipeline/artifacts/current/design.md`
+   - `.pipeline/artifacts/current/plan.md`
 
 2. **Extract design claims** — List every specific requirement from the design:
    - Components to create
@@ -39,11 +39,11 @@ Verify that the implementation plan faithfully implements the design. Catch drif
    - Any plan steps that contradict design? → Contradiction
    - Any plan steps missing BEFORE/AFTER code? → Incomplete
 
-5. **Output report** — Write to `.claude/artifacts/current/drift-report.md`.
+5. **Output report** — Write to `.pipeline/artifacts/current/drift-report.md`.
 
 ## Output Format
 
-Write to `.claude/artifacts/current/drift-report.md`:
+Write to `.pipeline/artifacts/current/drift-report.md`:
 
 ```markdown
 # Drift Report: [Task Title]

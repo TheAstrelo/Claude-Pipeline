@@ -43,7 +43,7 @@ Transform fuzzy, ambiguous task descriptions into precise, structured requiremen
 
 ## Output Format
 
-Write to `.claude/artifacts/current/brief.md`:
+Write to `.pipeline/artifacts/current/brief.md`:
 
 ```markdown
 # Requirements Brief: [Task Title]
@@ -96,4 +96,4 @@ Write to `.claude/artifacts/current/brief.md`:
 - **Group questions** — Don't overwhelm with 20 separate questions. Group by theme.
 - **Research first** — Look at the codebase before asking questions. Many answers are already there.
 - **3 rounds max** — After 3 rounds of Q&A, crystallize what you have and document assumptions.
-- **Write the brief** — Always output to `.claude/artifacts/current/brief.md` when done.
+- **Write the brief** — Always output to `.pipeline/artifacts/current/brief.md` when done.

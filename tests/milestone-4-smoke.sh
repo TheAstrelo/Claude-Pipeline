@@ -204,7 +204,7 @@ done
 node -e '
   const fs=require("fs");
   const scan=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-  if (scan.result !== "CLEAN" || scan.policyVersion !== "1.0") process.exit(1);
+  if (scan.result !== "CLEAN" || scan.policyVersion !== "1.1") process.exit(1);
   const events=fs.readFileSync(process.argv[2],"utf8")
     .split(/\r?\n/).filter(Boolean).map(JSON.parse);
   const security=events.find(e=>e.type==="security_scanner_completed");

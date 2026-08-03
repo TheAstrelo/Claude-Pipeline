@@ -1,3 +1,10 @@
+---
+name: code-scanner
+description: Lightweight proactive code analysis — scan for issues, missing tests, and improvement opportunities without running the full pipeline.
+tools: Read, Grep, Glob
+model: inherit
+---
+
 # Code Scanner Agent
 
 Lightweight agent for proactive code analysis and improvement detection.
@@ -123,7 +130,7 @@ Show highest priority first.
 ### 7. Caching
 
 Cache scan results to avoid repeated work:
-- Store in `.claude/artifacts/scan-results.json`
+- Store in `.pipeline/artifacts/scan-results.json`
 - Invalidate on file changes
 - Show "cached" indicator if using cached data
 

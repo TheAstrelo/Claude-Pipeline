@@ -171,11 +171,18 @@ Each trusted command has a 900-second default bound; set
 change it.
 
 Production provider calls are capability-gated, not version-string-gated.
-Claude auto-commit requires a CLI with `--bare`; Codex auto-commit requires
-`codex exec --ignore-user-config` and rejects a repository
-`.codex/config.toml`. Older CLIs remain available only with `--no-commit`.
-This prevents a mutable memory/config layer from silently changing a later
-security or review phase. Update the selected CLI if the preflight rejects it.
+Claude isolation is credential-aware: `--bare` reads auth strictly from
+`ANTHROPIC_API_KEY`/apiKeyHelper (OAuth is never read), so the engine uses
+bare mode only when such a credential exists and otherwise runs the
+OAuth-compatible isolation set (explicit `CLAUDE_CODE_DISABLE_*` env, empty
+setting sources, `--strict-mcp-config`) so subscription-login users and cloud
+sessions can spawn phases at all. A startup auth preflight performs one cheap
+end-to-end `claude -p` probe and halts with an actionable message if nested
+spawns cannot authenticate (`PIPELINE_AUTH_PREFLIGHT=0` skips). Codex
+auto-commit requires `codex exec --ignore-user-config` and rejects a
+repository `.codex/config.toml`. Provider subprocesses are wall-clock-bounded
+(`PIPELINE_PROVIDER_TIMEOUT_SECONDS`, default 2400) and transient API
+failures are retried once (`PIPELINE_PROVIDER_RETRIES`).
 
 ### Examples
 
@@ -196,9 +203,11 @@ bash run-pipeline.sh --mode=dev --profile=paranoid "handle payments"
 bash run-pipeline.sh --resume=RUN_ID --provider=codex "add user authentication"
 ```
 
+> **Implemented delivery flags:** `--push` (publish the committed run branch
+> to the remote) and `--pr` (`--push` plus pull-request guidance).
 > **Roadmap (not yet implemented):** `--batch-qa`, `--template`,
-> `--dry-run`, `--test`, `--branch`, `--pr`, `--estimate`, `--fix`, and `--only`.
-> The engine rejects these today. See `PIPELINE-AUDIT-2026-07.md` for current gaps.
+> `--dry-run`, `--test`, `--branch`, `--estimate`, `--fix`, and `--only`.
+> The engine rejects these today. See `PIPELINE-AUDIT-2026-08.md` for current gaps.
 
 ---
 
@@ -258,8 +267,9 @@ Skip requirements gathering with pre-configured templates:
 
 > **Illustrative / aspirational.** The mock terminal output below shows an *intended* suggestion
 > UX. `/pipeline-scan` is backed by the `code-scanner` agent, but the on-failure and on-success
-> suggestion flows — and the `--fix`, `--test`, and `--pr` flags they reference — are not yet
-> wired into the engine.
+> suggestion flows — and the `--fix` and `--test` flags they reference — are not yet
+> wired into the engine. (`--pr` *is* implemented — it publishes the run branch and prints
+> PR-creation guidance.)
 
 ### On Failure
 
@@ -481,7 +491,8 @@ latency are relative units. The offline release-SLO corpus also passes every
 control-plane threshold, but explicitly records `gaEligible: false` until a
 controlled provider canary and security approval exist.
 
-Claude uses `--bare`, an empty settings-source set, strict MCP isolation,
+Claude uses `--bare` (only when an API credential is present — see the
+credential-aware isolation note above), an empty settings-source set, strict MCP isolation,
 disabled memory/background features, and only the built-in tools for that
 phase. Codex suppresses project-document injection, ignores user configuration,
 disables every supported plugin/memory/subagent feature, uses read-only versus
@@ -548,7 +559,7 @@ Claude-Pipeline/
 │       ├── manifests/            # Checkpoint artifact manifests
 │       └── objects/              # Content-addressed artifact snapshots
 ├── .claude/
-│   ├── commands/                 # 22 slash commands
+│   ├── commands/                 # 17 slash commands
 │   │   ├── auto-pipeline.md      # Thin wrapper that runs run-pipeline.sh
 │   │   ├── plan-review.md        # Plan → review (dispatches to agents)
 │   │   ├── design.md · ar.md · pmatch.md · security-review.md   # per-phase helpers
@@ -609,14 +620,31 @@ Add project-specific conventions in `.claude/rules/`:
 - Bash (Git Bash on native Windows)
 - Node.js for JSON parsing, evidence hashing, and usage accounting
 - Git for branch/review/commit behavior
-- A clean working tree, unless `--allow-dirty` is explicit
-- For auto-commit: Claude Code with `--bare`, or Codex CLI with
+- A clean working tree is no longer required: runs execute in an isolated
+  per-run git worktree from the HEAD commit (uncommitted changes are not part
+  of the run; `PIPELINE_WORKTREE=0` restores in-place mode, which does
+  require a clean tree; `--allow-dirty` reviews in place without commit)
+- For auto-commit: Claude Code (bare mode with an API credential, or the
+  OAuth-compatible isolation fallback), or Codex CLI with
   `codex exec --ignore-user-config`
 
 ## Offline production checks
 
 These fixtures use fake provider CLIs and temporary repositories; they make no
-paid model or network calls:
+paid model or network calls.
+
+**Run the whole battery with one command** — `tests/run-all.sh`
+auto-discovers every `tests/*.sh` suite (so a new suite can never be silently
+dropped), runs each, reads its real exit code, and prints a pass/fail table.
+It exits non-zero if any suite fails:
+
+```bash
+bash tests/run-all.sh        # everything, sequentially
+bash tests/run-all.sh -p     # everything, in parallel (faster)
+bash tests/run-all.sh m2 kill-matrix   # only suites whose name matches
+```
+
+Individual suites still run standalone:
 
 ```bash
 bash tests/smoke-provider-adapters.sh
@@ -624,6 +652,7 @@ bash tests/deterministic-first-smoke.sh
 bash tests/milestone-2-smoke.sh
 bash tests/milestone-3-smoke.sh
 bash tests/milestone-4-smoke.sh
+bash tests/resume-kill-matrix.sh
 node tests/evaluate-routing-policy.js \
   evals/routing-corpus.v1.json \
   evals/routing-eval-report.v1.json

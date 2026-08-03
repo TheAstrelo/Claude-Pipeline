@@ -13,12 +13,12 @@ Create a technical design document grounded in live documentation and first-prin
 
 ## Process
 
-1. **Read the brief** — Load `.claude/artifacts/current/brief.md` and extract key requirements.
+1. **Read the brief** — Load `.pipeline/artifacts/current/brief.md` and extract key requirements.
 2. **Identify technology keywords** — Extract libraries, APIs, patterns mentioned or implied.
 3. **Research live documentation** — For each keyword, use WebSearch and WebFetch to find current best practices.
 4. **Analyze existing codebase** — Use Glob/Grep/Read to understand current patterns.
 5. **Make design decisions** — Each decision must cite either live docs or existing codebase patterns.
-6. **Output the design** — Write to `.claude/artifacts/current/design.md`.
+6. **Output the design** — Write to `.pipeline/artifacts/current/design.md`.
 
 ## Research Protocol
 
@@ -40,7 +40,7 @@ Company data changes infrequently, so 5-minute stale time reduces API calls.
 
 ## Output Format
 
-Write to `.claude/artifacts/current/design.md`:
+Write to `.pipeline/artifacts/current/design.md`:
 
 ```markdown
 # Technical Design: [Task Title]

@@ -82,7 +82,7 @@ interface MLConfig {
 2. **Check API routes** — Verify all API files have Swagger comments
 3. **Check exports** — Verify exported functions have JSDoc
 4. **Check types** — Verify complex types are documented
-5. **Output report** — Append to `.claude/artifacts/current/qa-report.md`
+5. **Output report** — Append to `.pipeline/artifacts/current/qa-report.md`
 
 ## Checking Commands
 
@@ -101,7 +101,7 @@ grep -rn "^export \(async \)\?function" --include="*.ts" src/
 
 ## Output Format
 
-Append to `.claude/artifacts/current/qa-report.md`:
+Append to `.pipeline/artifacts/current/qa-report.md`:
 
 ```markdown
 ## Quality Docs Report

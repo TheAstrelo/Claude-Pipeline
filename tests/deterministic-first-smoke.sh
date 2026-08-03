@@ -114,7 +114,7 @@ case "$prompt" in
     log_call "phase3-review"
     if [[ "$FAKE_SCENARIO" == "phase3-exhaustion" ]] ||
        [[ "$FAKE_SCENARIO" == "phase3-retry" && "$review_count" -eq 1 ]]; then
-      report=$'## Verdict: REVISE_DESIGN\n\n## Issues\n\n| # | Angle | Severity | Issue | Fix |\n|---|---|---|---|---|\n| 1 | Skeptic | HIGH | Recovery path is not explicit | Add a bounded retry |\n\n## Consensus\nNone.\n\n## Blocks\n- Add a bounded retry.'
+      report=$'## Verdict: REVISE_DESIGN\n\n## Issues\n\n| # | Angle | Severity | Issue | Evidence | Fix |\n|---|---|---|---|---|---|\n| 1 | Skeptic | BLOCKER | Recovery path is not explicit | design.md: no bounded retry; unattended halt -> wrong behavior | Add a bounded retry |\n\n## Consensus\nNone.\n\n## Blocks\n- Add a bounded retry.'
       verdict="REVISE_DESIGN"
     else
       report=$'## Verdict: APPROVED\n\n## Issues\n\n| # | Angle | Severity | Issue | Fix |\n|---|---|---|---|---|\n| 1 | Implementer | LOW | None | - |\n\n## Consensus\nNone.\n\n## Blocks\nNone.'
@@ -212,7 +212,7 @@ case "$prompt" in
     if [[ "$FAKE_SCENARIO" == "heal-exhaustion" ]] ||
        [[ "$FAKE_SCENARIO" == "heal-security" && "$code_review_count" -eq 1 ]] ||
        [[ "$FAKE_SCENARIO" == "heal-verification-failure" && "$code_review_count" -eq 1 ]]; then
-      report=$'## Findings\n\n| Severity | File:Line | Issue | Fix |\n|---|---|---|---|\n| MEDIUM | smoke-built.txt:1 | Needs follow-up | Create review-heal.txt |\n\n## Criteria Coverage\n\n| Criterion | Satisfied by the diff? (Yes/No) | Evidence in diff |\n|---|---|---|\n| Pipeline completes | No | Follow-up required |\n\n## Verdict: REQUEST_CHANGES'
+      report=$'## Findings\n\n| Severity | File:Line | Issue | Trigger | Fix |\n|---|---|---|---|---|\n| BLOCKER | smoke-built.txt:1 | Needs follow-up | run without review-heal.txt -> wrong output | Create review-heal.txt |\n\n## Criteria Coverage\n\n| Criterion | Satisfied by the diff? (Yes/No) | Evidence in diff |\n|---|---|---|\n| Pipeline completes | No | Follow-up required |\n\n## Verdict: REQUEST_CHANGES'
       verdict="REQUEST_CHANGES"
     else
       if [[ "$FAKE_SCENARIO" == "reviewer-mutation" ]]; then
@@ -221,7 +221,11 @@ case "$prompt" in
       fi
       if [[ "$FAKE_SCENARIO" == "review-anchor-tampering" ]]; then
         printf '%s\n' "mutated after the review anchors were captured" > reviewer-mutated.txt
-        anchor_dir=$(dirname "$last_file")
+        # The engine hands providers a redaction TEMP path as $last_file, so
+        # dirname($last_file) is /tmp, not the session dir. The prompt names
+        # the real orchestrator-owned review.diff — forge next to that.
+        anchor_dir=$(printf '%s' "$prompt" | grep -oE '[^ ]+/review\.diff' | head -1 | sed 's|/review\.diff$||')
+        [[ -n "$anchor_dir" && -d "$anchor_dir" ]] || anchor_dir=$(dirname "$last_file")
         attacker_index=$(mktemp "${TMPDIR:-/tmp}/fake-review-index.XXXXXX")
         rm -f "$attacker_index"
         GIT_INDEX_FILE="$attacker_index" git read-tree HEAD
@@ -506,6 +510,8 @@ run_scenario_capture() {
       PIPELINE_STATE_DIR="$state_dir" \
       PIPELINE_NO_NOTIFY=1 \
       PIPELINE_NONINTERACTIVE=1 \
+      PIPELINE_BASELINE_CHECKS=0 \
+      PIPELINE_BUILD_FIX_ATTEMPTS=0 \
       bash "$ROOT/run-pipeline.sh" \
         --provider=codex \
         --profile="$profile" \
@@ -515,6 +521,17 @@ run_scenario_capture() {
   local rc=$?
   set -e
   SCENARIO_RC=$rc
+}
+
+
+# Worktree isolation: commits land on the run's pipeline/* branch while the
+# user checkout HEAD stays untouched; failure-path worktrees persist under the
+# state dir for inspection.
+pipeline_branch_head() {
+  git -C "$1" for-each-ref --format='%(objectname)' 'refs/heads/pipeline/*' | head -1
+}
+run_worktree_of() {
+  ls -d "$1"/worktrees/*/ 2>/dev/null | head -1
 }
 
 run_scenario() {
@@ -777,9 +794,11 @@ fi
 assert_call_count "tested-commit" 0 "phase9-provider"
 assert_call_count "tested-commit" 1 "phase12-review"
 read -r tested_initial_head < "$TMP_ROOT/tested-commit.initial-head"
-tested_final_head=$(git -C "$TMP_ROOT/repo-tested-commit" rev-parse HEAD)
-[[ "$tested_final_head" != "$tested_initial_head" ]] \
-  || fail "tested-commit" "approved tested candidate was not committed"
+tested_final_head=$(pipeline_branch_head "$TMP_ROOT/repo-tested-commit")
+[[ -n "$tested_final_head" && "$tested_final_head" != "$tested_initial_head" ]] \
+  || fail "tested-commit" "approved tested candidate was not committed to the run branch"
+[[ "$(git -C "$TMP_ROOT/repo-tested-commit" rev-parse HEAD)" == "$tested_initial_head" ]] \
+  || fail "tested-commit" "user checkout HEAD moved (worktree isolation broken)"
 read -r tested_session \
   < "$TMP_ROOT/state-tested-commit/artifacts/current.txt"
 read -r tested_reviewed_tree < "$tested_session/review.tree.sha"
@@ -801,9 +820,9 @@ if [[ "$SCENARIO_RC" -ne 0 ]]; then
 fi
 assert_call_count "schema-commit" 1 "phase12-review"
 read -r schema_initial_head < "$TMP_ROOT/schema-commit.initial-head"
-schema_final_head=$(git -C "$TMP_ROOT/repo-schema-commit" rev-parse HEAD)
-[[ "$schema_final_head" != "$schema_initial_head" ]] \
-  || fail "schema-commit" "application schema candidate was not committed"
+schema_final_head=$(pipeline_branch_head "$TMP_ROOT/repo-schema-commit")
+[[ -n "$schema_final_head" && "$schema_final_head" != "$schema_initial_head" ]] \
+  || fail "schema-commit" "application schema candidate was not committed to the run branch"
 schema_committed=$(git -C "$TMP_ROOT/repo-schema-commit" \
   show "${schema_final_head}:api.schema.json")
 [[ "$schema_committed" == \
@@ -821,7 +840,8 @@ fi
 grep -q "HEAD moved after the pipeline captured its baseline" "$TMP_ROOT/early-commit.output" \
   || fail "early-commit" "pipeline did not report the moved immutable baseline"
 read -r early_initial_head < "$TMP_ROOT/early-commit.initial-head"
-early_commit_count=$(git -C "$TMP_ROOT/repo-early-commit" rev-list --count "$early_initial_head..HEAD")
+early_branch_head=$(pipeline_branch_head "$TMP_ROOT/repo-early-commit")
+early_commit_count=$(git -C "$TMP_ROOT/repo-early-commit" rev-list --count "$early_initial_head..$early_branch_head")
 [[ "$early_commit_count" -eq 1 ]] \
   || fail "early-commit" "expected only the model's isolated early commit, got $early_commit_count"
 echo "ok - an early model-made commit cannot bypass the final commit boundary"
@@ -835,8 +855,9 @@ if [[ "$SCENARIO_RC" -eq 0 ]]; then
   fail "reviewer-mutation" "pipeline committed after the reviewer mutated the candidate"
 fi
 assert_call_count "reviewer-mutation" 1 "phase12-review"
-[[ -f "$TMP_ROOT/repo-reviewer-mutation/reviewer-mutated.txt" ]] \
-  || fail "reviewer-mutation" "fake reviewer mutation did not occur"
+reviewer_wt=$(run_worktree_of "$TMP_ROOT/state-reviewer-mutation")
+[[ -n "$reviewer_wt" && -f "$reviewer_wt/reviewer-mutated.txt" ]] \
+  || fail "reviewer-mutation" "fake reviewer mutation did not occur in the run worktree"
 grep -q "candidate changed after Phase 12 reviewed it" "$TMP_ROOT/reviewer-mutation.output" \
   || fail "reviewer-mutation" "pipeline did not report a stale reviewed candidate"
 read -r reviewer_initial_head < "$TMP_ROOT/reviewer-mutation.initial-head"
@@ -853,8 +874,9 @@ if [[ "$SCENARIO_RC" -eq 0 ]]; then
   fail "review-anchor-tampering" "pipeline trusted reviewer-rewritten anchor files"
 fi
 assert_call_count "review-anchor-tampering" 1 "phase12-review"
-[[ -f "$TMP_ROOT/repo-review-anchor-tampering/reviewer-mutated.txt" ]] \
-  || fail "review-anchor-tampering" "fake anchor-tampering mutation did not occur"
+anchor_wt=$(run_worktree_of "$TMP_ROOT/state-review-anchor-tampering")
+[[ -n "$anchor_wt" && -f "$anchor_wt/reviewer-mutated.txt" ]] \
+  || fail "review-anchor-tampering" "fake anchor-tampering mutation did not occur in the run worktree"
 read -r anchor_session \
   < "$TMP_ROOT/state-review-anchor-tampering/artifacts/current.txt"
 if grep -q "Provider modified orchestrator-owned phase artifacts" \

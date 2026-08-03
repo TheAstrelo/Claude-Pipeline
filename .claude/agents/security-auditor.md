@@ -75,7 +75,7 @@ exec(`ls ${userInput}`);
 2. **Scan for patterns** — Grep for vulnerability patterns
 3. **Manual review** — Read code for logic vulnerabilities
 4. **Verify auth** — Check all API routes have proper middleware
-5. **Output report** — Append to `.claude/artifacts/current/qa-report.md`
+5. **Output report** — Append to `.pipeline/artifacts/current/qa-report.md`
 
 ## Scanning Patterns
 
@@ -109,7 +109,7 @@ grep -rn "exec\|spawn\|execSync" --include="*.ts" src/
 
 ## Output Format
 
-Append to `.claude/artifacts/current/qa-report.md`:
+Append to `.pipeline/artifacts/current/qa-report.md`:
 
 ```markdown
 ## Security Audit Report
