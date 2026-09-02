@@ -388,11 +388,14 @@ function runTask(task: Task): Row {
     } else if (r.status !== 0) {
       reason = `engine exit ${r.status ?? "timeout"} (${haltedAt})`;
     } else {
+      const hiddenPaths: string[] = [];
       for (const c of task.hidden.copy) {
         const dst = join(wt, c.to);
         mkdirSync(dirname(dst), { recursive: true });
         cpSync(join(CORPUS, task.id, c.from), dst);
+        hiddenPaths.push(dst);
       }
+      disambiguateGoTests(hiddenPaths);
       const t = sh(task.test_command[0], task.test_command.slice(1), { cwd: wt, env: { CI: "1", NO_COLOR: "1" }, timeoutMs: 10 * 60_000 });
       hidden.ran = true; hidden.exitCode = t.status; hidden.tail = (t.stdout + "\n" + t.stderr).slice(-2000);
       const clean = task.hidden.expect === "halt-or-clean";
@@ -419,6 +422,33 @@ function runTask(task: Task): Row {
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
+
+// Go test functions share one namespace per package, so a candidate that
+// authored `func TestTopNOfEmptyTextIsEmpty` next to the existing tests makes
+// the package fail to compile once the hidden `_test.go` with the same name is
+// copied in — a build failure that would score as "hidden tests failed" even
+// when the code is right. Rename colliding candidate-authored test functions
+// (declaration and any same-file references) so both sets run.
+function disambiguateGoTests(hiddenPaths: string[]): void {
+  const decl = /^func\s+((?:Test|Benchmark|Example|Fuzz)\w*)\s*\(/gm;
+  for (const hidden of hiddenPaths) {
+    if (!hidden.endsWith("_test.go")) continue;
+    const names = [...readFileSync(hidden, "utf8").matchAll(decl)].map(m => m[1]);
+    if (!names.length) continue;
+    const dir = dirname(hidden);
+    for (const entry of readdirSync(dir)) {
+      const file = join(dir, entry);
+      if (!entry.endsWith("_test.go") || hiddenPaths.includes(file)) continue;
+      let text = readFileSync(file, "utf8");
+      let changed = false;
+      for (const name of names) {
+        const re = new RegExp("\\b" + name + "\\b", "g");
+        if (re.test(text)) { text = text.replace(re, name + "Candidate"); changed = true; }
+      }
+      if (changed) writeFileSync(file, text);
+    }
+  }
+}
 
 function main() {
   let tasks = loadTasks();

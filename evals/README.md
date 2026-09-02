@@ -42,7 +42,10 @@ are copied into the run worktree and the fixture's test command is executed.
 A task passes when the engine completes, the hidden tests are green, and the
 rubric (`must_touch`, `must_not_touch`, `forbidden_new_deps`) holds — or, for
 negative tasks that should stop the pipeline, when it halts at the expected
-gate. The runner also records a slop profile per task (added lines, files,
+gate. For Go fixtures the runner first renames any candidate-authored test
+function whose name collides with one in the hidden `_test.go` (Go test names
+share one namespace per package), so a well-named candidate test cannot turn
+the acceptance run into a compile error. The runner also records a slop profile per task (added lines, files,
 new dependencies, debug output, TODO markers, comment ratio) and the engine's
 own cost, token, and phase evidence from `run.json`.
 
