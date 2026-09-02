@@ -1,0 +1,55 @@
+{
+  "file": "/home/user/Claude-Pipeline/evals/results/2026-09-02-m2.json",
+  "tasks": 14,
+  "passRate": {
+    "all": "86%",
+    "routine": "82%",
+    "terse": "50%",
+    "negativeCatch": "100%"
+  },
+  "routineHalts": 0,
+  "cost": {
+    "meanUsd": 5.61,
+    "medianUsd": 6.17,
+    "totalUsd": 78.48,
+    "known": 14
+  },
+  "wallClockMinutes": {
+    "mean": 19,
+    "median": 19.6
+  },
+  "slop": {
+    "meanAddedLines": 106,
+    "meanFilesChanged": 2.3,
+    "tasksWithNewDeps": 0,
+    "tasksWithDebugLines": 2,
+    "tasksWithTodoMarkers": 1,
+    "meanCommentRatio": 0.054,
+    "diffBandWarnings": 8
+  },
+  "failures": [
+    {
+      "taskId": "express-items-pagination-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    },
+    {
+      "taskId": "go-wordcount-top-n",
+      "kind": "routine",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    }
+  ],
+  "deltaVsPrev": {
+    "regressions": [
+      "go-wordcount-top-n: hidden acceptance tests failed"
+    ],
+    "fixes": [
+      "neg-secret-leak",
+      "neg-seeded-bug",
+      "tslib-lru-ttl-terse"
+    ],
+    "costDeltaUsd": 4.56
+  }
+}
