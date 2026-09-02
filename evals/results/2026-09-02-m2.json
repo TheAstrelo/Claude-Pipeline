@@ -1,0 +1,142 @@
+[
+  {
+    "taskId": "express-items-pagination",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-02T16:11:12.627Z",
+    "wallClockMs": 1253175,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 9,
+    "costUsd": 6.533106,
+    "tokens": {
+      "input": 663,
+      "output": 93240,
+      "cached": 879580
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "\n  type: 'test'\n  ...\n# GET /api/items?limit=0 400 1ms\n# GET /api/items?limit=101 400 1ms\n# GET /api/items?limit=-1 400 1ms\n# GET /api/items?offset=-1 400 0ms\n# Subtest: GET /api/items rejects out-of-range limit and offset\nok 13 - GET /api/items rejects out-of-range limit and offset\n  ---\n  duration_ms: 10.765839\n  type: 'test'\n  ...\n# GET /api/items?limit=abc 400 1ms\n# GET /api/items?limit=12abc 400 0ms\n# GET /api/items?limit=1.5 400 1ms\n# GET /api/items?limit=1e2 400 0ms\n# GET /api/items?limit=0x10 400 1ms\n# GET /api/items?limit=NaN 400 0ms\n# GET /api/items?limit= 400 0ms\n# GET /api/items?offset=abc 400 0ms\n# GET /api/items?offset=12abc 400 0ms\n# GET /api/items?offset=1.5 400 0ms\n# GET /api/items?offset=1e2 400 0ms\n# GET /api/items?offset=0x10 400 0ms\n# GET /api/items?offset=NaN 400 0ms\n# GET /api/items?offset= 400 0ms\n# Subtest: GET /api/items rejects values that are not decimal integers\nok 14 - GET /api/items rejects values that are not decimal integers\n  ---\n  duration_ms: 21.979571\n  type: 'test'\n  ...\n# GET /api/items?limit=5&limit=6 400 0ms\n# GET /api/items?offset=5&offset=6 400 0ms\n# GET /api/items?limit[a]=1 400 1ms\n# Subtest: GET /api/items rejects query values that are not strings\nok 15 - GET /api/items rejects query values that are not strings\n  ---\n  duration_ms: 7.901346\n  type: 'test'\n  ...\n# GET /api/items?offset=1 200 0ms\n# GET /api/items?limit=5 200 1ms\n# Subtest: GET /api/items does not validate an absent parameter\nok 16 - GET /api/items does not validate an absent parameter\n  ---\n  duration_ms: 4.820368\n  type: 'test'\n  ...\n# GET /api/items?limit=100 200 0ms\n# GET /api/items?limit=100 200 0ms\n# GET /api/items?limit=0 400 1ms\n# GET /api/items?limit=100 200 1ms\n# Subtest: a rejected pagination request leaves the store unchanged\nok 17 - a rejected pagination request leaves the store unchanged\n  ---\n  duration_ms: 8.85794\n  type: 'test'\n  ...\n1..17\n# tests 28\n# suites 1\n# pass 28\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 454.334879\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": [
+        "diff 150 lines above band 8-120"
+      ]
+    },
+    "slop": {
+      "addedLines": 148,
+      "removedLines": 2,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.041
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "ion-to-get-apiitems-via-two-o\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 25 passed, 0 failed\n  Cost:       $6.533106 (actual; per-phase cap $4.00, run cap $40)\n  Tokens:     93903\n  Cache:      879580 read, 216429 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-express-items-pagination-TIxgul/state/artifacts/20260902-161117-22344-6996-add-pagination-to-get-apiitems-via-two-o/\n\n  Run ledger and summary finalized in /tmp/corpus-express-items-pagination-TIxgul/state/artifacts/20260902-161117-22344-6996-add-pagination-to-get-apiitems-via-two-o\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-items-pagination-TIxgul/state/worktrees/20260902-161117-22344-6996 (branch pipeline/20260902-161117-22344-6996).\n    inspect it: cd /tmp/corpus-express-items-pagination-TIxgul/state/worktrees/20260902-161117-22344-6996\n    discard it: git worktree remove --force /tmp/corpus-express-items-pagination-TIxgul/state/worktrees/20260902-161117-22344-6996 && git branch -D pipeline/20260902-161117-22344-6996\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (4)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n"
+    }
+  },
+  {
+    "taskId": "express-items-pagination-terse",
+    "kind": "terse",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-02T16:32:11.392Z",
+    "wallClockMs": 1211488,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 9,
+    "costUsd": 6.167425,
+    "tokens": {
+      "input": 673,
+      "output": 93567,
+      "cached": 880295
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 1,
+      "tail": "201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# GET /api/items 200 0ms\n# GET /api/items?page=2&limit=10 200 1ms\n# Subtest: list responses carry pagination metadata headers\nok 12 - list responses carry pagination metadata headers\n  ---\n  duration_ms: 57.660601\n  type: 'test'\n  ...\n# GET /api/items?limit=100 200 1ms\n# DELETE /api/items/48 200 1ms\n# DELETE /api/items/49 200 1ms\n# DELETE /api/items/50 200 0ms\n# DELETE /api/items/51 200 0ms\n# DELETE /api/items/52 200 1ms\n# DELETE /api/items/53 200 0ms\n# DELETE /api/items/54 200 0ms\n# DELETE /api/items/55 200 0ms\n# DELETE /api/items/56 200 1ms\n# DELETE /api/items/57 200 0ms\n# DELETE /api/items/58 200 1ms\n# DELETE /api/items/59 200 0ms\n# DELETE /api/items/60 200 0ms\n# DELETE /api/items/61 200 0ms\n# DELETE /api/items/62 200 0ms\n# DELETE /api/items/63 200 1ms\n# DELETE /api/items/64 200 0ms\n# DELETE /api/items/65 200 0ms\n# DELETE /api/items/66 200 1ms\n# DELETE /api/items/67 200 1ms\n# DELETE /api/items/68 200 0ms\n# DELETE /api/items/69 200 0ms\n# DELETE /api/items/70 200 0ms\n# DELETE /api/items/71 200 0ms\n# DELETE /api/items/72 200 1ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# GET /api/items?page=0 400 1ms\n# GET /api/items?page=-1 400 1ms\n# GET /api/items?page=abc 400 1ms\n# GET /api/items?page=1.5 400 0ms\n# GET /api/items?limit=0 400 0ms\n# GET /api/items?limit=abc 400 0ms\n# GET /api/items?limit=101 400 1ms\n# GET /api/items?page=1&page=2 400 0ms\n# Subtest: invalid pagination parameters are rejected with 400\nok 13 - invalid pagination parameters are rejected with 400\n  ---\n  duration_ms: 39.13679\n  type: 'test'\n  ...\n1..13\n# tests 24\n# suites 1\n# pass 19\n# fail 5\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 581.336938\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": [
+        "diff 197 lines above band 8-120"
+      ]
+    },
+    "slop": {
+      "addedLines": 195,
+      "removedLines": 2,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.015
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": false,
+    "reason": "hidden acceptance tests failed",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "2091-56b4-add-pagination-to-items\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 25 passed, 0 failed\n  Cost:       $6.167425 (actual; per-phase cap $4.00, run cap $40)\n  Tokens:     94240\n  Cache:      880295 read, 205053 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-express-items-pagination-terse-8hyM00/state/artifacts/20260902-163215-32091-56b4-add-pagination-to-items/\n\n  Run ledger and summary finalized in /tmp/corpus-express-items-pagination-terse-8hyM00/state/artifacts/20260902-163215-32091-56b4-add-pagination-to-items\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-items-pagination-terse-8hyM00/state/worktrees/20260902-163215-32091-56b4 (branch pipeline/20260902-163215-32091-56b4).\n    inspect it: cd /tmp/corpus-express-items-pagination-terse-8hyM00/state/worktrees/20260902-163215-32091-56b4\n    discard it: git worktree remove --force /tmp/corpus-express-items-pagination-terse-8hyM00/state/worktrees/20260902-163215-32091-56b4 && git branch -D pipeline/20260902-163215-32091-56b4\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (5)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n"
+    }
+  }
+]
