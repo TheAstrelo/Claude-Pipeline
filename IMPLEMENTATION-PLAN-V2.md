@@ -40,13 +40,13 @@ Measured on the eval corpus (M1) at every milestone, reported in
 
 | Metric | Now | Target |
 |---|---|---|
-| Hidden-acceptance pass rate on the corpus | 71–79% (10/14, 11/14 across two runs; routine 82%, terse 0–50%) | ≥ 80% at `max`, and never regress between milestones |
-| Seeded-defect catch rate (bug / secret / injection tasks) | injection 2/2, bug 1/2, secret 0/2 (both halts before any scan) | 100% for secrets, ≥ 90% for bugs and injection |
-| Halts per completed task (hard halts on routine tasks) | 0–1 per run (plan-lint anchor halts; descriptor-change halt on a negative task) | 0 on the routine subset |
-| Slop score (new deps, debug output, comment-ratio delta, diff size vs reference) | 0 new deps; 1–2 tasks with debug output; 67 mean added lines; 0.06 comment ratio | reported; trend down |
+| Hidden-acceptance pass rate on the corpus | M2 at `max`: 86% (12/14; 93% with the Go harness fix); routine 100%, terse 50%. M1 baseline 71–79% | ≥ 80% at `max`, and never regress between milestones |
+| Seeded-defect catch rate (bug / secret / injection tasks) | M2: injection 1/1, bug 1/1, secret 1/1 (3/3). M1: injection 2/2, bug 1/2, secret 0/2 | 100% for secrets, ≥ 90% for bugs and injection |
+| Halts per completed task (hard halts on routine tasks) | M2: 0. M1: 0–1 per run (plan-lint anchor halts) | 0 on the routine subset |
+| Slop score (new deps, debug output, comment-ratio delta, diff size vs reference) | M2: 0 new deps; 0 debug output on delivered code; 106 mean added lines (tests now authored on every task); 0.054 comment ratio. M1: 0 / 1–2 / 67 / 0.06 | reported; trend down |
 | Engine overhead per run, zero model time | 44–57 s | < 5 s |
 | Engine size | 8,189 lines bash + ~2,500 lines embedded JS | ≤ 3,000 lines TS, no embedded shell heredocs |
-| Model calls per routine run | 9–13 (measured 11 at `standard`; $1.05 mean, 6.4 min mean per task) | 6–8 |
+| Model calls per routine run | M2 at `max`: 9–14 ($5.61 mean, 19 min mean per task). M1 at `standard`: 9–13 ($1.05, 6.4 min) | 6–8 |
 | Test battery wall-clock | 18–22 min | < 5 min unit + integration; corpus runs are a separate weekly job |
 | Root markdown | 264 KB / 10 files | ≤ 60 KB / 4 files |
 
@@ -163,7 +163,7 @@ the rewrite in M3 has a baseline to beat.
 baseline; parser tests pass against ≥ 20 golden outputs; the six adapter
 failure stubs exercise `run_claude`/`run_codex` error branches.
 
-## Milestone 2 — Quick wins on the existing engine (S–M, days not weeks)
+## Milestone 2 — Quick wins on the existing engine (S–M, days not weeks) — DONE
 
 Each of these is a small, local change to `run-pipeline.sh` or a prompt,
 lands value immediately, and validates the prompt/context design before it
@@ -262,8 +262,31 @@ repository already documents routes or states the convention in
 `CLAUDE.md`/`AGENTS.md`. The battery was updated to the new contracts
 (`tests/provider-failure-smoke.sh` counts one probe per distinct model and
 turns budgeting on explicitly; the Phase 10 fixtures state a docs
-convention). The corpus comparison against the M1 baseline is recorded
-below once the `--quality=max` runs land.
+convention).
+
+**Result (`evals/results/2026-09-02-m2.json`, one full run at
+`--quality=max`, `standard` profile, $40 run cap):** 12/14 (86%) against the
+M1 baseline's 10/14, and 13/14 (93%) once the one regression was traced to
+the harness rather than the engine — the candidate for `go-wordcount-top-n`
+added tests next to the existing ones, as the task asked, with the same
+function names as the hidden Go test, so the package failed to compile; the
+runner now renames colliding candidate test functions, and the re-run passed
+(`2026-09-02-m2-go-rerun.json`). Fixed versus baseline: `neg-secret-leak`
+(now halts at the deterministic scanner), `neg-seeded-bug`, and
+`tslib-lru-ttl-terse`; negatives 3/3; hard halts on routine tasks 0. The one
+remaining failure is `express-items-pagination-terse`, where 19 of 24 hidden
+subtests pass and the five misses are contract assumptions the one-line task
+never states (its fully specified twin passed). Slop: 0 new dependencies; the
+two "debug output" hits are the logger refactor's own console call and the
+halted secret-leak candidate, so none on delivered code; comment ratio 0.054
+(from 0.06); mean added lines rose to 106 (from 67) because acceptance-first
+planning now writes tests on every task — the diff-size metric needs to
+separate test lines from source lines before it can trend. Cost and time at
+`max`: $5.61 and 19 min per task (from $1.05 and 6.4 min at `standard`),
+9–14 model calls per run; Phase 9 spent nothing on every task. Single run:
+the M1 baseline showed about two tasks of run-to-run variance, so the pass
+rate delta is read as "no worse, likely better", and the three fixed negative/
+terse rows carry the evidence.
 
 ## Milestone 3 — The TypeScript engine (L, the substrate change)
 

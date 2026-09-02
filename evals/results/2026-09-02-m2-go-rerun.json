@@ -1,0 +1,70 @@
+[
+  {
+    "taskId": "go-wordcount-top-n",
+    "kind": "routine",
+    "fixture": "go-cli",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-02T20:38:40.989Z",
+    "wallClockMs": 1234170,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 13,
+    "costUsd": 5.664387,
+    "tokens": {
+      "input": 760,
+      "output": 96469,
+      "cached": 766623
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "ok  \texample.com/wordcount\t(cached)\nok  \texample.com/wordcount/internal/wordcount\t0.004s\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 48,
+      "removedLines": 0,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.063
+    },
+    "changedFiles": [
+      "internal/wordcount/wordcount.go",
+      "internal/wordcount/wordcount_test.go"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "20260902-203841-7095-49aa-add-topntext-string-n-int-pair-to-packag\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 31 passed, 0 failed\n  Cost:       $5.664387 (actual; per-phase cap $4.00, run cap $40)\n  Tokens:     97229\n  Cache:      766623 read, 213306 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-go-wordcount-top-n-1264Wk/state/artifacts/20260902-203841-7095-49aa-add-topntext-string-n-int-pair-to-packag/\n\n  Run ledger and summary finalized in /tmp/corpus-go-wordcount-top-n-1264Wk/state/artifacts/20260902-203841-7095-49aa-add-topntext-string-n-int-pair-to-packag\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-go-wordcount-top-n-1264Wk/state/worktrees/20260902-203841-7095-49aa (branch pipeline/20260902-203841-7095-49aa).\n    inspect it: cd /tmp/corpus-go-wordcount-top-n-1264Wk/state/worktrees/20260902-203841-7095-49aa\n    discard it: git worktree remove --force /tmp/corpus-go-wordcount-top-n-1264Wk/state/worktrees/20260902-203841-7095-49aa && git branch -D pipeline/20260902-203841-7095-49aa\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n"
+    }
+  }
+]
