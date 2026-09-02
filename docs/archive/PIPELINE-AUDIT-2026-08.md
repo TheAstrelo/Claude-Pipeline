@@ -1,3 +1,6 @@
+> **Archived.** Historical record; superseded by `CLAUDE.md`, `PIPELINE-SPEC.md`, and `IMPLEMENTATION-PLAN-V2.md`.
+> Paths and behaviors described here may no longer exist.
+
 # Pipeline Audit — August 2026
 
 Full-engine audit driven by real failures: nested provider spawns failing in

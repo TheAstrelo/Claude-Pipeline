@@ -1,164 +1,117 @@
 # Pipeline Demo Kit
 
-Show a fellow dev what the pipeline does in under 5 minutes.
+Show a fellow dev what the pipeline does in about ten minutes.
 
-## What's Inside
+## What's inside
 
 ```
 demo/
-├── starter-project/          # Tiny Express API (4 files)
-│   ├── package.json
+├── starter-project/            # Tiny Express API (5 source files)
+│   ├── package.json            # npm test → node --test src/**/*.test.js
 │   ├── .env.example
 │   └── src/
-│       ├── index.js           # Express server, 2 routes mounted
-│       ├── middleware/
-│       │   └── logger.js      # Request logger
-│       └── routes/
-│           ├── health.js      # GET /api/health
-│           └── items.js       # CRUD /api/items
-│
-└── expected-output/           # What the pipeline produces
-    ├── pre-check.md           # Phase 0: Found existing routes, recommends BUILD_NEW
-    ├── brief.md               # Phase 1: Extracted 5 success criteria
-    ├── design.md              # Phase 2: 5 decisions with sources, 3 components
-    ├── critique.md            # Phase 3: Caught missing input validation + rate limiting
-    ├── plan.md                # Phase 4: 6 steps with BEFORE/AFTER code
-    ├── build-report.md        # Phase 6: All 6 steps DONE
-    └── qa-report.md           # Phases 7-11: All pass, security clear
+│       ├── index.js            # Express server, 2 routes mounted
+│       ├── middleware/logger.js
+│       ├── routes/health.js    # GET /api/health
+│       ├── routes/items.js     # CRUD /api/items
+│       └── acceptance/version.test.js   # RED by design: asserts GET /api/version
+└── expected-output/            # Artifacts from a real run of the demo task
 ```
 
-## The Demo
+## The demo
 
-**Task:** "Add user authentication with JWT" on a 4-file Express API.
+**Task:** `add a GET /api/version endpoint that returns the version from package.json`
 
-**Why this task:** It's complex enough for every phase to add value — Pre-Check finds existing route patterns, Design makes real architectural decisions, Adversarial Review catches security gaps, Build produces 6 files, and Security scans for hardcoded secrets.
+**Why this task:** it is small enough to finish in one run, and it shows the
+part of the pipeline that matters most. The starter ships a *failing*
+acceptance test for the endpoint, so the baseline test run is red, Phase 9
+gates on the real test exit code, and the run commits only once that test is
+green. Along the way Pre-Check finds the existing route pattern, Planning is
+intent-level and lint-checked against the live tree, Security scans the real
+diff, and Phase 12 reviews the real diff and commits on `APPROVE`.
 
----
+The sealed version of this task, with the acceptance test hidden from the
+pipeline, is `evals/corpus/express-version-endpoint`.
 
-## Setup (1 minute)
+## Setup (one minute)
 
 ```bash
-# 1. Copy the starter project somewhere
-cp -r demo/starter-project/ /tmp/pipeline-demo/
-cd /tmp/pipeline-demo/
-
-# 2. Copy the pipeline into the demo project
-#    (from the Claude-Pipeline repo root)
-cp -r .claude/ run-pipeline.sh /tmp/pipeline-demo/
-
-# 3. Install project deps
+# 1. Copy the starter project somewhere and make it a git repo
+mkdir -p /tmp/pipeline-demo
+cp -r demo/starter-project/. /tmp/pipeline-demo/
+cd /tmp/pipeline-demo
 npm install
+git init -q && git add -A && git commit -q -m "baseline"   # the engine needs one commit
+
+# 2. Copy the engine in (from the Claude-Pipeline repo root)
+cp /path/to/Claude-Pipeline/run-pipeline.sh .
+# optional: cp -r /path/to/Claude-Pipeline/.claude .   → /auto-pipeline + hooks
+#   (the hooks then apply to every Claude Code session in this directory)
+
+# 3. See the red acceptance test
+npm test    # 1 failing: "GET /api/version returns the package version"
 ```
 
----
-
-## Run It (3 minutes)
-
-### Claude Code
-```bash
-cd /tmp/pipeline-demo/
-npx @anthropic-ai/claude-code@latest
-
-# Inside Claude Code:
-/auto-pipeline --profile=yolo "add user authentication with JWT"
-```
-
-Or run the engine directly, no slash command needed:
+## Run it
 
 ```bash
-cd /tmp/pipeline-demo/
-bash run-pipeline.sh --profile=yolo "add user authentication with JWT"
+# Claude Code
+bash run-pipeline.sh --provider=claude "add a GET /api/version endpoint that returns the version from package.json"
 
-### Codex
-
-```bash
+# Codex
 npm install -g @openai/codex
-bash run-pipeline.sh --provider=codex --profile=yolo "add user authentication with JWT"
+bash run-pipeline.sh --provider=codex "add a GET /api/version endpoint that returns the version from package.json"
 ```
-```
 
----
+Inside Claude Code, `/auto-pipeline <task>` runs the same engine.
 
-## What to Watch For
+## What to watch for
 
-Point these out to the dev you're demoing to:
+| Moment | What happens | Why it matters |
+|---|---|---|
+| Startup | Baseline matrix runs; the acceptance test is red and tagged `FAIL_PREEXISTING` | Red baseline never gates; the run stays armed to commit once it turns green |
+| Phase 0 | Finds `routes/health.js` and the mount pattern in `index.js` | Builds like the codebase already does |
+| Phase 4 | Intent-level steps with verbatim anchors; a lint verifies every anchor exists | No paste-ready code that goes stale |
+| Phase 6 | Build, then the frozen `npm test` runs immediately; failures get a bounded fix | Cheap correction before review |
+| Phase 9 | The orchestrator runs `npm test` and gates on the real exit code; green needs no model call | The one signal a model cannot fake |
+| Phase 11 | Deterministic scanners, then a review bound to the diff SHA and tree OID | Secrets and protected paths block before any judgment |
+| Phase 12 | Reviews the real diff; commits the reviewed tree on `APPROVE` | What was reviewed is exactly what is committed |
 
-| Phase | What Happens | Why It's Impressive |
-|-------|-------------|---------------------|
-| **Phase 0** | Finds existing routes and middleware pattern | Doesn't rebuild what exists |
-| **Phase 1** | Extracts 5 testable success criteria | Turns a vague task into specs |
-| **Phase 2** | Designs 3 components with source citations | Decisions are traceable, not hallucinated |
-| **Phase 3** | Catches missing input validation and rate limiting | Three critics review the design |
-| **Phase 4** | Produces 6 steps with exact BEFORE/AFTER code | Every change is deterministic |
-| **Phase 6** | Executes step by step, verifies each one | No YOLO code dumps |
-| **Phase 11** | Scans for OWASP vulnerabilities | Catches hardcoded secrets, injection |
+## Expected output
 
-**The "aha" moment:** Phase 3 (Adversarial Review) finding real security gaps that a human would miss if they were just vibe coding.
+The result lands on a `pipeline/<run>` branch; your checkout is untouched.
 
----
+- **New:** a version route (typically `src/routes/version.js`).
+- **Modified:** `src/index.js` (mount the route). The acceptance test is
+  unchanged and now green.
+- **Artifacts** under `.pipeline/artifacts/<run>/`: `pre-check.md`,
+  `brief.md`, `design.md`, `critique.md`, `plan.md`, `drift-report.md`,
+  `build-report.md`, `qa-report.md`, `code-review.md`, `review.diff`,
+  `test-output.txt`, `run.json`, and the ledger.
 
-## Talking Points
+`expected-output/` holds the artifacts from a real run. Model output varies
+run to run; the structure and gates do not.
 
-1. **"It's not just autocomplete."** This is a full development workflow — requirements, design, review, build, QA, security. The same process a senior team follows, automated.
-
-2. **"The pipeline catches its own mistakes."** Drift detection ensures nothing from the design gets lost. Adversarial review catches security gaps before code is written.
-
-3. **"Nothing ships unreviewed."** The final phase reviews the real git diff and only commits on APPROVE — self-healing up to twice before it ever asks a human.
-
-4. **"It's cost-aware."** Claude routes Opus/Sonnet and reports actual CLI
-   cost; Codex routes GPT-5.6 Sol/Terra and records an API-price-equivalent
-   estimate from JSONL token usage. See the root audit for cap semantics.
-
-5. **"Every decision is traceable."** No black-box output. You get artifacts at every phase — you can read the design doc, see the critique, verify the plan.
-
----
-
-## Expected Output
-
-Check `expected-output/` for example artifacts the pipeline produces. The actual output will vary based on the model, but the structure and quality gates will be the same.
-
-After the pipeline runs, you should see:
-- **3 new files:** `src/routes/auth.js`, `src/middleware/auth.js`, `src/store/users.js`
-- **3 modified files:** `package.json`, `src/index.js`, `src/routes/items.js`
-- **7 artifacts** in the pipeline artifacts directory
-- **All gates passed** (no HARD failures)
-
----
-
-## Quick Verification
-
-After the pipeline finishes:
+## Quick verification
 
 ```bash
-# Install new dependencies
-npm install
-
-# Start the server
-JWT_SECRET=demo-secret node src/index.js
-
-# Test in another terminal:
-
-# Health (public)
-curl http://localhost:3000/api/health
-
-# Register
-curl -X POST http://localhost:3000/api/items \
-  -H "Content-Type: application/json"
-# → Should get 401
-
-# Register a user
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@demo.com","password":"password123"}'
-
-# Login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@demo.com","password":"password123"}'
-# → Copy the token
-
-# Access protected route
-curl http://localhost:3000/api/items \
-  -H "Authorization: Bearer <token>"
-# → Should get 200
+git merge pipeline/<run-id>        # or inspect .pipeline/worktrees/<run-id>
+npm test                           # all green, including the acceptance test
+node src/index.js &
+curl http://localhost:3000/api/version    # → {"version":"1.0.0"}
 ```
+
+## Talking points
+
+1. **"It's not autocomplete."** Requirements, design, adversarial review,
+   plan, build, QA, security, review — the process a senior team follows,
+   run unattended.
+2. **"The tests decide, not the model."** The orchestrator runs the real test
+   command and gates on its exit code. The build report is a claim; the exit
+   code is evidence.
+3. **"Nothing ships unreviewed."** Phase 12 reviews the real git diff and
+   commits only on `APPROVE`, after bounded self-healing.
+4. **"Your checkout is never touched."** Every run works in its own git
+   worktree and publishes a branch.
+5. **"Every decision is traceable."** Readable artifacts at every phase, plus
+   an append-only ledger.

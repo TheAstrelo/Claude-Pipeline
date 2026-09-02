@@ -6,6 +6,12 @@ TITLE="${1:-Auto Pipeline}"
 MESSAGE="${2:-Pipeline complete}"
 STATUS="${3:-success}"
 
+# The title/message come from the task string. Escape them for each host
+# language they are interpolated into; never pass raw user text to osascript
+# or PowerShell.
+esc_applescript() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+esc_xml()         { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/\"/\&quot;/g" -e "s/'/''/g"; }
+
 # Determine notification style based on status
 if [ "$STATUS" = "error" ]; then
     SOUND="Basso"
@@ -19,12 +25,14 @@ fi
 case "$(uname -s)" in
     Darwin)
         # macOS
-        osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\" sound name \"$SOUND\"" 2>/dev/null
+        AS_TITLE=$(esc_applescript "$TITLE")
+        AS_MESSAGE=$(esc_applescript "$MESSAGE")
+        osascript -e "display notification \"$AS_MESSAGE\" with title \"$AS_TITLE\" sound name \"$SOUND\"" 2>/dev/null
         ;;
     Linux)
-        # Linux with notify-send
+        # Linux with notify-send (arguments are passed, not interpolated)
         if command -v notify-send &> /dev/null; then
-            notify-send -u "$URGENCY" "$TITLE" "$MESSAGE"
+            notify-send -u "$URGENCY" -- "$TITLE" "$MESSAGE"
         fi
         ;;
     MINGW*|MSYS*|CYGWIN*)
@@ -41,11 +49,15 @@ case "$(uname -s)" in
         fi
         powershell -c "[System.Media.SystemSounds]::${SOUND_EVENT}.Play(); Start-Sleep -Milliseconds 500" 2>/dev/null
         # Windows toast notification (visual). Marked <audio silent> so it does not
-        # stack a second sound on top of the gentle chime above.
+        # stack a second sound on top of the gentle chime above. The XML lives in a
+        # single-quoted PowerShell string, so ' is doubled and XML specials escaped.
+        # (Requires Windows PowerShell 5.1 for the WinRT types; pwsh 7 no-ops.)
+        XML_TITLE=$(esc_xml "$TITLE")
+        XML_MESSAGE=$(esc_xml "$MESSAGE")
         powershell -c "
             [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
             [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-            \$template = '<toast><visual><binding template=\"ToastText02\"><text id=\"1\">$TITLE</text><text id=\"2\">$MESSAGE</text></binding></visual><audio silent=\"true\"/></toast>'
+            \$template = '<toast><visual><binding template=\"ToastText02\"><text id=\"1\">$XML_TITLE</text><text id=\"2\">$XML_MESSAGE</text></binding></visual><audio silent=\"true\"/></toast>'
             \$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
             \$xml.LoadXml(\$template)
             \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)

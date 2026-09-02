@@ -4,13 +4,12 @@
 
 [![Codex](https://img.shields.io/badge/Provider-Codex-black)](https://developers.openai.com/codex)
 [![Claude Code](https://img.shields.io/badge/Provider-Claude%20Code-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
-[![Agents](https://img.shields.io/badge/Agents-15-green)](.claude/agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 **AI coding tools generate code fast — but ship bugs faster.**
 This pipeline adds structured quality gates between "idea" and "production" so you stop crossing your fingers every time you deploy.
 
-One command. 13 phases (0–12). Design review, security, testing, and a final code-review-and-commit gate — handled automatically. Phase prompts are structured CONSTRAINTS→CONTEXT→TASK→FORMAT→VERIFY.
+One command. 13 phases (0–12). Design review, security, testing, and a final code-review-and-commit gate — handled automatically.
 
 ```bash
 bash run-pipeline.sh --provider=codex "add user authentication with JWT"
@@ -57,12 +56,11 @@ This pipeline fixes that. Every feature goes through **pre-flight checks, advers
 - Supports `legacy`, review-only `shadow`, and `enforced` policy rollout modes,
   plus explicit terminal-run retention and an operational SLO dashboard
 
-See [the July 2026 audit](PIPELINE-AUDIT-2026-07.md) for the exact provider
-differences, gate strength, budget semantics, and remaining limitations.
-The [deterministic-first PRD](DETERMINISTIC-FIRST-PRD.md) defines the implemented
-reliability spine, durable ledger/resume layer, and deterministic-first adaptive
-routing/security policy. Milestone 4 controls pass offline; a controlled
-real-provider canary and security approval remain the GA release gates.
+The current roadmap is [`IMPLEMENTATION-PLAN-V2.md`](IMPLEMENTATION-PLAN-V2.md);
+the portable contract is [`PIPELINE-SPEC.md`](PIPELINE-SPEC.md). Earlier audits
+and the original PRD are archived under [`docs/archive/`](docs/archive/). Offline
+control-plane checks pass; a real-provider evaluation corpus (Milestone 1 of the
+roadmap) is what measures whether the pipeline produces good code.
 
 ---
 
@@ -77,9 +75,9 @@ This pipeline makes AI follow the same process a senior engineering team would:
 1. **Understand** what you're actually asking for
 2. **Design** a solution backed by real documentation
 3. **Critique** the design from three different angles — before writing a single line of code
-4. **Plan** every file change in advance with exact before/after diffs
+4. **Plan** every file change in advance at intent level (file, anchor, intent, test), lint-verified against the live tree
 5. **Verify** the plan matches the design (nothing lost, nothing added)
-6. **Build** step by step, following the plan exactly
+6. **Build** step by step, following the plan
 7. **Check** the result — types, tests, docs, and security
 
 Every phase produces a readable artifact. Every design decision cites a source. Every critique issue has a fix. Full traceability from task to code.
@@ -142,7 +140,7 @@ forwards to it) actually parses:
 |------|-------------|
 | `--provider=auto\|claude\|codex` | Select the subprocess provider (default: host-aware `auto`) |
 | `--profile=yolo\|fast\|standard\|paranoid` | Select a profile (default: `standard`) |
-| `--mode=auto\|dev` | `auto` (non-interactive) or `dev` (pause after each artifact-producing phase) |
+| `--mode=auto\|dev` | `auto` (non-interactive) or `dev` (pause after each of Phases 1–6) |
 | `--skip-arm` | Skip Phase 1 (Requirements) |
 | `--skip-ar` | Skip Phase 3 (Adversarial Review) |
 | `--skip-pmatch` | Skip Phase 5 (Drift Detection) |
@@ -184,6 +182,29 @@ repository `.codex/config.toml`. Provider subprocesses are wall-clock-bounded
 (`PIPELINE_PROVIDER_TIMEOUT_SECONDS`, default 2400) and transient API
 failures are retried once (`PIPELINE_PROVIDER_RETRIES`).
 
+### Environment knobs
+
+| Variable | Default | Effect |
+|---|---|---|
+| `PIPELINE_PROVIDER` | `auto` | Same as `--provider=` |
+| `PIPELINE_STATE_DIR` | `.pipeline` | Where run state lives; an absolute path must be outside the repository |
+| `PIPELINE_NONINTERACTIVE` | `0` | `1`: a failed HARD gate exits 3 instead of prompting |
+| `PIPELINE_NO_NOTIFY` | `0` | `1`: skip the desktop notification on exit |
+| `PIPELINE_AUTH_PREFLIGHT` | `1` | `0`: skip the startup `claude -p` auth probe |
+| `PIPELINE_BASELINE_CHECKS` | `1` | `0`: skip the baseline test/build/typecheck/lint/docs matrix |
+| `PIPELINE_PROVIDER_TIMEOUT_SECONDS` | `2400` | Wall-clock bound per provider subprocess |
+| `PIPELINE_PROVIDER_RETRIES` | `1` | Retries on timeout / transient API error |
+| `PIPELINE_COMMAND_TIMEOUT_SECONDS` | `900` | Bound per trusted test/build/lint command |
+| `PIPELINE_WORKTREE` | `1` | `0`: legacy in-place mode (requires a clean tree) |
+| `PIPELINE_WORKTREE_LINK_PATHS` | `node_modules .venv venv vendor` | Gitignored build state symlinked into the run worktree |
+| `PIPELINE_ALLOW_REMOTE_DEPS` | `0` | `1`: recorded waiver for git/https dependency specifiers |
+| `PIPELINE_BUDGET_POLICY` | `elastic` | Same as `--budget=`; `strict` halts on the first per-phase cap hit |
+| `PIPELINE_BUDGET_EXTENSIONS` | `2` | Elastic per-phase cap doublings allowed within the run cap |
+| `PIPELINE_COLLAPSE` | `1` | `0`: full planning ladder even in `yolo`/`fast` |
+| `PIPELINE_BUILD_FIX_ATTEMPTS` | `2` | In-build verify/fix calls after Phase 6; `0` disables |
+| `MAX_CODE_REVIEW_HEALS` | `2` | Phase 12 auto-heal rounds before a human halt |
+| `PIPELINE_PUSH_REMOTE` | `origin` | Remote for `--push` / `--pr` |
+
 ### Examples
 
 ```bash
@@ -205,137 +226,30 @@ bash run-pipeline.sh --resume=RUN_ID --provider=codex "add user authentication"
 
 > **Implemented delivery flags:** `--push` (publish the committed run branch
 > to the remote) and `--pr` (`--push` plus pull-request guidance).
-> **Roadmap (not yet implemented):** `--batch-qa`, `--template`,
-> `--dry-run`, `--test`, `--branch`, `--estimate`, `--fix`, and `--only`.
-> The engine rejects these today. See `PIPELINE-AUDIT-2026-08.md` for current gaps.
+> Unknown flags are rejected, never passed through as task text. Planned
+> additions (`--quality=`, opt-in budgets, structured verdicts on Claude) are
+> tracked in `IMPLEMENTATION-PLAN-V2.md`.
 
 ---
 
-## Templates
-
-> **Roadmap — not yet wired.** `--template` is not parsed by the engine today; the files under
-> `.claude/templates/` are pattern references, not an implemented flag. The examples below show
-> the intended interface.
-
-Skip requirements gathering with pre-configured templates:
-
-| Template | Use Case |
-|----------|----------|
-| `api-endpoint` | REST API endpoints with validation |
-| `auth-flow` | JWT/OAuth authentication |
-| `crud-page` | Full CRUD interface (list, create, edit, delete) |
-| `webhook` | Webhook handlers with signature verification |
-
-```bash
-/auto-pipeline --template=api-endpoint "users GET /api/users"
-/auto-pipeline --template=auth-flow "jwt with refresh tokens"
-/auto-pipeline --template=crud-page "products with name, price, category"
-/auto-pipeline --template=webhook "stripe payment_intent.succeeded"
-```
-
----
 
 ## Pipeline Commands
 
 ### Core Pipeline
 | Command | Description |
 |---------|-------------|
-| `/auto-pipeline <task>` | Run full pipeline with all flags |
-| `/pipeline-undo` | Revert last pipeline run |
-| `/pipeline-history` | Show past runs with costs |
-| `/pipeline-scan` | Proactive issue detection |
+| `/auto-pipeline <task>` | Run the engine with all flags (thin wrapper over `run-pipeline.sh`) |
+| `/pipeline-undo` | Discard a run: remove its worktree and `pipeline/<run>` branch (your checkout was never modified) |
+| `/pipeline-history` | Show past runs with costs and tokens |
+| `/pipeline-scan` | Proactive issue detection via the `code-scanner` agent |
+| `/plan-review <task>` | Interactive plan → review (the `planner` and `plan-reviewer` agents) |
 
-### Individual Phases
-| Command | Phase | What It Does |
-|---------|-------|-------------|
-| `/pre-check <task>` | 0 | Search for existing solutions |
-| `/arm <task>` | 1 | Requirements crystallization |
-| `/design` | 2 | Technical design |
-| `/ar` | 3 | Adversarial review |
-| `/plan` | 4 | Implementation planning |
-| `/pmatch` | 5 | Drift detection |
-| `/build` | 6 | Execute the plan |
-| `/denoise` | 7 | Remove debug artifacts |
-| `/qf` | 8 | Quality fit check |
-| `/qb` | 9 | Quality behavior check |
-| `/qd` | 10 | Quality docs check |
-| `/security-review` | 11 | Security audit |
+The per-phase slash-command ladder (`/arm`, `/design`, `/ar`, …) was removed:
+it had drifted from the engine's contracts. The engine builds every phase
+prompt inline in `build_prompt()`.
 
 ---
 
-## Intelligent Suggestions
-
-> **Illustrative / aspirational.** The mock terminal output below shows an *intended* suggestion
-> UX. `/pipeline-scan` is backed by the `code-scanner` agent, but the on-failure and on-success
-> suggestion flows — and the `--fix` and `--test` flags they reference — are not yet
-> wired into the engine. (`--pr` *is* implemented — it publishes the run branch and prints
-> PR-creation guidance.)
-
-### On Failure
-
-Get actionable fix suggestions with clickable file references:
-
-```
-✗ add auth endpoint · $0.12
-
-FAILED: Phase 3 (Adversarial) — HIGH severity issue
-
-Suggested fixes:
-  1. Add input validation for email field
-     └─ src/api/auth.ts:24
-
-  2. Use parameterized SQL query
-     └─ src/api/auth.ts:31
-     └─ Before: WHERE email = '${email}'
-     └─ After:  WHERE email = $1, [email]
-
-Run /auto-pipeline --fix to auto-apply these suggestions
-```
-
-### On Success
-
-Context-aware next steps based on what was built:
-
-```
-✓ add user dashboard · $0.19
-
-Created:
-  src/pages/dashboard.tsx
-  src/api/dashboard/stats.ts
-
-Suggested next steps:
-  1. Run tests          → /auto-pipeline --test
-  2. Create PR          → /auto-pipeline --pr
-  3. Add E2E test       → /auto-pipeline "add cypress test for dashboard"
-```
-
-### Proactive Scanning
-
-Find issues before they become problems:
-
-```bash
-/pipeline-scan
-```
-
-```
-Found 3 opportunities:
-
-  ⚠ Missing tests
-    └─ src/api/users.ts has no corresponding test file
-    └─ Suggestion: /auto-pipeline "add tests for users API"
-
-  ⚠ Security
-    └─ npm audit found 2 moderate vulnerabilities
-    └─ Suggestion: /auto-pipeline "fix npm audit vulnerabilities"
-
-  ⚠ Documentation
-    └─ src/api/auth.ts missing JSDoc on 5 exports
-    └─ Suggestion: /auto-pipeline "add jsdoc to auth module"
-
-Run suggested pipelines? [1/2/3/all/none]
-```
-
----
 
 ## The 13 Phases
 
@@ -382,7 +296,7 @@ Task Description
 | **1. Requirements** | Extracts testable success criteria from your task | Turns a vague idea into a concrete spec |
 | **2. Design** | Creates architecture decisions citing real documentation | Decisions are traceable, not hallucinated |
 | **3. Adversarial Review** | Three critics stress-test the design | Catches security gaps and edge cases before code |
-| **4. Planning** | Produces exact BEFORE/AFTER code for every file change | Every change is deterministic |
+| **4. Planning** | Intent-level steps: file, verbatim anchor, intent, test; a deterministic lint verifies every anchor exists before the build spends anything | Plans survive small drift in the live tree |
 | **5. Drift Detection** | Verifies the plan covers every design requirement | Nothing gets lost or added |
 | **6. Build** | Executes the plan step by step with verification | No YOLO code dumps |
 | **7. Denoise** | Removes console.log, debugger, commented-out code | Clean production code |
@@ -427,20 +341,8 @@ retaining the engine's release-integrity and security boundaries.
 /pipeline-history
 ```
 
-```
-Pipeline History (last 10 runs)
-
-  #  Status   Task                           Cost     Duration
-  ─────────────────────────────────────────────────────────────
-  1  ✓        add user authentication        $3.41    6m 22s
-  2  ✓        fix login bug                  $2.68    4m 10s
-  3  ✗        implement payment flow         $2.15    3m 30s
-               └─ Failed: Phase 11 (Security)
-
-Summary:
-  Total runs: 12    Success: 10 (83%)    Failed: 2 (17%)
-  Total cost: $38.90
-```
+Lists past runs from `.pipeline/history.json` (status, task, cost, tokens),
+rebuilt from each run's verified ledger.
 
 ### Undo Last Run
 
@@ -448,7 +350,8 @@ Summary:
 /pipeline-undo
 ```
 
-Reverts to the git checkpoint created before the pipeline made changes.
+Removes a run's worktree and its `pipeline/<run>` branch. Runs never modify
+your original checkout, so there is nothing else to revert.
 
 ---
 
@@ -523,9 +426,9 @@ reuses a verdict whose declared inputs no longer match.
 Model and deterministic checks have separate attempt envelopes with hashed
 inputs and outputs. Provider/model/prefix-scoped prompt-cache telemetry records
 read and write tokens, but cache behavior has no effect on validation or gates.
-See
-[the audit](PIPELINE-AUDIT-2026-07.md#cost-and-budget-semantics) before relying
-on budget numbers.
+See the archived
+[July 2026 audit](docs/archive/PIPELINE-AUDIT-2026-07.md#cost-and-budget-semantics)
+before relying on budget numbers.
 
 ---
 
@@ -534,43 +437,28 @@ on budget numbers.
 ```
 Claude-Pipeline/
 ├── run-pipeline.sh               # THE engine (13 phases, gates, commit)
-├── PIPELINE-AUDIT-2026-07.md     # Provider/capability/gate audit
-├── tests/
-│   ├── smoke-provider-adapters.sh
-│   ├── deterministic-first-smoke.sh
-│   ├── milestone-2-smoke.sh
-│   ├── milestone-3-smoke.sh
-│   ├── milestone-4-smoke.sh
-│   ├── evaluate-routing-policy.js
-│   └── evaluate-release-slos.js
+├── CLAUDE.md                     # Engine guide (Claude Code reads this)
+├── AGENTS.md                     # Pointer to CLAUDE.md (Codex reads this)
+├── PIPELINE-SPEC.md              # Portable, vendor-independent contract
+├── IMPLEMENTATION-PLAN-V2.md     # Roadmap
+├── tests/                        # Mocked-provider battery (tests/run-all.sh discovers tests/*.sh)
 ├── evals/
-│   ├── routing-corpus.v1.json        # Frozen labeled routing/QA cases
-│   ├── routing-eval-report.v1.json   # Frozen routing policy 1.0 evaluation
-│   ├── release-slo-corpus.v1.json    # Frozen offline release-control cases
-│   └── release-slo-report.v1.json    # Explicitly not live-canary evidence
-├── .pipeline/                    # Ignored run state, created on demand
-│   ├── history.json
-│   ├── operations.json           # Derived operational metrics / GA blocker
-│   └── artifacts/<run>-<time>/
-│       ├── ledger.jsonl          # Append-only source of truth
-│       ├── run.json              # Derived per-run summary
-│       ├── attempts/             # Hashed input/output envelopes
-│       ├── checkpoints/          # Atomic resume cursors
-│       ├── manifests/            # Checkpoint artifact manifests
-│       └── objects/              # Content-addressed artifact snapshots
-├── .claude/
-│   ├── commands/                 # 17 slash commands
-│   │   ├── auto-pipeline.md      # Thin wrapper that runs run-pipeline.sh
-│   │   ├── plan-review.md        # Plan → review (dispatches to agents)
-│   │   ├── design.md · ar.md · pmatch.md · security-review.md   # per-phase helpers
-│   │   └── pipeline-scan.md      # Proactive scanning (code-scanner agent)
-│   ├── agents/                   # 15 agents — reachable from a live slash command
-│   │   ├── architect.md · atomic-planner.md · adversarial-coordinator.md
-│   │   ├── security-auditor.md · code-scanner.md · builder.md · denoiser.md …
-│   ├── templates/                # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
-│   ├── hooks/                    # protect-files.sh + auto-format.sh (Claude Code, via settings.json);
-│   │   │                         #   detect-project.sh + notify.sh (run-pipeline.sh startup/exit)
-└── demo/                         # Demo kit (starter Express project + red acceptance test)
+│   ├── corpus/<task>/            # Sealed real-provider tasks: task.json, task.md, hidden/ tests
+│   ├── fixtures/<name>/          # Small runnable projects the corpus tasks target
+│   ├── results/                  # Corpus run results (committed by the weekly workflow)
+│   ├── run-corpus.ts · score.ts  # Corpus runner and scorer (node 22, no build step)
+│   └── *.v1.json                 # Frozen routing / release-SLO fixtures for the offline evaluators
+├── docs/
+│   ├── archive/                  # Superseded audits, PRD, and plan (historical)
+│   └── examples/                 # Reference-project rules and skills (shape, not content)
+├── demo/                         # Demo kit: starter Express project + red acceptance test
+├── .pipeline/                    # Ignored run state, created on demand (artifacts, worktrees, history)
+└── .claude/
+    ├── commands/                 # auto-pipeline · plan-review · pipeline-scan · pipeline-history · pipeline-undo
+    ├── agents/                   # planner · plan-reviewer · code-scanner (interactive helpers only)
+    ├── rules/                    # review-precedents.md (engine-read) + your conventions (session-read)
+    ├── hooks/                    # protect-files · auto-format (settings.json); detect-project · notify (engine)
+    └── settings.json             # Claude Code hooks
 ```
 
 ---
@@ -587,6 +475,14 @@ Add project-specific conventions in `.claude/rules/`:
 - Return { data, error } shape
 ```
 
+**These are read by interactive Claude Code sessions only.** The engine
+deliberately runs each phase with project instruction files disabled and
+does not read `.claude/rules/` — except `.claude/rules/review-precedents.md`,
+which it appends to the Phase 3/11/12 review prompts. Feeding your
+conventions to every phase is Milestone 2 of `IMPLEMENTATION-PLAN-V2.md`
+(the repo-context pack). A worked example of convention files lives in
+`docs/examples/reference-project-rules/`.
+
 ### Hooks
 
 **Claude Code hooks** (wired in `.claude/settings.json`, enforced by the harness):
@@ -595,7 +491,9 @@ Add project-specific conventions in `.claude/rules/`:
 # protect-files.sh  — PreToolUse(Edit|Write): blocks edits to .env, .git/,
 #                     package-lock.json, amplify.yml, and .claude/settings.json.
 #                     Fails CLOSED (denies on parse failure) and uses node, not jq.
-# auto-format.sh    — PostToolUse(Edit|Write): formats the file that was just written.
+# auto-format.sh    — PostToolUse(Edit|Write): formats the file that was just written
+#                     when the project uses Prettier (config or dependency present);
+#                     otherwise a no-op.
 ```
 
 **Engine lifecycle hooks** (wired into `run-pipeline.sh`):
@@ -619,7 +517,9 @@ Add project-specific conventions in `.claude/rules/`:
   [Claude Code](https://docs.anthropic.com/en/docs/claude-code), installed and authenticated
 - Bash (Git Bash on native Windows)
 - Node.js for JSON parsing, evidence hashing, and usage accounting
-- Git for branch/review/commit behavior
+- Git ≥ 2.5 (worktrees); run from the repository root of a repo with at least one commit
+- Copying `.claude/` into your project installs its hooks for *all* your
+  Claude Code sessions there (`protect-files.sh` blocks `.env`/lockfile edits)
 - A clean working tree is no longer required: runs execute in an isolated
   per-run git worktree from the HEAD commit (uncommitted changes are not part
   of the run; `PIPELINE_WORKTREE=0` restores in-place mode, which does
@@ -653,6 +553,8 @@ bash tests/milestone-2-smoke.sh
 bash tests/milestone-3-smoke.sh
 bash tests/milestone-4-smoke.sh
 bash tests/resume-kill-matrix.sh
+bash tests/parser-golden.sh          # engine parsers vs. realistic model-output fixtures
+bash tests/provider-failure-smoke.sh # timeout / budget-cap / api_error / malformed-output paths
 node tests/evaluate-routing-policy.js \
   evals/routing-corpus.v1.json \
   evals/routing-eval-report.v1.json

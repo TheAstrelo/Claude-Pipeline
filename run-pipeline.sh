@@ -906,10 +906,8 @@ RUN_SUMMARY_FILE="$ARTIFACTS/run.json"
 # the notify trap can fire after execution returns to the origin.
 if [[ -d "$PIPELINE_STATE_DIR/hooks" ]]; then
   HOOKS_DIR="$PIPELINE_STATE_DIR/hooks"
-elif [[ -d "$ORIGIN_ROOT/.claude/hooks" ]]; then
-  HOOKS_DIR="$ORIGIN_ROOT/.claude/hooks"
 else
-  HOOKS_DIR="$ORIGIN_ROOT/.codex/hooks"
+  HOOKS_DIR="$ORIGIN_ROOT/.claude/hooks"
 fi
 # Stack detected by detect-project.sh at startup; prepended to every phase prompt
 # so phases match the real framework/conventions. Empty until detection runs.

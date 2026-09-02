@@ -1,3 +1,6 @@
+> **Archived.** Historical record; superseded by `CLAUDE.md`, `PIPELINE-SPEC.md`, and `IMPLEMENTATION-PLAN-V2.md`.
+> Paths and behaviors described here may no longer exist.
+
 # Implementation Plan — Best-of-Best Pipeline
 
 Roadmap from the August 2026 audit (`PIPELINE-AUDIT-2026-08.md`: 56 confirmed

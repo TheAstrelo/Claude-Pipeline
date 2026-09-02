@@ -2,7 +2,7 @@
 # Project detection script for Auto Pipeline
 # Outputs JSON with detected project configuration
 
-OUTPUT_FILE="${1:-.claude/artifacts/project-config.json}"
+OUTPUT_FILE="${1:-.pipeline/project-config.json}"
 
 # Initialize defaults
 PROJECT_TYPE="unknown"
@@ -11,7 +11,7 @@ TEST_COMMAND=""
 BUILD_COMMAND=""
 LINT_COMMAND=""
 SEARCH_DIRS=""
-LANGUAGE="javascript"
+LANGUAGE="unknown"
 
 # Check for package.json (Node.js projects)
 if [ -f "package.json" ]; then
@@ -23,13 +23,13 @@ if [ -f "package.json" ]; then
     fi
 
     # Detect framework from dependencies
-    if grep -q '"next"' package.json 2>/dev/null; then
+    if grep -qE '"next"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="nextjs"
         FRAMEWORK="next"
         SEARCH_DIRS="src,app,pages,components,lib"
         BUILD_COMMAND="npm run build"
-    elif grep -q '"react"' package.json 2>/dev/null; then
-        if grep -q '"vite"' package.json 2>/dev/null; then
+    elif grep -qE '"react"[[:space:]]*:' package.json 2>/dev/null; then
+        if grep -qE '"vite"[[:space:]]*:' package.json 2>/dev/null; then
             PROJECT_TYPE="react-vite"
             FRAMEWORK="vite"
         else
@@ -38,35 +38,35 @@ if [ -f "package.json" ]; then
         fi
         SEARCH_DIRS="src,components,lib"
         BUILD_COMMAND="npm run build"
-    elif grep -q '"vue"' package.json 2>/dev/null; then
+    elif grep -qE '"vue"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="vue"
         FRAMEWORK="vue"
         SEARCH_DIRS="src,components"
         BUILD_COMMAND="npm run build"
-    elif grep -q '"express"' package.json 2>/dev/null; then
+    elif grep -qE '"express"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="express"
         FRAMEWORK="express"
         SEARCH_DIRS="src,routes,controllers,middleware"
-    elif grep -q '"hono"' package.json 2>/dev/null; then
+    elif grep -qE '"hono"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="hono"
         FRAMEWORK="hono"
         SEARCH_DIRS="src,routes,handlers"
-    elif grep -q '"fastify"' package.json 2>/dev/null; then
+    elif grep -qE '"fastify"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="fastify"
         FRAMEWORK="fastify"
         SEARCH_DIRS="src,routes,plugins"
-    elif grep -q '"@nestjs/core"' package.json 2>/dev/null; then
+    elif grep -qE '"@nestjs/core"[[:space:]]*:' package.json 2>/dev/null; then
         PROJECT_TYPE="nestjs"
         FRAMEWORK="nestjs"
         SEARCH_DIRS="src,modules,controllers,services"
     fi
 
     # Detect test runner
-    if grep -q '"vitest"' package.json 2>/dev/null; then
+    if grep -qE '"vitest"[[:space:]]*:' package.json 2>/dev/null; then
         TEST_COMMAND="npm run test"
-    elif grep -q '"jest"' package.json 2>/dev/null; then
+    elif grep -qE '"jest"[[:space:]]*:' package.json 2>/dev/null; then
         TEST_COMMAND="npm test"
-    elif grep -q '"mocha"' package.json 2>/dev/null; then
+    elif grep -qE '"mocha"[[:space:]]*:' package.json 2>/dev/null; then
         TEST_COMMAND="npm test"
     fi
 
@@ -77,9 +77,9 @@ if [ -f "package.json" ]; then
     fi
 
     # Detect linter
-    if grep -q '"eslint"' package.json 2>/dev/null; then
+    if grep -qE '"eslint"[[:space:]]*:' package.json 2>/dev/null; then
         LINT_COMMAND="npm run lint"
-    elif grep -q '"biome"' package.json 2>/dev/null; then
+    elif grep -qE '"biome"[[:space:]]*:' package.json 2>/dev/null; then
         LINT_COMMAND="npx biome check"
     fi
 fi
@@ -103,6 +103,15 @@ if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "requirements.txt" ]; th
         fi
 
         if grep -q 'pytest' pyproject.toml 2>/dev/null; then
+            TEST_COMMAND="pytest"
+        fi
+    fi
+
+    # Projects without pyproject: pytest.ini, setup.cfg, or a requirements file
+    # that lists pytest are the usual signals.
+    if [ -z "$TEST_COMMAND" ]; then
+        if [ -f "pytest.ini" ] || grep -qE '^\[tool:pytest\]' setup.cfg 2>/dev/null ||
+           grep -qsiE '^pytest([=<>~! ]|$)' requirements*.txt 2>/dev/null; then
             TEST_COMMAND="pytest"
         fi
     fi

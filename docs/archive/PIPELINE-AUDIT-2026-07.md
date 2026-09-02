@@ -1,3 +1,6 @@
+> **Archived.** Historical record; superseded by `CLAUDE.md`, `PIPELINE-SPEC.md`, and `IMPLEMENTATION-PLAN-V2.md`.
+> Paths and behaviors described here may no longer exist.
+
 # Pipeline Audit — Claude Code and Codex
 
 **Audit date:** 2026-07-24

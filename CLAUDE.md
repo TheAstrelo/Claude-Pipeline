@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a provider-agnostic 13-phase (0–12) development pipeline for Claude Code
 and Codex. It transforms a task description into reviewed, optionally committed
-code. The single engine is `run-pipeline.sh`.
+code. The single engine is `run-pipeline.sh`. Roadmap: `IMPLEMENTATION-PLAN-V2.md`;
+superseded plans and audits: `docs/archive/`.
 
 ## The One Engine
 
@@ -18,9 +19,11 @@ commits after Phase 12.
 - **`run-pipeline.sh`** — the engine. Run it directly: `bash run-pipeline.sh [options] "task"`.
 - **`.claude/commands/auto-pipeline.md`** — a thin `/auto-pipeline` slash-command wrapper that
   runs the engine with `PIPELINE_NONINTERACTIVE=1` and interprets its exit code.
-- The per-phase slash commands (`/design`, `/plan-review`, `/ar`, `/security-review`, …) are
-  interactive helpers that dispatch to `.claude/agents/` via the Task tool. The engine does **not**
-  use them — it builds every phase prompt inline in `build_prompt()`.
+- The remaining slash commands (`/plan-review`, `/pipeline-scan`, `/pipeline-history`,
+  `/pipeline-undo`) are interactive helpers; `/plan-review` and `/pipeline-scan` dispatch to the
+  three agents in `.claude/agents/` via the Task tool. The engine does **not** use them — it
+  builds every phase prompt inline in `build_prompt()`. The per-phase ladder (`/arm`, `/design`,
+  `/ar`, …) was removed in Plan v2 M0 because it had drifted from the engine's contracts.
 
 ## Commands
 
@@ -76,7 +79,7 @@ Phase 0:  Pre-Check          (HARD) → Find existing code/libraries before buil
 Phase 1:  Requirements       (SOFT) → Extract testable success criteria
 Phase 2:  Design             (SOFT, STRONG model) → Architecture decisions with citations
 Phase 3:  Adversarial Review (HARD, STRONG model) → 3 critic angles stress-test the design
-Phase 4:  Planning           (SOFT) → Exact BEFORE/AFTER code for every change
+Phase 4:  Planning           (SOFT) → Intent-level steps (file + anchor + intent + test), lint-verified
 Phase 5:  Drift Detection    (SOFT) → Verify the plan covers the design
 Phase 6:  Build              (HARD) → Execute the plan; halt if blocked
 Phase 7:  Denoise            (NONE) → Strip debug artifacts / dead code
@@ -162,8 +165,8 @@ spawns receive a runtime-generated `--settings` file whose only hook is
 protect-files (absolute path), so protected-file edits are blocked at attempt
 time rather than surfacing as a late scanner BLOCK. When the auth preflight
 reports no authenticated subprocess can spawn (true cloud sandboxes),
-`/auto-pipeline` falls back to in-session orchestration via `.claude/agents`,
-never auto-committing.
+`/auto-pipeline` falls back to in-session orchestration using the engine's own
+phase prompts, never auto-committing.
 
 ### Context: per-phase tool scoping
 
@@ -188,16 +191,20 @@ phases. Older CLIs are audit-only with `--no-commit`.
 
 ```
 run-pipeline.sh          # THE engine (13 phases, gates, commit)
-.pipeline/               # ignored artifacts and history, created on demand
-evals/                   # frozen routing and release-SLO corpora/reports
-tests/                   # provider, deterministic-first, M2, M3, and M4 fixtures
+.pipeline/               # ignored run state (artifacts, worktrees, history), created on demand
+evals/
+├── corpus/<task>/       # sealed real-provider tasks (task.json, task.md, hidden/ acceptance tests)
+├── fixtures/<name>/     # small runnable projects the corpus targets
+├── results/             # corpus run results (committed by the weekly workflow)
+├── run-corpus.ts        # corpus runner (node 22, no build step); score.ts summarizes results
+└── *.v1.json            # frozen routing / release-SLO fixtures for the offline evaluators
+tests/                   # mocked-provider battery; run-all.sh auto-discovers tests/*.sh
+docs/archive/            # superseded audits, PRD, plan v1 (historical)
+docs/examples/           # reference-project rules and skills (shape, not content)
 .claude/
-├── commands/            # 17 slash commands (auto-pipeline.md is the engine wrapper)
-├── agents/              # 15 agents — the set reachable from a live slash command
-│                        #   (interactive helpers only; the engine inlines its prompts)
-├── rules/               # YOUR project conventions; review-precedents.md is engine-read
-├── templates/           # Pattern references (api-endpoint, auth-flow, crud-page, webhook)
-├── skills/              # Scaffolding skills (new-migration, scaffold-api)
+├── commands/            # auto-pipeline (engine wrapper) · plan-review · pipeline-scan · pipeline-history · pipeline-undo
+├── agents/              # planner · plan-reviewer · code-scanner (interactive helpers only)
+├── rules/               # YOUR project conventions (session-read); review-precedents.md is engine-read
 ├── hooks/               # protect-files.sh + auto-format.sh (Claude Code hooks via settings.json);
 │                        #   detect-project.sh + notify.sh (wired into run-pipeline.sh startup/exit)
 └── settings.json        # Claude Code hooks (protected by protect-files.sh)
@@ -333,13 +340,13 @@ The Bash engine does not currently implement a per-step Phase 6 retry loop.
 `.claude/rules/*.md` are loaded as project instructions in every Claude Code
 session. Put YOUR project's conventions there. The engine
 (`run-pipeline.sh`) does not read them; only interactive Claude Code sessions
-and the per-phase slash-command helpers do — except
+do — except
 `.claude/rules/review-precedents.md`, which the engine appends to the
 Phase 3/11/12 review prompts (it accumulates findings you mark as false
 positives).
 
 A worked example of convention rules from a real Next.js + PostgreSQL app
-lives in `examples/reference-project-rules/` (api/database/react). Those are
+lives in `docs/examples/reference-project-rules/` (api/database/react). Those are
 that project's specifics — imitate their shape, not their content. They used
 to sit in `.claude/rules/`, where copying `.claude/` into another project
 silently injected the wrong schema and conventions; they were relocated so

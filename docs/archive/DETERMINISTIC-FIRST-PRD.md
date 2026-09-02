@@ -1,3 +1,6 @@
+> **Archived.** Historical record; superseded by `CLAUDE.md`, `PIPELINE-SPEC.md`, and `IMPLEMENTATION-PLAN-V2.md`.
+> Paths and behaviors described here may no longer exist.
+
 # Product Requirements Document: Deterministic-First Adaptive Development Pipeline
 
 **Status:** Milestones 1–3 accepted; Milestone 4 controls complete offline; GA canary and security approval pending

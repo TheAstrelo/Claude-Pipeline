@@ -23,4 +23,4 @@ To give the pipeline your project's conventions, create your own
 these three as a shape to imitate — replace every specific with your own.
 Only `.claude/rules/review-precedents.md` is engine-read (it accumulates
 findings you mark as false positives; see the Milestone 3 notes in
-`IMPLEMENTATION-PLAN.md`).
+`docs/archive/IMPLEMENTATION-PLAN.md`).

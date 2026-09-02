@@ -63,13 +63,12 @@ this file.)
 4. **Cloud/no-subprocess fallback.** If the engine exits at its **auth
    preflight** ("this environment cannot spawn an authenticated claude
    subprocess"), the subprocess engine cannot run here. Fall back to
-   **in-session orchestration**: run the phases yourself in phase order using
-   the per-phase agents in `.claude/agents/` via the Task tool (pre-check →
-   requirements-crystallizer → architect → adversarial-coordinator →
-   atomic-planner → drift-detector → builder → security-auditor →
-   plan-reviewer for the final review), honoring the same artifacts
-   directory layout, running the project's real test command yourself between
-   build and review, and applying the BLOCKER-lane rule from
+   **in-session orchestration**: run the phases yourself in phase order,
+   each as a fresh Agent-tool subagent whose prompt is the engine's own —
+   read `build_prompt()` in `run-pipeline.sh` and use the phase's prompt
+   text verbatim with the tool scope from `phase_tools()` — honoring the
+   same artifacts directory layout, running the project's real test command
+   yourself between build and review, and applying the BLOCKER-lane rule from
    `PIPELINE-SPEC.md` §4: only evidence-cited BLOCKER findings may stop the
    run. In this mode NEVER auto-commit — end by presenting the diff and the
    test results, and let the user commit. Tell the user explicitly that the
