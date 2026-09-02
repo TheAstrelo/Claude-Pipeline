@@ -238,6 +238,33 @@ is ported in M3. Measured against the M1 baseline.
 baseline; zero hard halts on the routine subset; `read_verdict` and
 markdown BLOCKER parsing are no longer on the gating path for Claude.
 
+**Landed (all eight items):** `--quality=max|balanced|cheap` with the
+routing table above (`max` is the default; Claude strong lane
+`claude-opus-5`, critique/review on `claude-fable-5-1`, effort up to `max`;
+`--model-review=` overrides the review lane); a startup model preflight
+that probes each distinct routed model once and falls back along
+fable-5-1 → opus-5 → opus-4-8 → sonnet-5 with a recorded warning; budgets
+off unless `--max-run-budget-usd` is given (then the elastic $4 per-phase
+default returns). `build_context_pack()` writes `repo-context.md` once per
+run and every phase prompt opens with the task and that file; the
+engineering-standard block rides on plan, build, build-fix, heal, and the
+collapsed prompt; the artifact-wiring fixes are in; Phase 9 no longer calls
+a model on red tests (the deterministic report gates). Claude phases 3, 6,
+11, 12 return `--json-schema` typed verdicts (findings array with severity,
+location, evidence) and attestation-by-echo is deleted — the orchestrator
+holds the digests it already computed. Reviewers (3, 11, 12) get Read/Grep/
+Glob plus scoped Bash rules for read-only git, dependency audit, and the
+frozen verification argv; builders get a PreToolUse command guard
+(`.claude/hooks/guard-commands.sh`, `tests/hooks-smoke.sh`) and PostToolUse
+auto-format, and a self-review turn. Phase 0 web search and Phase 2 URL
+citations are conditional; Phase 10's route-docs rule fires only when the
+repository already documents routes or states the convention in
+`CLAUDE.md`/`AGENTS.md`. The battery was updated to the new contracts
+(`tests/provider-failure-smoke.sh` counts one probe per distinct model and
+turns budgeting on explicitly; the Phase 10 fixtures state a docs
+convention). The corpus comparison against the M1 baseline is recorded
+below once the `--quality=max` runs land.
+
 ## Milestone 3 — The TypeScript engine (L, the substrate change)
 
 Built in `engine/` alongside the bash engine, validated against the same

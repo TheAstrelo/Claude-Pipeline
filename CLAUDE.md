@@ -55,12 +55,15 @@ working, non-slop code; every roadmap milestone is judged against
 `evals/results/`.
 
 Flags the engine actually parses: `--provider=auto|claude|codex`,
+`--quality=max|balanced|cheap` (default `max`; model lane and effort per phase),
+`--model-review=` (critique/final-review lane),
 `--profile=yolo|fast|standard|paranoid`, `--mode=auto|dev`, `--push`
 (publish the committed run branch to the remote), `--pr` (`--push` plus
 pull-request guidance), `--budget=elastic|strict`,
 `--skip-arm` (skip Phase 1), `--skip-ar` (skip Phase 3), `--skip-pmatch` (skip Phase 5),
 `--model-strong=`, `--model-fast=`, `--max-budget-usd=` (per-phase cap), `--max-run-budget-usd=`
-(whole-run cap), `--no-commit`, `--allow-dirty`, `--allow-untested-commit`
+(whole-run cap; budgets are opt-in — with no run cap the run is uncapped and the
+per-phase cap is a 50.00 safety stop), `--no-commit`, `--allow-dirty`, `--allow-untested-commit`
 (explicit recorded no-test auto-commit waiver), `--resume=RUN_ID`,
 `--policy-rollout=legacy|shadow|enforced`, `--retention-days=`,
 `--retention-max-runs=`, `--help`.
@@ -97,7 +100,7 @@ Phase 6:  Build              (HARD) → Execute the plan; halt if blocked
 Phase 7:  Denoise            (NONE) → Strip debug artifacts / dead code
 Phase 8:  Quality Fit        (NONE) → Types, lint, conventions
 Phase 9:  Quality Behavior   (SOFT) → Gates on the REAL captured test exit code (un-fakeable)
-Phase 10: Quality Docs       (NONE) → Swagger/JSDoc coverage
+Phase 10: Quality Docs       (NONE) → Swagger/JSDoc coverage (route-docs rule only where the repo documents routes or states the convention)
 Phase 11: Security           (HARD) → Non-waivable deterministic scanners, then OWASP review
 Phase 12: Commit Code-Review (HARD, STRONG model) → Review the real git diff, then commit on APPROVE
 ```
@@ -145,14 +148,22 @@ from the Success Criteria so Phase 9 certifies the task was done, not merely
 that nothing regressed (the demo kit ships this pattern as
 `src/acceptance/version.test.js`).
 
-### Model Routing (Balanced)
+### Model Routing
 
-Model tier and effort are independent:
+Three lanes — strong, balanced, review — and a quality preset (`--quality=`,
+default `max`) that decides lane and effort per phase (`phase_routing()`):
 
-- Claude: strong `claude-opus-4-8`, balanced `claude-sonnet-5`.
-- Codex: strong `gpt-5.6-sol`, balanced `gpt-5.6-terra`.
-- Codex Security and final review use Sol/xhigh; Design and Adversarial use
-  Sol/high. Neither provider uses `max` by default.
+- Claude: strong `claude-opus-5`, balanced `claude-sonnet-5`, review
+  `claude-fable-5-1` under `max` (probed at startup; falls back Fable 5.1 →
+  Opus 5 → Opus 4.8 with a warning). Codex: strong `gpt-5.6-sol`, balanced
+  `gpt-5.6-terra`, review = strong.
+- `max`: Phases 1, 2, 4, 6, 11 (and build-fix/heal) on strong at `xhigh`;
+  Phase 3 on review at `xhigh`; Phase 12 on review at `max`; Phase 0 strong at
+  `high`; Phases 5, 7, 8, 9, 10 balanced at `high`. `balanced`: strong at
+  `high` for 0–4, 6, 11, 12, balanced at `medium` elsewhere. `cheap`: balanced
+  everywhere (`high` for 11 and 12). Effort is clamped to the provider's
+  ceiling (Claude `max`, Codex `xhigh`).
+- The refuter runs on the reviewer's own lane, never a cheaper one.
 - Routing policy `1.0` records every decision before invocation and uses
   explicit task risk/ambiguity evidence rather than model confidence. `fast`
   promotes high-risk Build and Security; `standard` additionally promotes
@@ -317,12 +328,28 @@ depends on model judgment. Phase 9 supplies independent runtime evidence:
 - **Commit integrity** — security and review attest the exact diff/tree. The
   engine creates a commit from that reviewed tree, verifies its immutable parent,
   and publishes the run branch with a compare-and-swap ref update.
-- **Verdicts** — Codex constrains phases 3, 11, and 12 with JSON Schema; Claude
-  uses an anchored markdown fallback.
+- **Verdicts** — both providers return typed verdicts for the gating phases
+  (Codex: `--output-schema`; Claude: `--json-schema`, phases 3, 6, 11, 12) as
+  `{artifact, verdict[, findings]}`; BLOCKER counting reads the typed
+  `findings` when present. The anchored-markdown parser remains the fallback
+  when structured output is missing, so a schema hiccup costs the old parsing
+  path and never fails open. Attestation-by-echo (reviewers retyping the diff
+  SHA and tree OID) was removed in M2: the orchestrator binds and re-verifies
+  the candidate tree itself.
 
-Codex gating phases use a typed `{artifact, verdict}` output schema. Claude
-gating phases retain anchored verdict parsing because structured output has
-failed on the Opus/high path in this workload.
+Every phase prompt opens with the task and the orchestrator-built
+`repo-context.md` (frozen verification commands, tracked-file tree, recent
+history, package manifest, an example test, and the repository's own
+`CLAUDE.md`/`AGENTS.md`/`.claude/rules` quoted as advisory conventions), and
+the code-producing prompts (plan, build, build-fix, heal) carry the
+engineering standard (smallest change, reuse, no speculative abstractions,
+tests in the repository's style, never edit the verification scripts).
+Reviewers (3, 11, 12) hold scoped Bash permission rules — read-only git, the
+frozen verification commands, dependency audits — so a claim can be checked
+instead of guessed; build and heal phases run under protect-files,
+guard-commands (no git commit/push/reset, no publishing, no network
+fetchers), and auto-format hooks. Phase 9 never calls a model: red tests are
+recorded as evidence and the SOFT gate fails on the real exit code.
 
 ## Auto-Recovery Loops
 

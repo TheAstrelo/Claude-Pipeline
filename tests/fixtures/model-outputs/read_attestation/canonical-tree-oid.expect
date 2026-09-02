@@ -1,6 +1,0 @@
-status=expected
-field=reviewed_tree_sha
-artifact=code-review.md
-attestation=4c2f1e9d8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e
-note=Canonical heading form of the tree OID (40-hex).
-source=synthetic

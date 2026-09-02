@@ -136,7 +136,9 @@ run_case() {
   git -C "$repo" config core.autocrlf false
   printf '%s\n' '{"scripts":{"test":"fixture"}}' > "$repo/package.json"
   printf '%s\n' "seed" > "$repo/README.md"
-  git -C "$repo" add package.json README.md
+  # A stated docs convention: Phase 10's route-docs rule only fires in repos that have one.
+  printf '%s\n' "Document every HTTP route with an @openapi JSDoc block." > "$repo/CLAUDE.md"
+  git -C "$repo" add package.json README.md CLAUDE.md
   git -C "$repo" commit -q -m seed
   : > "$calls"
 

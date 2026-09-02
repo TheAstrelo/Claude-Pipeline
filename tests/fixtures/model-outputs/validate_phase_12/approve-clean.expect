@@ -1,5 +1,5 @@
 status=expected
 gate=hard=0 soft=0
-log_match=pass:review_attestation (exact diff/tree)
+log_match=pass:code_review_verdict (APPROVE)
 note=Canonical APPROVE with matching attestations.
 source=synthetic

@@ -70,7 +70,7 @@ GOLDEN_TREE_SHA="4c2f1e9d8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e"
 #    the engine's own order, and syntax-checked before being sourced.
 # ---------------------------------------------------------------------------
 EXTRACTED=(
-  read_verdict read_attestation
+  read_verdict blocker_rows
   critique_has_blockers count_gating_blockers
   split_collapsed_plan lint_plan
   validate_phase_3 validate_phase_6 validate_phase_11 validate_phase_12
@@ -174,13 +174,6 @@ run_case() {
       cp "$md" "$art"
       [[ -f "$base.verdict" ]] && cp "$base.verdict" "$art.verdict"
       actual=$(read_verdict "$art" "${E[tokens]:?tokens= missing in $base.expect}")
-      actual=${actual:-MISSING}
-      ;;
-    read_attestation)
-      key=attestation
-      art="$ARTIFACTS/${E[artifact]:-code-review.md}"
-      cp "$md" "$art.report"
-      actual=$(read_attestation "$art" "${E[field]:-reviewed_diff_sha}") || actual=""
       actual=${actual:-MISSING}
       ;;
     count_gating_blockers)

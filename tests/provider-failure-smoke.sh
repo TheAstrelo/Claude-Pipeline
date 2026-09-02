@@ -59,17 +59,20 @@ fi
 scenario="${FAKE_PROVIDER_SCENARIO:-success}"
 count_file="${FAKE_PROVIDER_COUNT_FILE:?FAKE_PROVIDER_COUNT_FILE is required}"
 budget=""
+model=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --max-budget-usd) budget="${2:-}"; shift 2 ;;
+    --model) model="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
 prompt=$(cat)
 
-# claude_auth_preflight probe: always succeed, counted separately.
+# claude_auth_preflight / claude_model_preflight probes: always succeed,
+# counted separately (one line per probe, tagged with the probed model).
 if [[ "$prompt" == "Reply with exactly: OK" ]]; then
-  printf 'preflight|budget=%s\n' "$budget" >> "${count_file}.preflight"
+  printf 'preflight|model=%s|budget=%s\n' "$model" "$budget" >> "${count_file}.preflight"
   printf '%s' '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.001,"usage":{"input_tokens":12,"output_tokens":1},"result":"OK"}'
   exit 0
 fi
@@ -417,9 +420,13 @@ expect_tag_count() {
   local got; got=$(count_tag "$1")
   [[ "$got" -eq "$2" ]] || ERRORS+=("expected $2 '$1' invocation(s), got $got: $(tr '\n' ' ' < "$RUN_COUNT_FILE")")
 }
+# Startup probes: one per DISTINCT routed model (auth probe on the fast lane,
+# then the strong/review lanes), never repeated per phase or retry.
 expect_preflight() {
-  local got; got=$(preflights)
-  [[ "$got" -eq 1 ]] || ERRORS+=("expected exactly 1 auth-preflight probe, got $got")
+  local got distinct; got=$(preflights)
+  distinct=$( { [[ -f "$RUN_COUNT_FILE.preflight" ]] && sed 's/.*|model=\([^|]*\)|.*/\1/' "$RUN_COUNT_FILE.preflight" | sort -u | wc -l | tr -d '[:space:]'; } || echo 0)
+  [[ "$got" -ge 1 && "$got" -le 3 ]] || ERRORS+=("expected 1-3 startup probes (one per distinct model), got $got")
+  [[ "$got" -eq "$distinct" ]] || ERRORS+=("a model was probed more than once: $(tr '\n' ' ' < "$RUN_COUNT_FILE.preflight")")
 }
 expect_artifact() {
   [[ -n "$RUN_SESSION" && -s "$RUN_SESSION/$1" ]] || ERRORS+=("artifact missing or empty: ${RUN_SESSION:-<no session>}/$1")
@@ -526,9 +533,11 @@ s_budget_cap_strict() {
 
 # 4. Same cap hit on the first call under the default elastic policy: run_model
 #    doubles the cap, records budget_extended, re-invokes with the new cap, and
-#    the second call succeeds. Each attempt is its own ledger envelope.
+#    the second call succeeds. Each attempt is its own ledger envelope. A run
+#    cap turns budgeting on (per-phase default $4); without one phases are
+#    effectively uncapped.
 s_budget_cap_elastic() {
-  run_engine budget-cap-elastic claude yolo
+  run_engine budget-cap-elastic claude yolo -- --max-run-budget-usd=100
   expect_rc 0
   expect_log 'Hit per-phase budget cap ($4.00); phase cut short.'
   expect_log 'cap — extending to $8.00 within the'

@@ -1,6 +1,0 @@
-status=expected
-field=reviewed_diff_sha
-artifact=code-review.md
-attestation=MISSING
-note=A Phase 12 report using the Phase 11 'Scanned' label does not attest the reviewed digest. Kept expected: the label identifies which phase is attesting.
-source=synthetic

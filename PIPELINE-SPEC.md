@@ -7,7 +7,8 @@ agent runtime. The design premise: **the executor is untrusted labor**. Any
 model, via any agentic runtime, may produce requirements, designs, plans,
 code, and reviews — but nothing an executor *says* gates the run. Only
 evidence the **orchestrator** captures itself may open the commit gate: real
-exit codes, hashed diffs and trees, deterministic scans, attested reviews,
+exit codes, hashed diffs and trees, deterministic scans, reviews bound to
+those hashes by the orchestrator,
 and a compare-and-swap ref publish. A conforming implementation can swap
 Claude for Codex, opencode-driven local models, Cursor's agent CLI, or a
 human at a keyboard without changing a single gate.
@@ -49,7 +50,7 @@ implementation must preserve:
 | 0 | Pre-Check | HARD | pre-check.md | read + web |
 | 1 | Requirements | SOFT | brief.md | read |
 | 2 | Design | SOFT | design.md | read + web |
-| 3 | Adversarial Review | HARD | critique.md | read |
+| 3 | Adversarial Review | HARD | critique.md | read + scoped exec |
 | 4 | Planning | SOFT | plan.md | read |
 | 5 | Drift Detection | SOFT | drift-report.md | read |
 | 6 | Build | HARD | build-report.md | read + write + exec |
@@ -57,8 +58,8 @@ implementation must preserve:
 | 8 | Quality Fit | NONE | qa-report.md (append) | read + write + exec |
 | 9 | Quality Behavior | SOFT | qa-report.md (append) | read |
 | 10 | Quality Docs | NONE | qa-report.md (append) | read + write + exec |
-| 11 | Security | HARD | qa-report.md (append) | read |
-| 12 | Commit Review | HARD | code-review.md | read |
+| 11 | Security | HARD | qa-report.md (append) | read + scoped exec |
+| 12 | Commit Review | HARD | code-review.md | read + scoped exec |
 
 Profiles may skip SOFT/NONE phases and may **collapse** phases 1+2+4 into
 one strong-executor call whose output is split into the three standard
@@ -111,12 +112,16 @@ Orchestrator-captured (trusted): baseline head/tree, candidate tree OIDs,
 review diff + SHA-256, real command exit codes and outputs, deterministic
 scanner results, checkpoint manifests, the hash-chained ledger.
 
-Executor-claimed (untrusted): every report, verdict, and attestation body.
-Verdicts are parsed from an anchored heading with token-final matching (or a
-typed schema where the runtime supports one). Phases 11/12 must echo the
-exact orchestrator-owned diff SHA-256 and tree OID; mismatch halts. A heal
-or any candidate mutation invalidates all downstream approvals and re-runs
-verification and security.
+Executor-claimed (untrusted): every report, verdict, and finding. Verdicts
+are typed where the runtime supports structured output (`{artifact,
+verdict[, findings]}`) and otherwise parsed from an anchored heading with
+token-final matching; an unparseable verdict fails closed. The orchestrator
+binds each review to the exact diff SHA-256 and candidate tree OID it
+captured and re-verifies the tree after the review; executors never attest
+digests themselves. "Scoped exec" is a permission allowlist of read-only git
+subcommands, the frozen verification commands, and dependency audits — never
+a general shell. A heal or any candidate mutation invalidates all downstream
+approvals and re-runs verification and security.
 
 The append-only ledger (`ledger.jsonl`) hash-chains every event; full-chain
 verification runs at every checkpoint, at completion, and on resume. Resume
@@ -179,6 +184,6 @@ run on a different adapter than the one that built (decorrelated review).
 An implementation conforms if: (a) every gate decision derives only from
 orchestrator-captured evidence or mechanically verified executor claims;
 (b) the workspace contract of §2 holds; (c) the commit path publishes only
-an attested, verified candidate tree via compare-and-swap with the immutable
+a verified candidate tree via compare-and-swap with the immutable
 baseline as parent; (d) every waiver, demotion, refutation, extension, and
 skip is durable, attributable evidence — nothing is silently dropped.

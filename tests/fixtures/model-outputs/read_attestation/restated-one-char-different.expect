@@ -1,6 +1,0 @@
-status=expected
-field=reviewed_diff_sha
-artifact=code-review.md
-attestation=MISSING
-note=Two matches that disagree (last hex digit differs) MUST fail — the attestation is rejected. Correct.
-source=synthetic

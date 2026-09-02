@@ -24,7 +24,6 @@ full corpus in front of it and every improvement shows up as a flipped case.
 tests/fixtures/model-outputs/
 ├── README.md
 ├── read_verdict/             read_verdict(artifact, tokens)          — phases 3, 6, 11, 12
-├── read_attestation/         read_attestation(artifact, field)       — phases 11, 12
 ├── count_gating_blockers/    count_gating_blockers(artifact)         — phases 3 (evidence mode), 12 (diff mode)
 ├── lint_plan/                lint_plan(plan)                         — phase 4
 │   └── tree/                 the tiny working tree lint_plan resolves paths/anchors against

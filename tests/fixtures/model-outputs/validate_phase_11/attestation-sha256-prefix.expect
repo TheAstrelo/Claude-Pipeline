@@ -1,5 +1,4 @@
-status=xfail
-gate=hard=1 soft=0
-want_after_fix=hard=0 soft=0
-note=Correct digest with a 'sha256:' prefix HARD-fails the phase (see read_attestation/sha256-prefix).
+status=expected
+gate=hard=0 soft=0
+note=Attestation-by-echo was removed in M2 (the orchestrator binds and re-verifies the diff/tree itself); the digest line no longer participates in the gate.
 source=synthetic

@@ -144,10 +144,12 @@ forwards to it) actually parses:
 | `--skip-arm` | Skip Phase 1 (Requirements) |
 | `--skip-ar` | Skip Phase 3 (Adversarial Review) |
 | `--skip-pmatch` | Skip Phase 5 (Drift Detection) |
+| `--quality=max\|balanced\|cheap` | Model lane and effort per phase (default: `max`) — see Model Routing |
 | `--model-strong=MODEL` | Override the provider's strong model lane |
 | `--model-fast=MODEL` | Override the provider's balanced model lane |
-| `--max-budget-usd=N` | Per-phase cap; native on Claude, post-call estimate on Codex |
-| `--max-run-budget-usd=N` | Whole-run spend cap (default: `15.00`) |
+| `--model-review=MODEL` | Override the critique/final-review lane (`max`: the most capable model available) |
+| `--max-budget-usd=N` | Per-phase cap; native on Claude, post-call estimate on Codex (default: `4.00` with a run cap, `50.00` without) |
+| `--max-run-budget-usd=N` | Whole-run spend cap (default: uncapped — budgets are opt-in runaway guards) |
 | `--resume=RUN_ID` | Resume from the last verified atomic checkpoint; requires the original task and identical engine, config, Git baseline, branch, worktree, and durable evidence |
 | `--policy-rollout=legacy\|shadow\|enforced` | `legacy` restores fixed/model-first behavior; `shadow` records deterministic recommendations but retains baseline calls and disables commit; `enforced` is the default |
 | `--retention-days=N` | Remove terminal run artifacts older than N days at startup; `0` disables (default) |
@@ -302,7 +304,7 @@ Task Description
 | **7. Denoise** | Removes console.log, debugger, commented-out code | Clean production code |
 | **8. Quality Fit** | Type checking, linting, convention compliance | Code matches project standards |
 | **9. Quality Behavior** | Runs real tests; green evidence is recorded directly without a model call, failures can be diagnosed by a model | Code actually works as designed without paying for deterministic narration |
-| **10. Quality Docs** | Checks Swagger/JSDoc coverage | API documentation stays current |
+| **10. Quality Docs** | Checks Swagger/JSDoc coverage — the route-docs rule fires only in repos that already document routes or state the convention in `CLAUDE.md`/`AGENTS.md` | API documentation stays current without manufacturing docs the project never wanted |
 | **11. Security** | Non-waivable deterministic scanners, then an OWASP model review bound to the exact diff/tree | High-confidence policy failures stop before model judgment |
 | **12. Commit Code-Review** | Reviews the real git diff against the brief; commits on `APPROVE`, else auto-heals (≤2), re-verifies, re-runs security, and asks a human if unresolved | The exact verified and reviewed tree is committed with an atomic ref update |
 
@@ -357,19 +359,30 @@ your original checkout, so there is nothing else to revert.
 
 ## Cost Efficiency
 
-### Model Routing (Balanced)
+### Model Routing
 
-The engine uses two model lanes and tunes reasoning separately.
+Three model lanes, three quality presets (`--quality=`, default `max`).
 
-| Provider | Strong lane | Balanced lane |
-|---|---|---|
-| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` |
-| Claude | `claude-opus-4-8` | `claude-sonnet-5` |
+| Provider | Strong lane | Balanced lane | Review lane (`max` only) |
+|---|---|---|---|
+| Claude | `claude-opus-5` | `claude-sonnet-5` | `claude-fable-5-1` (falls back to Opus 5) |
+| Codex | `gpt-5.6-sol` | `gpt-5.6-terra` | strong lane |
 
-Codex uses Sol/xhigh for Security and final review, Sol/high for Design and
-Adversarial, and Terra at high/medium/low elsewhere. Claude uses Opus/high for
-Design, Adversarial, and final review, with Sonnet at high/medium/low elsewhere.
-Override either lane with `--model-strong=` or `--model-fast=`.
+| Phase | `max` | `balanced` | `cheap` |
+|---|---|---|---|
+| 0 Pre-Check | strong / high | strong / high | balanced / medium |
+| 1, 2, 4 Requirements, Design, Planning | strong / xhigh | strong / high | balanced / medium |
+| 3 Adversarial Review | review / xhigh | strong / high | balanced / medium |
+| 6 Build (and build-fix, heal) | strong / xhigh | strong / high | balanced / medium |
+| 11 Security | strong / xhigh | strong / high | balanced / high |
+| 12 Commit Code-Review | review / max | strong / high | balanced / high |
+| 5, 7, 8, 9, 10 drift and QA remediation | balanced / high | balanced / medium | balanced / medium |
+
+Effort is clamped to what the provider accepts (Claude `max`, Codex `xhigh`).
+A startup probe verifies each routed model is usable by this account and falls
+back along Fable 5.1 → Opus 5 → Opus 4.8 with a warning. Override any lane with
+`--model-strong=`, `--model-fast=`, or `--model-review=`. The refuter that
+re-checks a BLOCKER runs on the same lane as the reviewer it may overrule.
 
 Routing policy `1.0` keeps those phase routes as the baseline and applies only
 mechanical, pre-call task signals—never a model-generated confidence score:
@@ -488,6 +501,10 @@ conventions to every phase is Milestone 2 of `IMPLEMENTATION-PLAN-V2.md`
 **Claude Code hooks** (wired in `.claude/settings.json`, enforced by the harness):
 
 ```bash
+# guard-commands.sh — PreToolUse(Bash), build/heal phases only: denies git
+#                     commit/push/reset/checkout/rebase, publishing, network
+#                     fetchers, and writes into .pipeline/ (the orchestrator
+#                     commits the reviewed tree; a builder never does).
 # protect-files.sh  — PreToolUse(Edit|Write): blocks edits to .env, .git/,
 #                     package-lock.json, amplify.yml, and .claude/settings.json.
 #                     Fails CLOSED (denies on parse failure) and uses node, not jq.

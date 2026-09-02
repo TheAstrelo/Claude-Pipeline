@@ -1,5 +1,0 @@
-status=expected
-gate=hard=1 soft=0
-log_match=HARD:review_attestation
-note=Wrong diff digest is rejected (fail-closed, correct).
-source=synthetic

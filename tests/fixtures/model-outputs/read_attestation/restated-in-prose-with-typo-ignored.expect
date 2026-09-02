@@ -1,6 +1,0 @@
-status=expected
-field=reviewed_diff_sha
-artifact=code-review.md
-attestation=9b1f4e7a2c8d5b3e6f0a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
-note=A restatement embedded mid-sentence is not line-anchored and is ignored, so it cannot poison the heading value (contrast restated-one-char-different, where the restatement is line-anchored).
-source=synthetic

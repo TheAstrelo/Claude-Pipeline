@@ -1,6 +1,0 @@
-status=expected
-field=reviewed_tree_sha
-artifact=code-review.md
-attestation=unavailable
-note='unavailable' is an accepted literal for the tree OID (no-git or unbound worktree).
-source=synthetic

@@ -55,6 +55,13 @@ SKIP_PMATCH=false
 # aliases. Override either lane per run.
 MODEL_STRONG=""
 MODEL_FAST=""
+# REVIEW = the critique/final-review lane. Under --quality=max it is the most
+# capable model available (a different one from the builder's when possible);
+# otherwise it is the strong lane.
+MODEL_REVIEW=""
+# Quality preset (M2): max (default; money is not the constraint), balanced,
+# cheap. Decides the model lane and effort per phase — see phase_routing().
+QUALITY="${PIPELINE_QUALITY:-max}"
 ROUTING_POLICY_VERSION="1.0"
 ROUTING_POLICY_MODE=""
 TASK_RISK_CLASS="NORMAL"
@@ -79,8 +86,8 @@ RETENTION_MAX_RUNS="${PIPELINE_RETENTION_MAX_RUNS:-0}"
 TASK_SAFE=""
 SECURITY_SCANNER_RESULT=""
 SECURITY_SCANNER_EVIDENCE=""
-# Claude routing intentionally tops out at high. Codex GPT-5.6 supports xhigh;
-# neither provider is routed to max by default.
+# Highest effort a provider accepts; clamp_effort() lowers a preset's request
+# to it. Claude: max. Codex GPT-5.6: xhigh.
 EFFORT_CAP="high"
 
 # Budget caps (safety). Claude Code enforces PER_PHASE natively and reports
@@ -94,7 +101,11 @@ EFFORT_CAP="high"
 #   larger feature can push it to ~$3-4). Sonnet phases ~$0.13-0.26 each.
 # Per-phase cap clears Code-Review headroom; the RUN cap is the real runaway
 # guard (a typical complete run is ~$6; this leaves room for a large feature).
-MAX_BUDGET_PER_PHASE="4.00"
+# Budgets are opt-in runaway guards (M2). Empty = resolved after argument
+# parsing: with --max-run-budget-usd the per-phase cap starts at the elastic
+# default (4.00) and extends within the run cap; without one the run is
+# uncapped and the per-phase cap is a generous safety stop (50.00).
+MAX_BUDGET_PER_PHASE=""
 # Budget policy. Caps are runaway protection, not pacing: the model never
 # sees them (prompts carry no budget language), so a cap firing mid-phase
 # converts spent money into nothing delivered. elastic (default): when a
@@ -105,7 +116,7 @@ MAX_BUDGET_PER_PHASE="4.00"
 BUDGET_POLICY="${PIPELINE_BUDGET_POLICY:-elastic}"
 MAX_BUDGET_EXTENSIONS="${PIPELINE_BUDGET_EXTENSIONS:-2}"
 PHASE_BUDGET_CURRENT=""
-MAX_RUN_BUDGET="15.00"
+MAX_RUN_BUDGET=""
 TOTAL_COST="0"
 TOTAL_TOKENS="0"
 TOTAL_INPUT_TOKENS="0"
@@ -380,6 +391,17 @@ for arg in "$@"; do
     --retention-max-runs=*) RETENTION_MAX_RUNS="${arg#*=}" ;;
     --model-strong=*) MODEL_STRONG="${arg#*=}" ;;
     --model-fast=*)   MODEL_FAST="${arg#*=}" ;;
+    --model-review=*) MODEL_REVIEW="${arg#*=}" ;;
+    --quality=*)
+      QUALITY="${arg#*=}"
+      case "$QUALITY" in
+        max|balanced|cheap) ;;
+        *)
+          echo -e "${RED}Error: --quality must be 'max', 'balanced', or 'cheap'.${NC}" >&2
+          exit 1
+          ;;
+      esac
+      ;;
     --max-budget-usd=*)     MAX_BUDGET_PER_PHASE="${arg#*=}" ;;
     --budget=*)
       BUDGET_POLICY="${arg#*=}"
@@ -402,14 +424,16 @@ for arg in "$@"; do
       echo "  --skip-arm               Skip Phase 1 (Requirements)"
       echo "  --skip-ar                Skip Phase 3 (Adversarial Review)"
       echo "  --skip-pmatch            Skip Phase 5 (Drift Detection)"
+      echo "  --quality=PRESET         max (default) | balanced | cheap — model lane and effort per phase"
       echo "  --model-strong=MODEL     Strong model lane (provider default when omitted)"
       echo "  --model-fast=MODEL       Balanced model lane (provider default when omitted)"
-      echo "  --max-budget-usd=N       Per-phase cap (Codex: post-call estimate)"
+      echo "  --model-review=MODEL     Critique/final-review lane (max: the most capable model)"
+      echo "  --max-budget-usd=N       Per-phase cap (default: 4.00 with a run cap, else 50.00)"
       echo "  --budget=elastic|strict  elastic (default): a capped phase retries with a doubled cap"
       echo "                           inside the run cap (ledger-recorded); strict: first cap halts"
       echo "  --push                   after a committed run, publish the run branch to the remote"
       echo "  --pr                     --push plus pull-request creation guidance"
-      echo "  --max-run-budget-usd=N   Whole-run spend cap in USD (default: 15.00)"
+      echo "  --max-run-budget-usd=N   Whole-run spend cap in USD (default: uncapped)"
       echo "  --no-commit              Disable final commit; clean runs still branch for isolation"
       echo "  --allow-dirty            Permit a dirty start; implies --no-commit"
       echo "  --allow-untested-commit  Permit auto-commit when no test command is configured"
@@ -444,6 +468,11 @@ if [[ -z "$TASK" ]]; then
   echo -e "${RED}Error: No task description provided.${NC}"
   echo "Usage: $0 [--mode=auto] [--profile=standard] \"your task description\""
   exit 1
+fi
+
+# Budget resolution (see the defaults): caps only when asked for.
+if [[ -z "$MAX_BUDGET_PER_PHASE" ]]; then
+  if [[ -n "$MAX_RUN_BUDGET" ]]; then MAX_BUDGET_PER_PHASE="4.00"; else MAX_BUDGET_PER_PHASE="50.00"; fi
 fi
 
 if [[ -n "$RESUME_RUN_ID" &&
@@ -740,9 +769,12 @@ case "$PROVIDER" in
        claude --help 2>/dev/null | grep -q -- '--bare'; then
       CLAUDE_BARE_MODE=true
     fi
-    [[ -n "$MODEL_STRONG" ]] || MODEL_STRONG="claude-opus-4-8"
+    [[ -n "$MODEL_STRONG" ]] || MODEL_STRONG="claude-opus-5"
     [[ -n "$MODEL_FAST" ]] || MODEL_FAST="claude-sonnet-5"
-    EFFORT_CAP="high"
+    if [[ -z "$MODEL_REVIEW" ]]; then
+      [[ "$QUALITY" == "max" ]] && MODEL_REVIEW="claude-fable-5-1" || MODEL_REVIEW="$MODEL_STRONG"
+    fi
+    EFFORT_CAP="max"
     COST_KIND="actual"
     ;;
   codex)
@@ -752,6 +784,7 @@ case "$PROVIDER" in
     }
     [[ -n "$MODEL_STRONG" ]] || MODEL_STRONG="gpt-5.6-sol"
     [[ -n "$MODEL_FAST" ]] || MODEL_FAST="gpt-5.6-terra"
+    [[ -n "$MODEL_REVIEW" ]] || MODEL_REVIEW="$MODEL_STRONG"
     EFFORT_CAP="xhigh"
     COST_KIND="api-equivalent estimate"
     if codex exec --help 2>/dev/null | grep -q -- '--ignore-user-config'; then
@@ -787,8 +820,9 @@ case "$PROVIDER" in
     ;;
 esac
 
+# An empty run cap means uncapped (M2); a given cap must be a number.
 if ! [[ "$MAX_BUDGET_PER_PHASE" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
-   ! [[ "$MAX_RUN_BUDGET" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+   { [[ -n "$MAX_RUN_BUDGET" ]] && ! [[ "$MAX_RUN_BUDGET" =~ ^[0-9]+([.][0-9]+)?$ ]]; }; then
   echo -e "${RED}Error: budget caps must be non-negative numbers.${NC}" >&2
   exit 1
 fi
@@ -4031,11 +4065,34 @@ run_quality_behavior_phase() {
     return 0
   fi
 
+  if [[ "$POLICY_ROLLOUT" == "enforced" ]]; then
+    # Red tests (M2): the exit code and output are the evidence; a model
+    # narrating them changed no gate and nobody read the narration. The SOFT
+    # gate below fails on the real exit code; the build-fix loop, release
+    # verification, and the review heal own the repair.
+    log_phase 9 "Quality Behavior" "SOFT"
+    append_deterministic_behavior_failure_report "phase-9"
+    echo -e "  ${YELLOW}Tests failed (exit $TEST_EXIT); evidence appended to qa-report.md without a model call.${NC}"
+    run_gate 9 || true
+    log_result 9 "DETERMINISTIC"
+    return 0
+  fi
+
   if [[ "$TEST_EXIT" == "0" && "$POLICY_ROLLOUT" == "shadow" ]]; then
     echo -e "  ${CYAN}Shadow policy would skip the green Phase 9 call; baseline model execution retained.${NC}"
   fi
 
   run_phase 9 "Quality Behavior" "SOFT" "qa-report.md"
+}
+
+append_deterministic_behavior_failure_report() {
+  local reason="${1:-quality-behavior}"
+  {
+    printf '\n## Quality Behavior\n\n'
+    printf -- '- Source: orchestrator\n- Verification reason: %s\n- Command: %s\n- Exit code: %s\n- Result: FAIL\n- Output: %s\n\n' \
+      "$reason" "${TEST_COMMAND:-none detected}" "$TEST_EXIT" "$ARTIFACTS/test-output.txt"
+    printf '```\n'; tail -c 6000 "$ARTIFACTS/test-output.txt" 2>/dev/null; printf '\n```\n'
+  } >> "$ARTIFACTS/qa-report.md" || exit 1
 }
 
 # List the exact baseline-to-candidate paths through the same alternate-index
@@ -4462,7 +4519,7 @@ run_source_qa_scan() {
           const hasRoute = routePatterns.some(pattern => pattern.test(text));
           const hasRouteDocs =
             /@(openapi|swagger)\b|openapi\s*:|swagger\s*:|operationId\s*:|summary\s*:|description\s*:/.test(text);
-          if (hasRoute && !hasRouteDocs) {
+          if (hasRoute && !hasRouteDocs && process.env.PIPELINE_ROUTE_DOCS_CONVENTION === "1") {
             findings.push({
               rule: "undocumented-api-route",
               path: name,
@@ -4741,10 +4798,17 @@ run_post_mutation_verification() {
 }
 
 # Clamp a requested effort level down to what the selected provider supports.
+effort_rank() {
+  case "$1" in
+    low) echo 1 ;; medium) echo 2 ;; high) echo 3 ;; xhigh) echo 4 ;; max) echo 5 ;; *) echo 3 ;;
+  esac
+}
+
+# Lower a requested effort to the provider's ceiling (EFFORT_CAP).
 clamp_effort() {
   local want="$1"
-  if [[ "$want" == "xhigh" && "$EFFORT_CAP" != "xhigh" ]]; then
-    echo "high"
+  if [[ $(effort_rank "$want") -gt $(effort_rank "$EFFORT_CAP") ]]; then
+    echo "$EFFORT_CAP"
   else
     echo "$want"
   fi
@@ -4796,25 +4860,36 @@ initialize_routing_policy() {
 # promote that lane before invocation, but never weakens a completed result.
 phase_routing() {
   local phase=$1 model effort
-  if [[ "$PROVIDER" == "codex" ]]; then
-    case $phase in
-      11|12)    model="$MODEL_STRONG"; effort="xhigh"  ;;
-      2|3)      model="$MODEL_STRONG"; effort="high"   ;;
-      0)        model="$MODEL_FAST";   effort="high"   ;;
-      4|5|6|9)  model="$MODEL_FAST";   effort="medium" ;;
-      1|7|8|10) model="$MODEL_FAST";   effort="low"    ;;
-      *)        model="$MODEL_FAST";   effort="medium" ;;
-    esac
-  else
-    case $phase in
-      12)       model="$MODEL_STRONG"; effort="high"   ;;
-      2|3)      model="$MODEL_STRONG"; effort="high"   ;;
-      0|11)     model="$MODEL_FAST";   effort="high"   ;;
-      4|5|6|9)  model="$MODEL_FAST";   effort="medium" ;;
-      1|7|8|10) model="$MODEL_FAST";   effort="low"    ;;
-      *)        model="$MODEL_FAST";   effort="medium" ;;
-    esac
-  fi
+  # The quality preset decides the lane and effort per phase; the lanes' models
+  # come from the provider defaults or --model-strong/--model-fast/
+  # --model-review. Under max the code-producing and gating phases all run on
+  # the strong lane at xhigh (Anthropic's recommended setting for coding and
+  # agentic work), critique and final review on the review lane, and only the
+  # deterministic-first QA remediations and drift check on the fast lane.
+  case "$QUALITY" in
+    max)
+      case $phase in
+        12)          model="$MODEL_REVIEW"; effort="max"   ;;
+        3)           model="$MODEL_REVIEW"; effort="xhigh" ;;
+        0)           model="$MODEL_STRONG"; effort="high"  ;;
+        1|2|4|6|11)  model="$MODEL_STRONG"; effort="xhigh" ;;
+        5|7|8|9|10)  model="$MODEL_FAST";   effort="high"  ;;
+        *)           model="$MODEL_STRONG"; effort="high"  ;;
+      esac
+      ;;
+    balanced)
+      case $phase in
+        0|1|2|3|4|6|11|12) model="$MODEL_STRONG"; effort="high"   ;;
+        *)                 model="$MODEL_FAST";   effort="medium" ;;
+      esac
+      ;;
+    cheap)
+      case $phase in
+        11|12) model="$MODEL_FAST"; effort="high"   ;;
+        *)     model="$MODEL_FAST"; effort="medium" ;;
+      esac
+      ;;
+  esac
   echo "${model}|$(clamp_effort "$effort")"
 }
 
@@ -4949,11 +5024,27 @@ select_phase_route() {
 phase_tools() {
   case $1 in
     0|2)       echo "Read,Grep,Glob,WebSearch,WebFetch" ;;
-    1|3|4|5)   echo "Read,Grep,Glob" ;;
-    9|11|12)   echo "Read,Grep,Glob" ;;
+    1|4|5|9)   echo "Read,Grep,Glob" ;;
+    3|11|12)   echo "Read,Grep,Glob,Bash" ;;
     6|7|8|10)  echo "Read,Write,Edit,Bash,Grep,Glob" ;;
     *)         echo "Read,Grep,Glob" ;;
   esac
+}
+
+# Reviewers (3, 11, 12) may execute, but only read-only git, the frozen
+# verification commands, and dependency audits: each rule is a Claude Code
+# permission prefix; anything else in Bash is denied under dontAsk. This lets
+# a reviewer reproduce a claim instead of guessing, without giving it a shell.
+reviewer_bash_rules() {
+  local cmd
+  for cmd in "git log" "git show" "git diff" "git blame" "git grep" "git ls-files" "git status" \
+             "npm audit" "pnpm audit" "yarn audit" "pip-audit" "cargo audit" "govulncheck" "osv-scanner"; do
+    printf 'Bash(%s:*)\n' "$cmd"
+  done
+  [[ ${#TEST_COMMAND_ARGS[@]} -gt 0 ]] && printf 'Bash(%s:*)\n' "$(command_display "${TEST_COMMAND_ARGS[@]}")"
+  [[ ${#TYPECHECK_COMMAND_ARGS[@]} -gt 0 ]] && printf 'Bash(%s:*)\n' "$(command_display "${TYPECHECK_COMMAND_ARGS[@]}")"
+  [[ ${#LINT_COMMAND_ARGS[@]} -gt 0 ]] && printf 'Bash(%s:*)\n' "$(command_display "${LINT_COMMAND_ARGS[@]}")"
+  return 0
 }
 
 # Codex structured output carries both the markdown artifact and an enum verdict.
@@ -4961,12 +5052,9 @@ phase_tools() {
 # failed on Opus/high in this workload. A typed verdict makes parsing reliable;
 # it does not make the model's underlying judgment objectively true.
 phase_schema() {
-  [[ "$PROVIDER" == "codex" ]] || {
-    echo ''
-    return
-  }
   case "$1" in
     3)  echo 'APPROVED|REVISE_DESIGN' ;;
+    6)  [[ "$PROVIDER" == "claude" ]] && echo 'SUCCESS|PARTIAL|FAILED' || echo '' ;;
     11) echo 'PASS|FAIL|CRITICAL' ;;
     12) echo 'APPROVE|REQUEST_CHANGES' ;;
     *)  echo '' ;;
@@ -5003,74 +5091,10 @@ read_verdict() {
     | grep -oE "$tokens" | tail -1
 }
 
-read_attestation() {
-  local artifact=$1 field=$2 sidecar="" label="" pattern=""
-  case "$field" in
-    scanned_diff_sha)
-      sidecar="$artifact.scanned-diff-sha"; label="Scanned Diff SHA-256"; pattern='[0-9a-f]{64}'
-      ;;
-    scanned_tree_sha)
-      sidecar="$artifact.scanned-tree-sha"; label="Scanned Tree OID"; pattern='([0-9a-f]{40}|[0-9a-f]{64}|unavailable)'
-      ;;
-    reviewed_diff_sha)
-      sidecar="$artifact.reviewed-diff-sha"; label="Reviewed Diff SHA-256"; pattern='[0-9a-f]{64}'
-      ;;
-    reviewed_tree_sha)
-      sidecar="$artifact.reviewed-tree-sha"; label="Reviewed Tree OID"; pattern='([0-9a-f]{40}|[0-9a-f]{64}|unavailable)'
-      ;;
-    *) return 1 ;;
-  esac
-
-  if [[ "$PROVIDER" == "codex" ]]; then
-    [[ -s "$sidecar" ]] || return 1
-    local value
-    value=$(tr -d ' \t\r\n' < "$sidecar")
-    [[ "$value" =~ ^${pattern}$ ]] || return 1
-    printf '%s\n' "$value"
-    return 0
-  fi
-
-  # Claude phases append into qa-report.md; parse the current call's isolated
-  # report. Formatting is normalized (bold/backticks stripped, heading or
-  # bullet prefix optional) because the security property lives in the VALUE
-  # comparison against the orchestrator-computed digest, not in the markdown
-  # shape — the old exactly-one-bare-heading rule killed runs at Phase 11/12
-  # whenever the model restated or emphasized the digest it was told to echo.
-  # All matches must agree on a single value; conflicting values still fail.
-  local report_file="$artifact.report"
-  [[ -s "$report_file" ]] || return 1
-  local values
-  values=$(sed -e 's/[*`]//g' "$report_file" 2>/dev/null \
-    | grep -oE "^[[:space:]]*(#{2,}[[:space:]]*|-[[:space:]]+)?${label}:[[:space:]]*${pattern}[[:space:]]*$" \
-    | sed -nE "s/^[[:space:]]*(#{2,}[[:space:]]*|-[[:space:]]+)?${label}:[[:space:]]*(${pattern})[[:space:]]*$/\\2/p" \
-    | sort -u)
-  [[ -n "$values" && $(printf '%s\n' "$values" | wc -l) -eq 1 ]] || return 1
-  printf '%s\n' "$values"
-}
-
-require_phase_attestation() {
-  local phase=$1 artifact=$2 expected_diff expected_tree actual_diff actual_tree
-  case "$phase" in
-    11)
-      expected_diff=$SECURITY_DIFF_SHA
-      expected_tree=${SECURITY_TREE_SHA:-unavailable}
-      actual_diff=$(read_attestation "$artifact" scanned_diff_sha 2>/dev/null || true)
-      actual_tree=$(read_attestation "$artifact" scanned_tree_sha 2>/dev/null || true)
-      ;;
-    12)
-      expected_diff=$REVIEWED_DIFF_SHA
-      expected_tree=${REVIEWED_TREE_SHA:-unavailable}
-      actual_diff=$(read_attestation "$artifact" reviewed_diff_sha 2>/dev/null || true)
-      actual_tree=$(read_attestation "$artifact" reviewed_tree_sha 2>/dev/null || true)
-      ;;
-    *) return 0 ;;
-  esac
-  if [[ -z "$expected_diff" || "$actual_diff" != "$expected_diff" || "$actual_tree" != "$expected_tree" ]]; then
-    echo -e "${RED}Phase $phase did not attest the exact orchestrator-owned diff/tree. Halting.${NC}" >&2
-    log_result "$phase" "STALE"
-    exit 3
-  fi
-}
+# Attestation-by-echo was removed in M2: the orchestrator holds the reviewed
+# diff SHA and tree OID itself (remember_security_candidate /
+# remember_reviewed_candidate) and re-verifies the tree after every review, so
+# a reviewer retyping digests into markdown added no evidence and cost runs.
 
 # Persist a provider's final report as a replace or append operation. QA phases
 # share qa-report.md, so append mode is part of the orchestrator contract.
@@ -5132,7 +5156,7 @@ control_artifact_manifest_sha() {
       const root = path.resolve(process.argv[1]);
       const output = path.resolve(process.argv[2]);
       const entries = [];
-      const ephemeral = /\.(raw|err|last|report|verdict|schema\.json|scanned-diff-sha|scanned-tree-sha|reviewed-diff-sha|reviewed-tree-sha)$/;
+      const ephemeral = /\.(raw|err|last|report|verdict|findings\.json|schema\.json|scanned-diff-sha|scanned-tree-sha|reviewed-diff-sha|reviewed-tree-sha)$/;
       function ignored(full, relative) {
         if (full === output) return true;
         if (relative === "review.diff.sha" || relative === "review.tree.sha") return true;
@@ -5251,6 +5275,7 @@ record_usage() {
 
 enforce_run_budget() {
   local result_phase=$1
+  [[ -n "$MAX_RUN_BUDGET" ]] || return 0
   if [[ "$COST_ESTIMATE_AVAILABLE" == "true" ]] &&
      node -e 'process.exit((parseFloat(process.argv[1])||0) > (parseFloat(process.argv[2])||0) ? 0 : 1)' "$TOTAL_COST" "$MAX_RUN_BUDGET" 2>/dev/null; then
     echo -e "${RED}Run budget cap (\$${MAX_RUN_BUDGET}) exceeded — total \$${TOTAL_COST}. Halting.${NC}" >&2
@@ -5324,6 +5349,158 @@ claude_auth_preflight() {
   exit 1
 }
 
+model_fallback_for() {
+  case "$1" in
+    claude-fable-5-1) echo "claude-opus-5" ;;
+    claude-opus-5)    echo "claude-opus-4-8" ;;
+    claude-opus-4-8)  echo "claude-sonnet-5" ;;
+    *)                echo "" ;;
+  esac
+}
+
+# One cheap probe per distinct routed model (M2). A lane whose model this
+# account cannot use (not yet released to it, retention requirements, a typo
+# in --model-*) falls back along model_fallback_for() with a loud warning
+# instead of failing the first real phase after startup.
+claude_model_preflight() {
+  [[ "$PROVIDER" == "claude" ]] || return 0
+  [[ "$AUTH_PREFLIGHT_ENABLED" == "1" ]] || return 0
+  local -a env_overrides=(
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+    CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
+    CLAUDE_CODE_DISABLE_CRON=1
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+  )
+  local -a isolation_args=()
+  if [[ "$CLAUDE_BARE_MODE" == "true" ]]; then
+    isolation_args=(--bare)
+    env_overrides+=(CLAUDE_CODE_SIMPLE=1)
+  fi
+  local -a timeout_wrap=()
+  command -v timeout >/dev/null 2>&1 && timeout_wrap=(timeout --signal=TERM --kill-after=15s 120s)
+  # claude_auth_preflight already spent one probe on the fast lane.
+  local lane model probe rc verdict fallback checked_ok=" $MODEL_FAST " checked_bad=" "
+  for lane in MODEL_STRONG MODEL_FAST MODEL_REVIEW; do
+    model="${!lane}"
+    while [[ -n "$model" ]]; do
+      if [[ "$checked_ok" == *" $model "* ]]; then break; fi
+      if [[ "$checked_bad" != *" $model "* ]]; then
+        probe="$ARTIFACTS/model-preflight-${model//[^A-Za-z0-9._-]/_}.json"
+        rc=0
+        env -u CLAUDECODE "${env_overrides[@]}" "${timeout_wrap[@]}" \
+          claude "${isolation_args[@]}" -p --model "$model" --effort low \
+            --output-format json --max-budget-usd 0.25 \
+            --strict-mcp-config --tools "Read" --allowedTools "Read" \
+            --permission-mode dontAsk --setting-sources "" --no-session-persistence \
+            <<< "Reply with exactly: OK" > "$probe" 2>/dev/null || rc=$?
+        verdict=$(node -e '
+          try {
+            const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            if (d.is_error || d.terminal_reason === "api_error") {
+              process.stdout.write("ERROR: " + String(d.result || d.terminal_reason || "unknown").slice(0, 160));
+            } else { process.stdout.write("OK"); }
+          } catch { process.stdout.write("ERROR: no parseable CLI output"); }
+        ' "$probe" 2>/dev/null || echo "ERROR: probe could not run")
+        if [[ $rc -eq 0 && "$verdict" == "OK" ]]; then
+          checked_ok+="$model "
+          break
+        fi
+        checked_bad+="$model "
+        echo -e "  ${YELLOW}Model $model is not usable here (${verdict#ERROR: }).${NC}" >&2
+      fi
+      fallback=$(model_fallback_for "$model")
+      if [[ -z "$fallback" ]]; then
+        echo -e "${RED}Error: no usable model for the $lane lane (tried $model). Set --model-${lane#MODEL_}=<model>.${NC}" >&2
+        exit 1
+      fi
+      echo -e "  ${YELLOW}Falling back: ${lane#MODEL_} lane $model → $fallback${NC}" >&2
+      MODEL_FALLBACKS+="${lane#MODEL_}:$model>$fallback "
+      printf -v "$lane" '%s' "$fallback"
+      model="$fallback"
+    done
+  done
+  echo -e "  ${GREEN}✓ Models verified: strong=$MODEL_STRONG fast=$MODEL_FAST review=$MODEL_REVIEW (quality=$QUALITY)${NC}"
+}
+MODEL_FALLBACKS=""
+PLAN_LINT_NOTES=""
+VERIFY_COMMANDS_NOTE=""
+ROUTE_DOCS_CONVENTION="0"
+
+# The engineering standard every code-producing prompt carries (M2). Short on
+# purpose: it names the slop the corpus measures, nothing else.
+ENGINEERING_STANDARD="Engineering standard: make the smallest change that satisfies the criteria. Reuse the helpers and patterns pre-check found; add a dependency only if pre-check recommended USE_LIBRARY. No single-use abstractions, feature flags, or configuration for hypothetical needs. Comments, docstrings, and defensive checks only where the surrounding file already has them. Tests in the style of the repository's existing tests, placed where the existing test command already finds them. Never edit the package scripts the verification commands call. No debug output."
+
+# Repo-context pack (M2): one orchestrator-built file every phase reads first,
+# so five cold-start phases stop rediscovering the same repository and all of
+# them see the same conventions. Written once per run (resume keeps it).
+build_context_pack() {
+  local out="$ARTIFACTS/repo-context.md"
+  local build_cmd="none" typecheck_cmd="none" lint_cmd="none"
+  [[ ${#BUILD_COMMAND_ARGS[@]} -gt 0 ]] && build_cmd=$(command_display "${BUILD_COMMAND_ARGS[@]}")
+  [[ ${#TYPECHECK_COMMAND_ARGS[@]} -gt 0 ]] && typecheck_cmd=$(command_display "${TYPECHECK_COMMAND_ARGS[@]}")
+  [[ ${#LINT_COMMAND_ARGS[@]} -gt 0 ]] && lint_cmd=$(command_display "${LINT_COMMAND_ARGS[@]}")
+  VERIFY_COMMANDS_NOTE="test: ${TEST_COMMAND:-none detected}; typecheck: ${typecheck_cmd}; lint: ${lint_cmd}; build: ${build_cmd}"
+  # Does this repository document its routes? Phase 10's docs rule only fires
+  # when the answer is yes; otherwise adding swagger blocks is manufactured slop.
+  # (Command substitutions, not pipeline conditions: under pipefail a partial
+  # xargs/grep miss or a missing conventions file would mask a real hit.)
+  local documented_route conventions_file
+  documented_route=$(git ls-files 2>/dev/null | grep -E '\.(js|mjs|cjs|ts|tsx|py|go|rb|php)$' | head -400 |
+     xargs -r grep -lE '@(openapi|swagger)\b|openapi[[:space:]]*:|swagger[[:space:]]*:' 2>/dev/null | head -1)
+  if [[ -n "$documented_route" ]]; then
+    ROUTE_DOCS_CONVENTION="1"
+  else
+    for conventions_file in CLAUDE.md AGENTS.md CONTRIBUTING.md .claude/rules/*.md; do
+      # A stated convention counts even before the first documented route exists.
+      if [[ -f "$conventions_file" ]] && grep -qiE 'openapi|swagger' "$conventions_file" 2>/dev/null; then
+        ROUTE_DOCS_CONVENTION="1"; break
+      fi
+    done
+  fi
+  export PIPELINE_ROUTE_DOCS_CONVENTION="$ROUTE_DOCS_CONVENTION"
+  [[ -s "$out" ]] && return 0
+  {
+    echo "# Repository context (orchestrator-generated; read this first)"
+    echo
+    echo "## Task"; echo; echo "$TASK"; echo
+    echo "## Stack"; echo
+    echo "${PROJECT_TYPE:-unknown}${FRAMEWORK:+ ($FRAMEWORK)}; package manager: ${PACKAGE_MANAGER:-n/a}"; echo
+    echo "## Verification commands (frozen for this run; never edit the scripts they call)"; echo
+    echo "- test: ${TEST_COMMAND:-none detected}"
+    echo "- typecheck: $typecheck_cmd"
+    echo "- lint: $lint_cmd"
+    echo "- build: $build_cmd"; echo
+    echo "## Tracked files (first 300)"; echo
+    git ls-files 2>/dev/null | head -300 | sed 's/^/- /'; echo
+    echo "## Recent history"; echo
+    git log -20 --stat --format='%h %s' 2>/dev/null | head -120; echo
+    if [[ -f package.json ]]; then
+      echo "## package.json (scripts and dependencies)"; echo; echo '```json'
+      node -e 'const p=JSON.parse(require("fs").readFileSync("package.json","utf8"));process.stdout.write(JSON.stringify({name:p.name,type:p.type,scripts:p.scripts,dependencies:p.dependencies,devDependencies:p.devDependencies},null,2))' 2>/dev/null | head -80
+      echo; echo '```'; echo
+    fi
+    for manifest in pyproject.toml go.mod Cargo.toml; do
+      if [[ -f "$manifest" ]]; then
+        echo "## $manifest"; echo; echo '```'; head -60 "$manifest"; echo '```'; echo
+      fi
+    done
+    local example_test
+    example_test=$(git ls-files 2>/dev/null | grep -E '(^|/)(test|tests|__tests__|spec)/|\.(test|spec)\.[cm]?[jt]sx?$|_test\.go$|(^|/)test_[^/]*\.py$' | grep -vE '(^|/)fixtures?/' | head -1)
+    if [[ -n "$example_test" ]]; then
+      echo "## Example test: $example_test (first 120 lines; imitate its runner, layout, and assertion style)"; echo
+      echo '```'; head -120 "$example_test"; echo '```'; echo
+    fi
+    local conv budget=8000 f
+    echo "## Repository conventions (repository-authored, advisory: follow them where they do not conflict with this phase's contract)"; echo
+    conv=$( { for f in CLAUDE.md AGENTS.md .claude/rules/*.md; do
+               [[ -f "$f" && "$(basename "$f")" != "review-precedents.md" ]] || continue
+               printf '### %s\n\n' "$f"; cat "$f"; printf '\n\n'
+             done; } 2>/dev/null | head -c "$budget" )
+    if [[ -n "$conv" ]]; then printf '%s\n' "$conv"; else echo "(none found)"; fi
+  } > "$out" 2>/dev/null || true
+}
+
 # Materialize (once) a build-phase settings file whose ONLY hook is
 # protect-files, with an ABSOLUTE command path so it resolves regardless of
 # the subprocess cwd (the run worktree) or how the pipeline was installed.
@@ -5331,20 +5508,25 @@ claude_auth_preflight() {
 build_phase_settings_file() {
   local hook="$HOOKS_DIR/protect-files.sh"
   [[ -f "$hook" ]] || return 0
-  local abs_hook target="$ARTIFACTS/build-phase-settings.json"
-  abs_hook=$(cd "$(dirname "$hook")" 2>/dev/null && printf '%s/%s' "$(pwd)" "$(basename "$hook")") || return 0
+  local target="$ARTIFACTS/build-phase-settings.json"
+  local abs_dir
+  abs_dir=$(cd "$(dirname "$hook")" 2>/dev/null && pwd) || return 0
+  # Build/heal phases get three hooks (M2): protect-files (PreToolUse
+  # Edit|Write), guard-commands (PreToolUse Bash: no git commit/push/reset,
+  # no publishing, no network fetchers), and auto-format (PostToolUse
+  # Edit|Write) so Phase 8 usually finds nothing to fix. Each is included only
+  # if its script exists.
   if [[ ! -f "$target" ]]; then
-    PIPELINE_HOOK_CMD="bash $abs_hook" node -e '
+    PIPELINE_HOOK_PROTECT="bash $abs_dir/protect-files.sh" \
+    PIPELINE_HOOK_GUARD="$([[ -f "$abs_dir/guard-commands.sh" ]] && printf 'bash %s/guard-commands.sh' "$abs_dir")" \
+    PIPELINE_HOOK_FORMAT="$([[ -f "$abs_dir/auto-format.sh" ]] && printf 'bash %s/auto-format.sh' "$abs_dir")" \
+    node -e '
       const fs = require("fs");
-      fs.writeFileSync(process.argv[1], JSON.stringify({
-        hooks: {
-          PreToolUse: [
-            { matcher: "Edit|Write", hooks: [
-              { type: "command", command: process.env.PIPELINE_HOOK_CMD }
-            ] }
-          ]
-        }
-      }, null, 2) + "\n");
+      const pre = [{ matcher: "Edit|Write", hooks: [{ type: "command", command: process.env.PIPELINE_HOOK_PROTECT }] }];
+      if (process.env.PIPELINE_HOOK_GUARD) pre.push({ matcher: "Bash", hooks: [{ type: "command", command: process.env.PIPELINE_HOOK_GUARD }] });
+      const settings = { hooks: { PreToolUse: pre } };
+      if (process.env.PIPELINE_HOOK_FORMAT) settings.hooks.PostToolUse = [{ matcher: "Edit|Write", hooks: [{ type: "command", command: process.env.PIPELINE_HOOK_FORMAT }] }];
+      fs.writeFileSync(process.argv[1], JSON.stringify(settings, null, 2) + "\n");
     ' "$target" 2>/dev/null || return 0
   fi
   printf '%s' "$target"
@@ -5395,6 +5577,18 @@ run_claude() {
   local -a scope_args=()
   [[ -n "$RUN_WORKTREE" ]] && scope_args=(--add-dir "$ARTIFACTS")
 
+  # Permission rules: the tool set is $tools; reviewers additionally get the
+  # scoped Bash rules (read-only git, frozen checks, audits) instead of Bash.
+  local -a allow_rules=()
+  IFS=',' read -r -a allow_rules <<< "$tools"
+  case "$phase" in
+    3|11|12)
+      allow_rules=(Read Grep Glob)
+      local rule
+      while IFS= read -r rule; do [[ -n "$rule" ]] && allow_rules+=("$rule"); done < <(reviewer_bash_rules)
+      ;;
+  esac
+
   # Build/heal phases write files. Inject the protect-files PreToolUse hook so
   # a protected-path edit is blocked AT ATTEMPT TIME (exit 2, model
   # self-corrects) instead of surfacing three phases later as a non-waivable
@@ -5408,7 +5602,58 @@ run_claude() {
       ;;
   esac
 
-  echo -e "  ${DIM}Spawning claude -p (${model}, effort=${effort})...${NC}"
+  # Typed verdicts (M2): gating phases return {artifact, verdict[, findings]}
+  # as structured output. The markdown report in "artifact" stays the human
+  # record and the anchored parser remains the fallback whenever structured
+  # output is missing, so a schema hiccup can never fail open — it just costs
+  # the old parsing path. Stale sidecars from an earlier attempt are removed so
+  # a fallback can never be judged on a previous call's typed verdict.
+  local -a schema_args=()
+  local schema_file="$output_file.schema.json" schema_findings=0
+  rm -f "$output_file.verdict" "$output_file.findings.json" \
+        "$report_file.verdict" "$report_file.findings.json"
+  if [[ -n "$schema" ]]; then
+    case "$phase" in 3|12) schema_findings=1 ;; esac
+    if PIPELINE_SCHEMA_TOKENS="$schema" PIPELINE_SCHEMA_FINDINGS="$schema_findings" node -e '
+      const fs = require("fs");
+      const tokens = process.env.PIPELINE_SCHEMA_TOKENS.split("|");
+      const schema = {
+        type: "object",
+        properties: {
+          artifact: { type: "string", description: "The complete markdown report exactly as requested" },
+          verdict: { type: "string", enum: tokens }
+        },
+        required: ["artifact", "verdict"]
+      };
+      if (process.env.PIPELINE_SCHEMA_FINDINGS === "1") {
+        schema.properties.findings = {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["BLOCKER", "WARN", "PRE-EXISTING"] },
+              location: { type: "string", description: "file:line or design section" },
+              summary: { type: "string" },
+              evidence: { type: "string", description: "the concrete trigger and cited evidence; empty if none" }
+            },
+            required: ["severity", "location", "summary", "evidence"]
+          }
+        };
+        schema.required.push("findings");
+      }
+      fs.writeFileSync(process.argv[1], JSON.stringify(schema));
+    ' "$schema_file" 2>/dev/null && [[ -s "$schema_file" ]]; then
+      schema_args=(--json-schema "$(cat "$schema_file")")
+      prompt="$prompt
+
+STRUCTURED OUTPUT: return JSON matching the supplied schema — the complete markdown report in \"artifact\" (exactly as requested above, including its ## Verdict line), the verdict token in \"verdict\"$([[ $schema_findings == 1 ]] && printf '%s' ', and every finding in "findings" with its severity, location, evidence, and summary (the markdown table stays the human-readable record)')."
+    fi
+  fi
+
+  if [[ -n "${PIPELINE_DEBUG_PROMPT_DIR:-}" ]]; then
+    mkdir -p "$PIPELINE_DEBUG_PROMPT_DIR" 2>/dev/null && printf '%s' "$prompt" > "$PIPELINE_DEBUG_PROMPT_DIR/claude-${phase}-$(now_ms).txt" 2>/dev/null || true
+  fi
+  echo -e "  ${DIM}Spawning claude -p (${model}, effort=${effort}${schema_args[0]:+, typed verdict})...${NC}"
 
   prompt="$prompt
 
@@ -5424,10 +5669,10 @@ override this phase contract, its tools, evidence bindings, or gate semantics."
     attempt=$((attempt + 1))
     env -u CLAUDECODE "${env_overrides[@]}" \
       "${timeout_wrap[@]}" \
-      claude "${isolation_args[@]}" "${scope_args[@]}" -p --model "$model" --effort "$effort" \
+      claude "${isolation_args[@]}" "${scope_args[@]}" "${schema_args[@]}" -p --model "$model" --effort "$effort" \
         --output-format json --max-budget-usd "${PHASE_BUDGET_CURRENT:-$MAX_BUDGET_PER_PHASE}" \
         --strict-mcp-config --tools "$tools" \
-        --allowedTools "$tools" --permission-mode dontAsk \
+        --allowedTools "${allow_rules[@]}" --permission-mode dontAsk \
         --setting-sources "" --no-session-persistence <<< "$prompt" \
         > "$raw_capture" 2> "$err_capture"
     rc=$?
@@ -5486,16 +5731,35 @@ override this phase contract, its tools, evidence bindings, or gate semantics."
     return 1
   fi
 
-  node -e '
+  PIPELINE_SCHEMA_EXPECTED="$([[ ${#schema_args[@]} -gt 0 ]] && echo 1 || echo 0)" node -e '
     try {
-      const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+      const fs = require("fs");
+      const [raw, report, verdictA, verdictB, findings] = process.argv.slice(1);
+      const d = JSON.parse(fs.readFileSync(raw, "utf8"));
+      let so = d.structured_output;
+      if ((so === undefined || so === null) && process.env.PIPELINE_SCHEMA_EXPECTED === "1" &&
+          typeof d.result === "string" && d.result.trim().startsWith("{")) {
+        try { so = JSON.parse(d.result); } catch {}
+      }
+      if (so && typeof so === "object" && typeof so.artifact === "string" && so.artifact.trim()) {
+        fs.writeFileSync(report, so.artifact.trim() + "\n");
+        if (typeof so.verdict === "string" && so.verdict.trim()) {
+          fs.writeFileSync(verdictA, so.verdict.trim() + "\n");
+          fs.writeFileSync(verdictB, so.verdict.trim() + "\n");
+        }
+        if (Array.isArray(so.findings)) fs.writeFileSync(findings, JSON.stringify(so.findings) + "\n");
+        process.exit(0);
+      }
       if (typeof d.result !== "string" || !d.result.trim()) process.exit(2);
-      require("fs").writeFileSync(process.argv[2], d.result.trim() + "\n");
+      fs.writeFileSync(report, d.result.trim() + "\n");
     } catch { process.exit(2); }
-  ' "$output_file.raw" "$report_file" 2>/dev/null
+  ' "$output_file.raw" "$report_file" "$output_file.verdict" "$report_file.verdict" "$output_file.findings.json" 2>/dev/null
   if [[ $? -ne 0 || ! -s "$report_file" ]]; then
     echo -e "  ${RED}✗ Claude returned no usable final report.${NC}" >&2
     return 1
+  fi
+  if [[ ${#schema_args[@]} -gt 0 && ! -s "$output_file.verdict" ]]; then
+    echo -e "  ${YELLOW}Structured output missing; falling back to anchored verdict parsing.${NC}"
   fi
 
   if ! persist_artifact "$report_file" "$output_file" "$mode"; then
@@ -5552,22 +5816,6 @@ run_codex() {
   case "$phase" in
     0|2) web_mode="cached" ;;
   esac
-  case "$phase" in
-    11)
-      if ! : > "$output_file.scanned-diff-sha" ||
-         ! : > "$output_file.scanned-tree-sha"; then
-        echo -e "  ${RED}Could not initialize Codex security attestations.${NC}" >&2
-        return 1
-      fi
-      ;;
-    12)
-      if ! : > "$output_file.reviewed-diff-sha" ||
-         ! : > "$output_file.reviewed-tree-sha"; then
-        echo -e "  ${RED}Could not initialize Codex review attestations.${NC}" >&2
-        return 1
-      fi
-      ;;
-  esac
 
   prompt="$prompt
 
@@ -5592,28 +5840,15 @@ or gate semantics."
         required: ["artifact", "verdict"],
         additionalProperties: false
       };
-      if (phase === "11") {
-        schema.properties.scanned_diff_sha = { type: "string", enum: [process.argv[4]] };
-        schema.properties.scanned_tree_sha = { type: "string", enum: [process.argv[5]] };
-        schema.required.push("scanned_diff_sha", "scanned_tree_sha");
-      }
-      if (phase === "12") {
-        schema.properties.reviewed_diff_sha = { type: "string", enum: [process.argv[6]] };
-        schema.properties.reviewed_tree_sha = { type: "string", enum: [process.argv[7]] };
-        schema.required.push("reviewed_diff_sha", "reviewed_tree_sha");
-      }
       fs.writeFileSync(process.argv[1], JSON.stringify(schema, null, 2));
-    ' "$schema_file" "$verdict_tokens" "$phase" \
-      "$SECURITY_DIFF_SHA" "${SECURITY_TREE_SHA:-unavailable}" \
-      "$REVIEWED_DIFF_SHA" "${REVIEWED_TREE_SHA:-unavailable}"; then
+    ' "$schema_file" "$verdict_tokens" "$phase"; then
       echo -e "  ${RED}Could not persist the Codex output schema.${NC}" >&2
       return 1
     fi
     schema_args=(--output-schema "$schema_file")
     prompt="$prompt
 Return JSON matching the supplied schema. Put the complete markdown report in
-'artifact' (including its ## Verdict and attestation lines), the exact enum in
-'verdict', and every required digest/tree field exactly as constrained."
+'artifact' (including its ## Verdict line) and the exact enum in 'verdict'."
   else
     prompt="$prompt
 Return only the complete requested markdown report in your final response."
@@ -5630,6 +5865,9 @@ Return only the complete requested markdown report in your final response."
     timeout_wrap=(timeout --signal=TERM --kill-after=15s "${PROVIDER_TIMEOUT_SECONDS}s")
   fi
 
+  if [[ -n "${PIPELINE_DEBUG_PROMPT_DIR:-}" ]]; then
+    mkdir -p "$PIPELINE_DEBUG_PROMPT_DIR" 2>/dev/null && printf '%s' "$prompt" > "$PIPELINE_DEBUG_PROMPT_DIR/codex-${phase}-$(now_ms).txt" 2>/dev/null || true
+  fi
   echo -e "  ${DIM}Spawning codex exec (${model}, effort=${effort}, sandbox=${sandbox}${verdict_tokens:+, typed verdict})...${NC}"
   "${timeout_wrap[@]}" \
   codex exec --ephemeral --json --model "$model" --sandbox "$sandbox" \
@@ -5680,16 +5918,6 @@ Return only the complete requested markdown report in your final response."
         if (typeof d.artifact !== "string" || !d.artifact.trim()) process.exit(2);
         require("fs").writeFileSync(process.argv[2], d.artifact.trim() + "\n");
         require("fs").writeFileSync(process.argv[3], String(d.verdict || "").trim());
-        const phase = process.argv[4];
-        const base = process.argv[5];
-        if (phase === "11") {
-          require("fs").writeFileSync(`${base}.scanned-diff-sha`, String(d.scanned_diff_sha || "").trim());
-          require("fs").writeFileSync(`${base}.scanned-tree-sha`, String(d.scanned_tree_sha || "").trim());
-        }
-        if (phase === "12") {
-          require("fs").writeFileSync(`${base}.reviewed-diff-sha`, String(d.reviewed_diff_sha || "").trim());
-          require("fs").writeFileSync(`${base}.reviewed-tree-sha`, String(d.reviewed_tree_sha || "").trim());
-        }
       } catch { process.exit(2); }
     ' "$last_file" "$report_file" "$output_file.verdict" "$phase" "$output_file" 2>/dev/null
     if [[ $? -ne 0 ]]; then
@@ -5736,8 +5964,8 @@ run_model() {
     ' "$PHASE_BUDGET_CURRENT" 2>/dev/null || true)
     [[ -n "$next_cap" ]] || break
     # Feasible only if what we have already spent plus a full extended attempt
-    # still fits under the run cap.
-    if ! node -e '
+    # still fits under the run cap (an uncapped run always has headroom).
+    if [[ -n "$MAX_RUN_BUDGET" ]] && ! node -e '
       const spent = parseFloat(process.argv[1]) || 0;
       const next = parseFloat(process.argv[2]) || 0;
       const cap = parseFloat(process.argv[3]) || 0;
@@ -5747,7 +5975,7 @@ run_model() {
       break
     fi
     extensions=$((extensions + 1))
-    echo -e "  ${YELLOW}Phase hit its \$${PHASE_BUDGET_CURRENT} cap — extending to \$${next_cap} within the \$${MAX_RUN_BUDGET} run cap (extension ${extensions}/${MAX_BUDGET_EXTENSIONS}).${NC}"
+    echo -e "  ${YELLOW}Phase hit its \$${PHASE_BUDGET_CURRENT} cap — extending to \$${next_cap} within the ${MAX_RUN_BUDGET:+\$}${MAX_RUN_BUDGET:-uncapped} run cap (extension ${extensions}/${MAX_BUDGET_EXTENSIONS}).${NC}"
     local extension_payload
     extension_payload=$(node -e '
       process.stdout.write(JSON.stringify({
@@ -6106,6 +6334,29 @@ critique_has_blockers() {
   [[ "$(count_gating_blockers "$1")" -gt 0 ]]
 }
 
+# One line per BLOCKER finding. With a typed findings sidecar (structured
+# output) each line is "BLOCKER<TAB>location<TAB>evidence<TAB>summary";
+# otherwise it is the raw markdown table row (severity cell normalized so
+# bold/backtick/emoji emphasis cannot hide a BLOCKER from the gate).
+blocker_rows() {
+  local artifact=$1
+  if [[ -s "$artifact.findings.json" ]]; then
+    node -e '
+      try {
+        const rows = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        if (!Array.isArray(rows)) process.exit(3);
+        const clean = v => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim();
+        for (const f of rows) {
+          if (String(f.severity || "").toUpperCase() !== "BLOCKER") continue;
+          process.stdout.write(["BLOCKER", clean(f.location), clean(f.evidence), clean(f.summary)].join("\t") + "\n");
+        }
+      } catch { process.exit(3); }
+    ' "$artifact.findings.json" 2>/dev/null && return 0
+  fi
+  sed -E 's/\|[[:space:]]*[*_`]*[[:space:]]*(:[a-z_]+:|[^ -~])*[[:space:]]*(BLOCKER|blocker|Blocker)[[:space:]]*[*_`]*[[:space:]]*(:[a-z_]+:|[^ -~])*[[:space:]]*\|/| BLOCKER |/g' "$artifact" 2>/dev/null |
+    grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|'
+}
+
 count_gating_blockers() {
   local artifact=$1
   local mode="evidence"
@@ -6124,6 +6375,30 @@ count_gating_blockers() {
   fi
   while IFS= read -r row; do
     if [[ -s "$refuted" ]] && grep -Fxq -- "$row" "$refuted" 2>/dev/null; then
+      continue
+    fi
+    if [[ "$row" == *$'\t'* ]]; then
+      # Typed finding: BLOCKER \t location \t evidence \t summary.
+      local t_location t_evidence
+      t_location=$(printf '%s' "$row" | cut -f2)
+      t_evidence=$(printf '%s' "$row" | cut -f3)
+      case "$mode" in
+        evidence)
+          case "$t_evidence" in ""|"-"|"—"|"–"|"N/A"|"n/a"|"none"|"None") continue ;; esac
+          ;;
+        diff)
+          if [[ ${#diff_paths[@]} -gt 0 ]]; then
+            matched=false
+            for p in "${diff_paths[@]}"; do
+              if [[ "$t_location" == *"$p"* || "$p" == *"$(basename "$t_location" | cut -d: -f1)"* ]]; then
+                matched=true; break
+              fi
+            done
+            [[ "$matched" == "true" ]] || continue
+          fi
+          ;;
+      esac
+      count=$((count + 1))
       continue
     fi
     case "$mode" in
@@ -6157,7 +6432,7 @@ count_gating_blockers() {
         count=$((count + 1))
         ;;
     esac
-  done < <(grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$artifact" 2>/dev/null)
+  done < <(blocker_rows "$artifact")
   printf '%s\n' "$count"
 }
 
@@ -6179,7 +6454,7 @@ refute_blockers() {
   local row
   while IFS= read -r row; do
     rows+=("$row")
-  done < <(grep -E '\|[[:space:]]*BLOCKER[[:space:]]*\|' "$artifact" 2>/dev/null | head -3)
+  done < <(blocker_rows "$artifact" | head -5)
   [[ ${#rows[@]} -gt 0 ]] || return 0
   local index=0 verdict rc
   for row in "${rows[@]}"; do
@@ -6195,8 +6470,10 @@ Return markdown with:
 ## Verdict: [CONFIRMED | REFUTED]
 ## Reason (2-3 sentences citing the evidence)"
     rc=0
+    local refute_route
+    refute_route=$(phase_routing "$phase")
     run_model "$refute_prompt" "$ARTIFACTS/refute-phase${phase}-${index}.md" \
-      "$MODEL_FAST" "medium" "" "Read,Grep,Glob" "replace" "$phase" "REFUTE" || rc=$?
+      "${refute_route%%|*}" "$(clamp_effort high)" "" "$(phase_tools "$phase")" "replace" "$phase" "REFUTE" || rc=$?
     if [[ $rc -ne 0 ]]; then
       echo -e "  ${YELLOW}Refuter call failed (exit $rc); finding stays CONFIRMED.${NC}"
       continue
@@ -6393,17 +6670,6 @@ validate_phase_11() {
       ;;
   esac
 
-  local scanned_diff scanned_tree expected_tree
-  scanned_diff=$(read_attestation "$file" "scanned_diff_sha")
-  scanned_tree=$(read_attestation "$file" "scanned_tree_sha")
-  expected_tree=${SECURITY_TREE_SHA:-unavailable}
-  if [[ "$scanned_diff" == "$SECURITY_DIFF_SHA" && "$scanned_tree" == "$expected_tree" ]]; then
-    log_pass "security_attestation (exact diff/tree)"
-  else
-    log_fail "HARD" "security_attestation — scanned digest/tree does not match the orchestrator snapshot"
-    ((hard++))
-  fi
-
   GATE_HARD=$hard
   GATE_SOFT=$soft
 }
@@ -6440,17 +6706,6 @@ validate_phase_12() {
       ((hard++))
       ;;
   esac
-
-  local reviewed_diff reviewed_tree expected_tree
-  reviewed_diff=$(read_attestation "$file" "reviewed_diff_sha")
-  reviewed_tree=$(read_attestation "$file" "reviewed_tree_sha")
-  expected_tree=${REVIEWED_TREE_SHA:-unavailable}
-  if [[ "$reviewed_diff" == "$REVIEWED_DIFF_SHA" && "$reviewed_tree" == "$expected_tree" ]]; then
-    log_pass "review_attestation (exact diff/tree)"
-  else
-    log_fail "HARD" "review_attestation — reviewer did not echo the exact digest/tree"
-    ((hard++))
-  fi
 
   GATE_HARD=$hard
   GATE_SOFT=$soft
@@ -6602,7 +6857,7 @@ $(grep -E '^- ' "$precedents_file")"
     0)
       prompt="You are the Pre-Check Agent. Your task: $TASK
 
-Search the codebase for existing implementations related to this task. Check the package manifest for relevant installed libraries. Search the web for up to 3 external options.
+Search the codebase for existing implementations related to this task. Check the package manifest for relevant installed libraries. Search the web (up to 3 external options) only when the task names an external library, API, or service, or when nothing relevant exists in the repository; for ordinary changes to existing code, skip the web.
 
 Return a markdown report with these sections:
 - ## Codebase Matches (table: Type | Path | Relevance)
@@ -6631,9 +6886,9 @@ against stated assumptions instead of halting. Output NEEDS_INPUT only when no
 reasonable assumption exists (the task is contradictory or unintelligible)."
       ;;
     2)
-      prompt="You are the Architect Agent. Read $ARTIFACTS/brief.md and create a technical design from those requirements.
+      prompt="You are the Architect Agent. Read $ARTIFACTS/pre-check.md (the reuse recommendation) and $ARTIFACTS/brief.md, and create a technical design from those requirements.
 
-Research live documentation for relevant libraries/APIs. Analyze existing codebase patterns. Make design decisions — each must cite live docs OR existing codebase patterns.
+Analyze existing codebase patterns first; research live documentation only for external libraries or APIs the design depends on. Make design decisions — each must cite existing codebase patterns (file:line) or, for external APIs, live docs. A trivial change needs one decision, not six; do not invent components the change does not need.
 
 Return a markdown report with:
 ## Decisions (max 6, each: **{choice}** — {rationale} — Source: {URL or file:line})
@@ -6647,7 +6902,7 @@ report: NEEDS_RESEARCH: {what is missing}. Do not use the token NEEDS_RESEARCH
 anywhere else in the report."
       ;;
     3)
-      prompt="You are the Adversarial Review Agent. Read $ARTIFACTS/design.md and critique it from 3 angles: Architect (scalability/coupling), Skeptic (edge cases/security), Implementer (types/testability).
+      prompt="You are the Adversarial Review Agent. Read $ARTIFACTS/brief.md (the Success Criteria) and $ARTIFACTS/design.md and critique the design from 3 angles: Architect (scalability/coupling), Skeptic (edge cases/security), Implementer (types/testability). You may run read-only git commands and the frozen test command to check a claim against the real code.
 
 Task risk class: ${TASK_RISK_CLASS:-NORMAL}. For NORMAL risk, apply the bar of a competent teammate reviewing a routine PR: object only to defects that would make the built feature wrong, unsafe, or unbuildable. For HIGH risk (auth, payments, destructive migrations), apply maximum scrutiny.
 
@@ -6667,7 +6922,7 @@ Return a markdown report with:
 Verdict rule: REVISE_DESIGN only when at least one BLOCKER is raised by 2+ angles, or by one angle WITH a complete concrete failing scenario. If every issue is WARN or PRE-EXISTING, the verdict MUST be APPROVED.${PRECEDENTS_CONTEXT}"
       ;;
     4)
-      prompt="You are the Planning Agent. Read $ARTIFACTS/design.md and convert it into implementation steps.
+      prompt="You are the Planning Agent. Read $ARTIFACTS/brief.md (the Success Criteria), $ARTIFACTS/design.md, and $ARTIFACTS/critique.md (risks already accepted or fixed), then convert the design into implementation steps.
 
 Plan at INTENT level, not exact text: the Builder edits the live files, so a
 plan that pastes replacement code goes stale the moment anything shifts.
@@ -6689,7 +6944,9 @@ Max 15 steps (prefer fewer; a multi-file consolidation may legitimately need
 more than a toy change). All MODIFY paths must exist on disk; anchors are
 verified mechanically against the working tree before the build starts.${TEST_COMMAND:+
 
-Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}"
+Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}
+
+${ENGINEERING_STANDARD}"
       ;;
     5)
       prompt="You are the Drift Detection Agent. Read $ARTIFACTS/design.md and $ARTIFACTS/plan.md. Verify that the plan covers every design requirement and adds no unrequested scope.
@@ -6702,13 +6959,20 @@ Return a markdown report with:
 ## Summary (Requirements: N, Covered: N, Missing: N, Coverage: N%)"
       ;;
     6)
-      prompt="You are the Builder Agent. Read $ARTIFACTS/plan.md and execute it step by step.
+      prompt="You are the Builder Agent. Read $ARTIFACTS/plan.md and $ARTIFACTS/brief.md (the Success Criteria), then execute the plan step by step.
 
 For each step: read the LIVE file, locate the step's Anchor, and implement the
 step's Intent against the code as it exists right now — the plan describes
 intent, not exact replacement text. Match the file's existing conventions.
 Stay strictly within each step's stated scope: no refactoring untouched code,
-no unrequested changes. Run available tests as you go.
+no unrequested changes. Verify as you go with the frozen commands
+(${VERIFY_COMMANDS_NOTE}). Before returning, run git diff and re-read your own
+change against the engineering standard below; remove anything that violates it.${PLAN_LINT_NOTES:+
+
+Plan lint notes (the plan addressing could not be fully verified; resolve these against the live tree, do not guess):
+$PLAN_LINT_NOTES}
+
+${ENGINEERING_STANDARD}
 
 Return a markdown report with:
 ## Verdict: [SUCCESS | PARTIAL | FAILED]
@@ -6744,12 +7008,9 @@ Check API route docs (required), public function docs (recommended), and type do
     11)
       prompt="You are the Security Agent. Read $ARTIFACTS/build-report.md, the orchestrator-owned scanner evidence at ${SECURITY_SCANNER_EVIDENCE:-$ARTIFACTS/security-scanners.json}, and the exact run diff at $ARTIFACTS/review.diff. Scan only changed attack surfaces.
 
-The orchestrator bound this input to:
-- Diff SHA-256: ${SECURITY_DIFF_SHA}
-- Candidate tree OID: ${SECURITY_TREE_SHA:-unavailable}
-- Deterministic scanner result: ${SECURITY_SCANNER_RESULT:-unavailable}
+The orchestrator captured that diff itself and verifies the tree is unchanged after your review, so do not restate digests. Deterministic scanner result: ${SECURITY_SCANNER_RESULT:-unavailable}.
 
-Deterministic scanner findings are non-waivable. Check injection, XSS, authentication/authorization, secrets, SSRF, path traversal, insecure deserialization, cryptography misuse, and vulnerable dependency changes. Cite file and line evidence; do not infer safety from the build report.
+You may run read-only git commands, the frozen test command, and a dependency audit (npm audit, pip-audit, cargo audit, govulncheck) to verify a claim. Deterministic scanner findings are non-waivable. Check injection, XSS, authentication/authorization, secrets, SSRF, path traversal, insecure deserialization, cryptography misuse, and vulnerable dependency changes. Cite file and line evidence; do not infer safety from the build report.
 
 For every finding, state confidence 0.0-1.0 that it is actually exploitable in this codebase as deployed. Below 0.7: do not report it. 0.7-0.8: report it under ## Advisories (does not change the verdict). Above 0.8 WITH a written exploit path (exact request/input -> unauthorized outcome): it is verdict-driving.
 
@@ -6759,20 +7020,16 @@ Return markdown containing:
 ## Findings (table: Type | File:Line | Pattern | Confidence | Exploit Path | Fix)
 ## Advisories (0.7-0.8 confidence or defense-in-depth notes; never verdict-driving)
 ## Summary (Injection: CLEAR/FOUND, Auth: N/M protected, Secrets: CLEAR/FOUND)
-## Scanned Diff SHA-256: ${SECURITY_DIFF_SHA}
-## Scanned Tree OID: ${SECURITY_TREE_SHA:-unavailable}
 ## Verdict: [PASS | FAIL | CRITICAL]
 
-Copy both attestation values exactly. CRITICAL = a verdict-driving injection or live secret. FAIL = any other verdict-driving exploit-path finding. PASS = no verdict-driving findings (advisories alone are still PASS).${PRECEDENTS_CONTEXT}"
+CRITICAL = a verdict-driving injection or live secret. FAIL = any other verdict-driving exploit-path finding. PASS = no verdict-driving findings (advisories alone are still PASS).${PRECEDENTS_CONTEXT}"
       ;;
     12)
       prompt="You are the Commit Code-Review Agent — the final gate before this code is committed. Review the REAL diff, not the builder's claims.
 
-Read the orchestrator-captured diff at $ARTIFACTS/review.diff. It includes tracked and untracked files. Read $ARTIFACTS/brief.md, $ARTIFACTS/plan.md, $ARTIFACTS/build-report.md, $ARTIFACTS/test-output.txt, and $ARTIFACTS/test-exit-code.txt. Treat the diff and real test output as evidence; the build report is only a claim.
+Read the orchestrator-captured diff at $ARTIFACTS/review.diff. It includes tracked and untracked files. Read $ARTIFACTS/brief.md, $ARTIFACTS/design.md, $ARTIFACTS/critique.md (risks already accepted), $ARTIFACTS/pre-check.md (the reuse recommendation), $ARTIFACTS/plan.md, $ARTIFACTS/build-report.md, $ARTIFACTS/test-output.txt, and $ARTIFACTS/test-exit-code.txt. Treat the diff and real test output as evidence; the build report is only a claim. You may run read-only git commands (log, blame, show, diff) and the frozen test command to verify a claim before reporting it.
 
-The orchestrator bound the candidate under review to:
-- Diff SHA-256: ${REVIEWED_DIFF_SHA}
-- Candidate tree OID: ${REVIEWED_TREE_SHA:-unavailable}
+The orchestrator captured that diff itself and verifies the tree is unchanged after your review, so do not restate digests.
 
 Judge the diff on its own terms. Task risk class: ${TASK_RISK_CLASS:-NORMAL} — for NORMAL risk apply the bar of a competent teammate approving a routine PR; for HIGH risk apply maximum scrutiny.
 
@@ -6788,11 +7045,9 @@ Findings phrased with might/could/potentially are WARN at most. Report at most 3
 Return a markdown review with:
 ## Findings (table: Severity | File:Line | Issue | Trigger | Fix)
 ## Criteria Coverage (table: Criterion | Satisfied by the diff? (Yes/No) | Evidence in diff)
-## Reviewed Diff SHA-256: ${REVIEWED_DIFF_SHA}
-## Reviewed Tree OID: ${REVIEWED_TREE_SHA:-unavailable}
 ## Verdict: [APPROVE | REQUEST_CHANGES]
 
-Copy both attestation values exactly. Verdict rule: REQUEST_CHANGES only when at least one BLOCKER meets the full evidence contract, or a success criterion is genuinely unsatisfied by the diff. If every finding is WARN or PRE-EXISTING, the verdict MUST be APPROVE — nits alone can never withhold approval.${PRECEDENTS_CONTEXT}"
+Verdict rule: REQUEST_CHANGES only when at least one BLOCKER meets the full evidence contract, or a success criterion is genuinely unsatisfied by the diff. If every finding is WARN or PRE-EXISTING, the verdict MUST be APPROVE — nits alone can never withhold approval.${PRECEDENTS_CONTEXT}"
       ;;
     collapsed-plan)
       prompt="You are the Unified Plan Agent. Your task: $TASK
@@ -6832,7 +7087,9 @@ Then for each step:
 **Test:** {input} -> {expected observable output}
 Max 15 steps. All MODIFY paths must exist on disk; anchors are verified mechanically before the build starts.${TEST_COMMAND:+
 
-Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}"
+Acceptance-first: this project has a real test command. Your EARLIEST steps must author acceptance tests derived from the Success Criteria — tests that FAIL before implementation and pass after it. Later steps make them green. Phase 9 gates on the real test exit code, so these tests are what proves the task is actually done.}
+
+${ENGINEERING_STANDARD}"
       ;;
   esac
 
@@ -6955,7 +7212,6 @@ run_phase() {
 
   # Abort the whole run if cumulative spend has crossed the run cap.
   enforce_run_budget "$phase"
-  require_phase_attestation "$phase" "$ARTIFACTS/$artifact"
 
   # Recoverable semantic verdicts must reach their bounded recovery handlers
   # before a HARD/paranoid gate can exit the headless process. Malformed or
@@ -7128,13 +7384,47 @@ Fix ONLY the addressing problems: correct the paths, re-derive each anchor from 
   enforce_run_budget 4
   run_gate 4
   if ! lint_plan "$ARTIFACTS/plan.md"; then
-    echo -e "${RED}  Plan still fails the lint after recovery:${NC}" >&2
+    # M2: a plan whose addressing is still off after one re-plan is no longer a
+    # hard halt. The builder edits live files and verify-inside-build, Phase 9,
+    # and release verification are the real gates; halting here threw away a
+    # run over an anchor the model put in the wrong file (seen twice in the
+    # corpus baseline). The findings, with where the anchor actually occurs,
+    # travel into the Build prompt instead.
+    echo -e "${YELLOW}  Plan still fails the lint after recovery; continuing with the findings attached to the build prompt:${NC}" >&2
     printf '%s' "$PLAN_LINT_ERRORS" | sed 's/^/    - /' >&2
-    log_result 4 "PAUSE"
-    pause_for_human 4
+    PLAN_LINT_NOTES=$(plan_lint_hints)
+    PHASE_WARNINGS+=("Phase 4: plan lint unresolved after recovery — findings attached to the Build prompt")
+    log_result 4 "WARN"
   else
     echo -e "  ${GREEN}✓ Plan lint clean after recovery${NC}"
   fi
+}
+
+# Turn lint errors into actionable notes: where an anchor actually occurs, or
+# which tracked file shares a missing path's basename.
+plan_lint_hints() {
+  local line anchor file path hits
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    case "$line" in
+      "anchor not found in "*)
+        file=${line#anchor not found in }; file=${file%%:*}
+        anchor=${line#*: }
+        hits=$(git grep -lF -- "$anchor" 2>/dev/null | head -3 | tr '\n' ' ')
+        if [[ -n "$hits" ]]; then
+          printf -- '- anchor `%s` is not in %s; it occurs in: %s\n' "$anchor" "$file" "$hits"
+        else
+          printf -- '- anchor `%s` was not found in %s or anywhere in the tree; locate the change site by reading the file\n' "$anchor" "$file"
+        fi
+        ;;
+      "MODIFY path does not exist on disk: "*)
+        path=${line#MODIFY path does not exist on disk: }
+        hits=$(git ls-files 2>/dev/null | grep -F -- "$(basename "$path")" | head -3 | tr '\n' ' ')
+        printf -- '- %s does not exist%s\n' "$path" "${hits:+; similar tracked files: $hits}"
+        ;;
+      *) printf -- '- %s\n' "$line" ;;
+    esac
+  done <<< "$PLAN_LINT_ERRORS"
 }
 
 handle_phase_5_retry() {
@@ -7199,7 +7489,7 @@ build_verify_fix_loop() {
         "${TEST_COMMAND_ARGS[@]}" || check_rc=$?
       if [[ $check_rc -ne 0 ]]; then
         failures+="TEST FAILED (exit $check_rc) — output tail:"$'\n'
-        failures+="$(tail -c 3000 "$ARTIFACTS/build-verify-$((attempt + 1))-test.txt" 2>/dev/null)"$'\n\n'
+        failures+="$(tail -c 20000 "$ARTIFACTS/build-verify-$((attempt + 1))-test.txt" 2>/dev/null)"$'\n\n'
       fi
     fi
     if [[ ${#TYPECHECK_COMMAND_ARGS[@]} -gt 0 ]]; then
@@ -7208,7 +7498,7 @@ build_verify_fix_loop() {
         "${TYPECHECK_COMMAND_ARGS[@]}" || check_rc=$?
       if [[ $check_rc -ne 0 ]]; then
         failures+="TYPECHECK FAILED (exit $check_rc) — output tail:"$'\n'
-        failures+="$(tail -c 3000 "$ARTIFACTS/build-verify-$((attempt + 1))-typecheck.txt" 2>/dev/null)"$'\n\n'
+        failures+="$(tail -c 20000 "$ARTIFACTS/build-verify-$((attempt + 1))-typecheck.txt" 2>/dev/null)"$'\n\n'
       fi
     fi
 
@@ -7233,9 +7523,11 @@ build_verify_fix_loop() {
     attempt=$((attempt + 1))
     echo -e "  ${YELLOW}Build verification failing — in-phase fix attempt $attempt/$max_attempts...${NC}"
 
-    local fix_prompt="You are the Builder Agent. Your build just failed its verification checks. Read $ARTIFACTS/plan.md for context. Fix the failures below in the working tree — smallest correct change, no unrelated edits, never weaken or delete tests merely to make them pass.
+    local fix_prompt="You are the Builder Agent. Your build just failed its verification checks. Read $ARTIFACTS/plan.md and $ARTIFACTS/brief.md for context. Fix the failures below in the working tree — smallest correct change, no unrelated edits, never weaken or delete tests merely to make them pass. Re-run the frozen commands (${VERIFY_COMMANDS_NOTE}) before returning.
 
 $failures
+${ENGINEERING_STANDARD}
+
 Return a concise markdown summary of the exact fixes."
     fix_rc=0
     select_phase_route "6" "RECOVERY" || return 0
@@ -7710,6 +8002,7 @@ publish_run_branch() {
 
 # Fail-fast spawn probe before anything durable happens (see the function).
 claude_auth_preflight
+claude_model_preflight
 
 # Detect trusted verification descriptors up front (refreshed again after writes).
 detect_verification_commands
@@ -7738,6 +8031,13 @@ if [[ -f "$HOOKS_DIR/detect-project.sh" ]]; then
     fi
   fi
 fi
+
+# Every phase prompt opens with the task and the repo-context pack (M2).
+build_context_pack
+PROJECT_CONTEXT="Task under work: $TASK
+Repository context: read $ARTIFACTS/repo-context.md first — it carries the frozen verification commands (${VERIFY_COMMANDS_NOTE}), the repository layout, recent history, an example test, and the repository's own conventions.${PROJECT_TYPE:+ This is a ${PROJECT_TYPE}${FRAMEWORK:+ (${FRAMEWORK})} project — match its existing conventions, imports, and file layout.}
+
+"
 
 freeze_verification_plan
 initialize_routing_policy || {
@@ -8017,7 +8317,11 @@ elif command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev
     record_recovery_dispatched "12" "CODE_REVIEW_HEAL" "$heals" || exit 1
     echo -e "${YELLOW}  Code-review REQUEST_CHANGES — auto-heal $heals/$MAX_CODE_REVIEW_HEALS: applying findings...${NC}"
 
-    heal_prompt="You are the Build/Fix Agent. Read $ARTIFACTS/code-review.md and $ARTIFACTS/brief.md. Apply every requested change directly to the current working tree. Preserve all success criteria, do not touch unrelated work, and never weaken or delete tests merely to make them pass. Return a concise markdown summary of the exact fixes."
+    heal_prompt="You are the Build/Fix Agent. Read $ARTIFACTS/code-review.md (the findings to fix), $ARTIFACTS/brief.md, $ARTIFACTS/plan.md, the reviewed diff at $ARTIFACTS/review.diff, and the real test output at $ARTIFACTS/test-output.txt. Apply every requested change directly to the current working tree. Preserve all success criteria, do not touch unrelated work, and never weaken or delete tests merely to make them pass. Verify with the frozen commands (${VERIFY_COMMANDS_NOTE}) before returning.
+
+${ENGINEERING_STANDARD}
+
+Return a concise markdown summary of the exact fixes."
 
     heal_rc=0
     select_phase_route "6" "HEAL" || exit 1
@@ -8069,7 +8373,6 @@ elif command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev
     fi
     # Approval is useful only for the exact current evidence chain. These
     # invariants also run in review-only mode; --no-commit is not --no-verify.
-    require_phase_attestation 12 "$ARTIFACTS/code-review.md"
     if [[ "$SECURITY_APPROVED" != "true" ]]; then
       echo -e "${RED}Refusing completion: the exact candidate lacks a non-overridden security PASS.${NC}" >&2
       log_result 12 "STALE"
@@ -8150,7 +8453,7 @@ done
 echo ""
 echo -e "  Validators: ${GREEN}$TOTAL_PASS passed${NC}, ${RED}$TOTAL_FAIL failed${NC}"
 if [[ "$COST_ESTIMATE_AVAILABLE" == "true" ]]; then
-  echo -e "  Cost:       ${CYAN}\$${TOTAL_COST}${NC} (${COST_KIND}; per-phase cap \$${MAX_BUDGET_PER_PHASE}, run cap \$${MAX_RUN_BUDGET})"
+  echo -e "  Cost:       ${CYAN}\$${TOTAL_COST}${NC} (${COST_KIND}; per-phase cap \$${MAX_BUDGET_PER_PHASE}, run cap ${MAX_RUN_BUDGET:+\$}${MAX_RUN_BUDGET:-uncapped})"
 else
   echo -e "  Cost:       ${YELLOW}partial/unavailable for an overridden model${NC}"
 fi

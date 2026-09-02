@@ -22,6 +22,9 @@ node evals/run-corpus.mts --dry-run
 # Everything, current bash engine, Claude, standard profile, $20 cap per task
 node evals/run-corpus.mts --provider=claude --profile=standard --max-run-budget-usd=20
 
+# The money-no-object setting the roadmap is judged at (quality presets: max|balanced|cheap)
+node evals/run-corpus.mts --provider=claude --profile=standard --quality=max --max-run-budget-usd=40
+
 # One task, keep the working directory for inspection
 node evals/run-corpus.mts --only=express-version-endpoint --keep
 

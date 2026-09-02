@@ -1,5 +1,0 @@
-status=expected
-gate=hard=1 soft=0
-log_match=HARD:security_attestation
-note=A diff digest one character off from the orchestrator snapshot is rejected (fail-closed, correct).
-source=synthetic

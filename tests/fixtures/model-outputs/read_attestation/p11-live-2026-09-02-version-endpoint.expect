@@ -1,6 +1,0 @@
-status=expected
-field=scanned_diff_sha
-artifact=qa-report.md
-attestation=9b1f4e7a2c8d5b3e6f0a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
-note=Captured from a real run (2026-09-02-version-endpoint). The recorded value is what the parser returned at capture time: review it, and flip to xfail with want_after_fix= if it is wrong.
-source=live
