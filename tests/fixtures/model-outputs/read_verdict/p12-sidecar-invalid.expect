@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=A .verdict sidecar holding a non-token value is ignored and the markdown fallback is used.
+source=synthetic

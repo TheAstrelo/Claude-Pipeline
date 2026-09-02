@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=1
+note=Backticks around the citation do not break the substring match.
+source=synthetic

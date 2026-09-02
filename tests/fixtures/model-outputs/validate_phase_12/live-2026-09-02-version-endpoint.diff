@@ -1,0 +1,80 @@
+diff --git a/src/index.js b/src/index.js
+index 63481e0e311ab6bb8fa47ce42171374247cc359f..f1de89096f98d6504c4f71ceeb4e06b737968bcd 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -2,6 +2,7 @@ const express = require("express");
+ const logger = require("./middleware/logger");
+ const healthRoutes = require("./routes/health");
+ const itemRoutes = require("./routes/items");
++const versionRoutes = require("./routes/version");
+ 
+ const app = express();
+ const PORT = process.env.PORT || 3000;
+@@ -11,6 +12,7 @@ app.use(logger);
+ 
+ app.use("/api/health", healthRoutes);
+ app.use("/api/items", itemRoutes);
++app.use("/api/version", versionRoutes);
+ 
+ if (require.main === module) {
+   app.listen(PORT, () => {
+diff --git a/src/routes/version.js b/src/routes/version.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..3829668bb3696db14692d7940584f40cd870fa3f
+--- /dev/null
++++ b/src/routes/version.js
+@@ -0,0 +1,13 @@
++const { Router } = require('express');
++const router = Router();
++const { version } = require('../../package.json');
++
++/**
++ * @route GET /api/version
++ * @returns {object} Current application version
++ */
++router.get('/', (req, res) => {
++  res.json({ version });
++});
++
++module.exports = router;
+diff --git a/src/routes/version.test.js b/src/routes/version.test.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bf834d3add6a1ebfce1dbf744b28a5348ea4df3
+--- /dev/null
++++ b/src/routes/version.test.js
+@@ -0,0 +1,35 @@
++const { test } = require('node:test');
++const assert = require('node:assert');
++const http = require('node:http');
++const app = require('../index');
++
++function get(port, path) {
++  return new Promise((resolve, reject) => {
++    const request = http.get({ host: '127.0.0.1', port, path }, (res) => {
++      let data = '';
++      res.on('data', (chunk) => (data += chunk));
++      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
++    });
++    request.on('error', reject);
++    request.setTimeout(5000, () => request.destroy(new Error('request timed out')));
++  });
++}
++
++async function withServer(fn) {
++  const server = app.listen(0);
++  try {
++    await fn(server.address().port);
++  } finally {
++    server.closeAllConnections();
++    await new Promise((resolve) => server.close(resolve));
++  }
++}
++
++test('GET /api/version reports the package version', async () => {
++  await withServer(async (port) => {
++    const response = await get(port, '/api/version');
++    assert.strictEqual(response.status, 200);
++    const payload = JSON.parse(response.body);
++    assert.deepStrictEqual(payload, { version: require('../../package.json').version });
++  });
++});

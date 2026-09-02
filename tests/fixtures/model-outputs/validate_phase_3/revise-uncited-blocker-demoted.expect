@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=1
+note=A BLOCKER with a dash Evidence cell is uncited, so the REVISE_DESIGN is demoted — the documented evidence-grounded gating rule.
+source=synthetic

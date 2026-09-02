@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=REQUEST_CHANGES
+note=Canonical REQUEST_CHANGES with one cited BLOCKER.
+source=synthetic

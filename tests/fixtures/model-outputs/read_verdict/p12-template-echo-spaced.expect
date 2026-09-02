@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=REQUEST_CHANGES
+want_after_fix=MISSING
+note=A template echo with spaces around the pipe is NOT rejected: the last token ends the line, so the line parses as REQUEST_CHANGES (run-pipeline.sh:4968 claims a template echo listing both tokens is rejected — only the bracketed/unspaced forms are). A line naming two tokens should be MISSING.
+source=synthetic

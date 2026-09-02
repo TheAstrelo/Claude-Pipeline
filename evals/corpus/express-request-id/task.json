@@ -1,0 +1,22 @@
+{
+  "id": "express-request-id",
+  "title": "Add X-Request-Id middleware",
+  "fixture": "express-api",
+  "kind": "routine",
+  "task": "Add request-id middleware to the Express app: every response (including 404s for unknown routes) must carry an X-Request-Id header. If the incoming request already has an X-Request-Id header, echo that value back unchanged; otherwise generate a UUID with crypto.randomUUID() from node:crypto. Put the middleware in its own module under src/middleware/ and register it in src/index.js before the routes. Do not add dependencies.",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/request-id.test.js", "to": "src/acceptance/request-id.test.js" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/middleware/**", "src/index.js"],
+    "must_not_touch": ["src/routes/**", "package.json", ".env.example"],
+    "forbidden_new_deps": ["uuid", "nanoid", "express-request-id", "cls-hooked", "cuid"],
+    "diff_line_band": [8, 100],
+    "expected_halt": null
+  },
+  "seed": null
+}

@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=0
+note=A BLOCKER citing a file absent from review.diff is PRE-EXISTING or invented and is stripped.
+source=synthetic

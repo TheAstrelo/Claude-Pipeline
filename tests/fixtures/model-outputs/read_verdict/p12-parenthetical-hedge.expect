@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+note=A hedged verdict is deliberately unparseable (run-pipeline.sh:4966: hedged prose can never parse); the run halts for a human instead of guessing. Kept as expected; revisit if the M2 fix adopts first-token-wins.
+source=synthetic

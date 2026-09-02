@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=2
+note=No 'Build: PASS' / 'Types: PASS' text: two SOFT warnings.
+source=synthetic

@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=0
+want_after_fix=1
+note='| **BLOCKER** |' does not match the row regex, so a cited, well-formed BLOCKER is invisible to the gate (fail-OPEN: REVISE_DESIGN gets demoted to proceed-with-notes).
+source=synthetic

@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=Two anchored verdict lines: the LAST one wins (run-pipeline.sh:4968-4969: last match wins because the gating phase writes last).
+source=synthetic

@@ -280,6 +280,31 @@ init_candidate_pathspec() {
 # checkout never changes branch, index, or files. Gitignored build state
 # (node_modules and friends) is shared by symlink because a fresh worktree
 # materializes only the committed tree.
+# The origin ignores its real build directories, but a `dir/` gitignore
+# pattern does not match a SYMLINK named dir — so the links the engine plants
+# in the run worktree would show up as untracked, get swept into the candidate
+# tree, and trip the escaping-symlink scanner (or, worse, be committed). Git
+# reads info/exclude from the common dir shared by every worktree, so instead
+# the run exports a core.excludesFile listing its own links for the duration
+# of the process (every git command the engine or a phase runs honors it).
+apply_worktree_link_excludes() {
+  [[ -n "$RUN_WORKTREE" ]] || return 0
+  local exclude_file="$PIPELINE_STATE_DIR/worktrees/$(basename "$RUN_WORKTREE").exclude"
+  local link lines=""
+  for link in $WORKTREE_LINK_PATHS; do
+    [[ -L "$RUN_WORKTREE/$link" ]] && lines+="/$link"$'\n'
+  done
+  if [[ -z "$lines" ]]; then
+    rm -f "$exclude_file" 2>/dev/null || true
+    return 0
+  fi
+  printf '%s' "$lines" > "$exclude_file" || return 0
+  local n="${GIT_CONFIG_COUNT:-0}"
+  export "GIT_CONFIG_KEY_${n}=core.excludesFile"
+  export "GIT_CONFIG_VALUE_${n}=$exclude_file"
+  export GIT_CONFIG_COUNT=$((n + 1))
+}
+
 create_run_worktree() {
   [[ "$WORKTREE_MODE" == "1" && "$ALLOW_DIRTY" != "true" ]] || return 0
   command -v git >/dev/null 2>&1 || return 0
@@ -304,6 +329,7 @@ create_run_worktree() {
       ln -s "$ORIGIN_ROOT/$link" "$RUN_WORKTREE/$link" 2>/dev/null || true
     fi
   done
+  apply_worktree_link_excludes
   if ! cd "$RUN_WORKTREE"; then
     echo -e "${RED}Error: could not enter the run worktree '$RUN_WORKTREE'.${NC}" >&2
     exit 1
@@ -831,6 +857,7 @@ if [[ -n "$RESUME_RUN_ID" && "$WORKTREE_MODE" == "1" && "$ALLOW_DIRTY" != "true"
       echo -e "${RED}Error: could not enter the run worktree '$RUN_WORKTREE'.${NC}" >&2
       exit 1
     fi
+    apply_worktree_link_excludes
     echo -e "  ${DIM}Resuming inside run worktree: $RUN_WORKTREE${NC}"
   fi
   unset _resume_worktree
@@ -7034,18 +7061,23 @@ lint_plan() {
   local file="$1"
   PLAN_LINT_ERRORS=""
   [[ -s "$file" ]] || return 0
-  local file_re='^\*\*File:\*\*[[:space:]]+([^[:space:]]+)[[:space:]]+\[(MODIFY|CREATE)\]'
-  local anchor_re='^\*\*Anchor:\*\*[[:space:]]+`(.+)`'
+  # Accept the step shapes models actually emit (the parser-golden corpus
+  # documents each): optional list marker or indent, `**File:**` or
+  # `**File**:`, the path with or without backticks, the action with or
+  # without square brackets. The anchor is the FIRST backticked span on its
+  # line, so trailing prose like "in `src/app.js`" is not swallowed into it.
+  local file_re='^[[:space:]]*[-*]?[[:space:]]*\*\*File(:\*\*|\*\*:)[[:space:]]+`?([^[:space:]`]+)`?[[:space:]]+\[?(MODIFY|CREATE)\]?'
+  local anchor_re='^[[:space:]]*[-*]?[[:space:]]*\*\*Anchor(:\*\*|\*\*:)[[:space:]]+`([^`]+)`'
   local line current_file="" current_action="" anchor
   while IFS= read -r line; do
     if [[ "$line" =~ $file_re ]]; then
-      current_file="${BASH_REMATCH[1]}"
-      current_action="${BASH_REMATCH[2]}"
+      current_file="${BASH_REMATCH[2]}"
+      current_action="${BASH_REMATCH[3]}"
       if [[ "$current_action" == "MODIFY" && ! -f "$current_file" ]]; then
         PLAN_LINT_ERRORS+="MODIFY path does not exist on disk: $current_file"$'\n'
       fi
     elif [[ "$line" =~ $anchor_re ]]; then
-      anchor="${BASH_REMATCH[1]}"
+      anchor="${BASH_REMATCH[2]}"
       if [[ "$current_action" == "MODIFY" && -f "$current_file" ]] &&
          ! grep -qF -- "$anchor" "$current_file" 2>/dev/null; then
         PLAN_LINT_ERRORS+="anchor not found in $current_file: $anchor"$'\n'

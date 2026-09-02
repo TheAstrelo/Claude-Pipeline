@@ -1,0 +1,6 @@
+status=expected
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=CRITICAL
+note=Canonical CRITICAL with an injection finding.
+source=synthetic

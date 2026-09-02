@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=1
+note=A refuted row (verbatim in .refuted) is excluded before the diff-path check.
+source=synthetic

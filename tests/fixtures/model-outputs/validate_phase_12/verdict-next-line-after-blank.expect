@@ -1,0 +1,5 @@
+status=xfail
+gate=hard=1 soft=0
+want_after_fix=hard=0 soft=0
+note=Blank line between the heading and the token HARD-fails the final gate on a clean review.
+source=synthetic

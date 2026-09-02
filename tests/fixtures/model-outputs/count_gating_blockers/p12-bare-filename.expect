@@ -1,0 +1,6 @@
+status=xfail
+artifact=code-review.md
+blockers=0
+want_after_fix=1
+note=The row cites the bare basename 'auth.js:42' while the diff path is src/routes/auth.js; the substring match is path-exact in the wrong direction (row must CONTAIN the full diff path), so a real, in-diff BLOCKER is stripped (fail-open).
+source=synthetic

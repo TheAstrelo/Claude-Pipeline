@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=Trailing prose after the token fails the token-must-end-line rule (run-pipeline.sh:4964-4967). 'nits only' restates the prompt's own verdict rule, so the intent is unambiguous; MISSING turns a clean approval into a HARD halt.
+source=synthetic

@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=A plain 'Verdict: APPROVE' line (no heading hashes, no bold) is not an accepted anchor.
+source=synthetic

@@ -1,0 +1,96 @@
+name: eval-corpus
+
+# Real-provider evaluation of the pipeline on the sealed task corpus under
+# evals/corpus. This spends money: it runs only on a manual dispatch or the
+# weekly schedule, only when an ANTHROPIC_API_KEY secret exists, and always
+# with a per-task run-budget cap. Results are committed to evals/results/.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma-separated task ids (empty = whole corpus)"
+        required: false
+        default: ""
+      profile:
+        description: "Engine profile"
+        required: false
+        default: "standard"
+      budget:
+        description: "Per-task run-budget cap in USD"
+        required: false
+        default: "20"
+      commit_results:
+        description: "Commit the results file to the branch"
+        required: false
+        default: "true"
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  corpus:
+    name: Corpus run (real provider)
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip without a provider credential
+        if: env.HAS_KEY != 'true'
+        run: echo "No ANTHROPIC_API_KEY secret configured; nothing to run." && exit 0
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-go@v5
+        if: env.HAS_KEY == 'true'
+        with:
+          go-version: "1.24"
+
+      - uses: actions/setup-python@v5
+        if: env.HAS_KEY == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install fixture toolchains and the provider CLI
+        if: env.HAS_KEY == 'true'
+        run: |
+          python -m pip install --quiet pytest fastapi httpx
+          npm install -g @anthropic-ai/claude-code
+          git config --global user.email "corpus@pipeline.invalid"
+          git config --global user.name "Corpus Runner"
+
+      - name: Run the corpus
+        if: env.HAS_KEY == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          OUT="evals/results/$(date -u +%Y-%m-%d).json"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+          node evals/run-corpus.mts \
+            --engine=bash --provider=claude \
+            --profile="${{ github.event.inputs.profile || 'standard' }}" \
+            --max-run-budget-usd="${{ github.event.inputs.budget || '20' }}" \
+            --only="${{ github.event.inputs.only }}" \
+            --out="$OUT"
+
+      - name: Score
+        if: env.HAS_KEY == 'true' && always()
+        run: |
+          PREV=$(ls -1 evals/results/*.json 2>/dev/null | grep -v summary | grep -v "$OUT" | sort | tail -1 || true)
+          if [ -n "$PREV" ]; then node evals/score.mts "$OUT" --prev="$PREV"; else node evals/score.mts "$OUT"; fi | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit results
+        if: env.HAS_KEY == 'true' && always() && (github.event_name == 'schedule' || github.event.inputs.commit_results == 'true')
+        run: |
+          git add evals/results
+          git diff --cached --quiet && exit 0
+          git commit -m "eval: corpus results $(date -u +%Y-%m-%d) (${{ github.event_name }})"
+          git push

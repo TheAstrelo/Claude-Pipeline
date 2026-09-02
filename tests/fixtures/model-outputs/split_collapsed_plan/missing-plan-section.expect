@@ -1,0 +1,4 @@
+status=expected
+split=fail:brief,design
+note=One marker missing: the function returns non-zero and only the two present sections are written.
+source=synthetic

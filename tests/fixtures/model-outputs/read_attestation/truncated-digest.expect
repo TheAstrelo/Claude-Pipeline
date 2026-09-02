@@ -1,0 +1,6 @@
+status=expected
+field=reviewed_diff_sha
+artifact=code-review.md
+attestation=MISSING
+note=An abbreviated digest MUST fail; the orchestrator compares the full value.
+source=synthetic

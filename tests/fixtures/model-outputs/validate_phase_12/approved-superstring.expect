@@ -1,0 +1,6 @@
+status=xfail
+gate=hard=1 soft=0
+want_after_fix=hard=0 soft=0
+log_match=HARD:code_review_verdict — no '## Verdict: APPROVE|REQUEST_CHANGES' line found
+note=APPROVED on a Phase 12 review HARD-fails the final gate on a clean diff (vocabulary mismatch with Phase 3).
+source=synthetic

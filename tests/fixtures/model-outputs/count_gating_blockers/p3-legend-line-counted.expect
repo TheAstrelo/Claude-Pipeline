@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=1
+want_after_fix=0
+note=A prose legend line containing '| BLOCKER |' is matched as if it were a table row and counted (3 pipe-fields, so no evidence check either). Zero real BLOCKER rows still gate.
+source=synthetic

@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:review_complete — missing Findings section
+note=No '## Findings' heading HARD-fails review_complete.
+source=synthetic

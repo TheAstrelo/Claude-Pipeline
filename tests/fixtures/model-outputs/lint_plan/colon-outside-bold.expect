@@ -1,0 +1,5 @@
+status=expected
+lint_errors=1
+lint_match=anchor not found in src/app.js: app.get('/version'
+note='**File**:' (colon outside the bold) is accepted alongside '**File:**'; the missing anchor is reported.
+source=synthetic

@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVED|REVISE_DESIGN
+artifact=critique.md
+verdict=REVISE_DESIGN
+note=Bold token on a Phase 3 verdict.
+source=synthetic

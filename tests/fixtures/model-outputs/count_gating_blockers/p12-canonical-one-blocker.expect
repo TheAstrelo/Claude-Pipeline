@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=1
+note=Phase 12 diff mode: the BLOCKER cites src/routes/auth.js, present in review.diff, so it counts.
+source=synthetic

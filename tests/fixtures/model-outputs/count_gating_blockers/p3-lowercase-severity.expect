@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=0
+want_after_fix=1
+note=Lowercase severity is not matched (fail-open). Rare, but cheap to record.
+source=synthetic

@@ -1,0 +1,4 @@
+status=expected
+split=ok:brief,design,plan
+note=Prose before the first marker belongs to no section and is discarded; all three artifacts are still produced.
+source=synthetic

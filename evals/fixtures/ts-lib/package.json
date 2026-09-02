@@ -1,0 +1,16 @@
+{
+  "name": "ts-lib-fixture",
+  "version": "0.3.0",
+  "description": "A tiny dependency-free TypeScript utility library used as an evaluation fixture for the pipeline",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "node --test --experimental-strip-types \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=0
+note=A BLOCKER whose Evidence cell is an em-dash is uncited and stripped from the gate.
+source=synthetic

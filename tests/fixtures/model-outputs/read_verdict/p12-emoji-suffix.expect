@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=Non-ASCII bytes are deleted, leaving trailing whitespace which the tail class allows.
+source=synthetic

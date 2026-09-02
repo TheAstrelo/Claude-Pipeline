@@ -1,0 +1,14 @@
+{
+  "name": "claude-pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-agnostic verification harness for AI coding agents. The engine is run-pipeline.sh; this manifest only wires the TypeScript evaluation tooling under evals/ (node 22+, no build step).",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "eval:corpus": "node evals/run-corpus.mts",
+    "eval:score": "node evals/score.mts",
+    "battery": "bash tests/run-all.sh"
+  }
+}

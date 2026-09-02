@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=0
+want_after_fix=1
+note=An emoji marker before the severity word hides the row from the regex (fail-open).
+source=synthetic

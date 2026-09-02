@@ -1,0 +1,5 @@
+status=expected
+lint_errors=1
+lint_match=MODIFY path does not exist on disk: src/routes/version.js
+note=MODIFY names a file that is not in the tree: one lint error (and the anchor is not checked further).
+source=synthetic

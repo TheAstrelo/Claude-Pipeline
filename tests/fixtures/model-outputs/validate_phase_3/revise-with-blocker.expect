@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:design_approved — reviewer cited BLOCKER defects
+note=REVISE_DESIGN backed by a cited BLOCKER row is a HARD failure (recovery loop, then halt).
+source=synthetic

@@ -1,0 +1,6 @@
+status=expected
+field=scanned_diff_sha
+artifact=qa-report.md
+attestation=9b1f4e7a2c8d5b3e6f0a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
+note=Phase 11 label ('Scanned') on the isolated qa-report.md.report file.
+source=synthetic

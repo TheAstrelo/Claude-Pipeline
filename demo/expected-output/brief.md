@@ -1,38 +1,30 @@
-# Requirements Brief
-
 ## Verdict: CLEAR
 
 ## Problem
-The API has no authentication. All routes (items CRUD) are publicly accessible. Need JWT-based auth with registration, login, and route protection.
+The API needs a `GET /api/version` endpoint that returns the application version from `package.json` as JSON, following the existing route module/registration conventions.
 
 ## Success Criteria
-1. Users can register with email and password
-2. Users can log in and receive a JWT token
-3. Protected routes reject requests without a valid token
-4. Passwords are hashed, never stored in plain text
-5. Token has a configurable expiration time
+1. `GET /api/version` returns HTTP 200 with JSON body `{ "version": "<version>" }`.
+2. `<version>` equals the current `version` field in `package.json` (currently `"1.4.2"`), read dynamically (e.g. via `require`), never hard-coded as a literal string.
+3. Route is implemented as a new `src/routes/version.js` module using `express.Router()`, mirroring `src/routes/health.js`'s structure.
+4. Route is registered in `src/index.js` via `app.use("/api/version", versionRoutes)`, alongside the existing `/api/health` and `/api/items` mounts.
+5. No new npm dependencies are added; only `express` and Node's built-in `require` are used.
+6. Existing `/api/health` and `/api/items` endpoints continue to function unchanged.
 
 ## Scope
-
-**In:**
-- Registration endpoint (POST /api/auth/register)
-- Login endpoint (POST /api/auth/login)
-- Auth middleware for protecting routes
-- Password hashing with bcrypt
-- JWT token generation and validation
-
-**Out:**
-- OAuth/social login
-- Email verification
-- Password reset flow
-- Role-based access control
-- Refresh tokens
+**In:** New `src/routes/version.js` file; one new `require` + `app.use` line in `src/index.js`.
+**Out:** Modifying `package.json` content, changing health/items routes, adding a version-related npm package, adding tests (unless the pipeline's downstream phases require them separately), API versioning/negotiation logic beyond exposing the manifest version.
 
 ## Constraints
-- In-memory user store (matching existing items pattern)
-- JWT secret from environment variable
-- Express middleware pattern (matching existing logger)
+- Must use Express `Router()` pattern consistent with `health.js`/`items.js`.
+- Must read `package.json` at runtime via `require('../../package.json').version` (or equivalent relative path) rather than embedding the string.
+- No new dependencies (express is already installed and sufficient).
+
+## Context Found
+- `src/routes/health.js`: minimal router pattern returning JSON from `GET /`.
+- `src/index.js:12-13`: registration convention `app.use("/api/<name>", <name>Routes)`.
+- `package.json`: `"version": "1.4.2"`.
 
 ## Assumptions
-- Email is the unique identifier
-- Token expiration defaults to 24 hours
+- The endpoint path is `/api/version` (mounted at `/api/version` with the router handling `GET /`), matching the `/api/health` pattern exactly.
+- Response shape is exactly `{ "version": "<value>" }` with no additional fields (unlike `health.js` which includes extra fields), per the task's explicit spec.

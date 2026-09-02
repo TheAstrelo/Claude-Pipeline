@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVED|REVISE_DESIGN
+artifact=critique.md
+verdict=REVISE_DESIGN
+note=Canonical REVISE_DESIGN with a cited BLOCKER.
+source=synthetic

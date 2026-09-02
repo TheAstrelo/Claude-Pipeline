@@ -1,0 +1,22 @@
+{
+  "id": "express-logger-refactor",
+  "title": "Extract formatLogLine from the logger middleware",
+  "fixture": "express-api",
+  "kind": "routine",
+  "task": "Refactor src/middleware/logger.js: extract the log-line formatting into a pure function formatLogLine(req, res, ms) that returns the string the middleware currently logs (\"<method> <originalUrl> <statusCode> <ms>ms\"), and have the middleware call it. Export formatLogLine as a named property on the same module (module.exports.formatLogLine) while keeping the middleware function as the module's default export so existing require('./middleware/logger') callers are unchanged. Behaviour must not change and no other file should be modified.",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/logger-format.test.js", "to": "src/acceptance/logger-format.test.js" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/middleware/logger.js"],
+    "must_not_touch": ["src/index.js", "src/routes/**", "package.json", ".env.example"],
+    "forbidden_new_deps": ["morgan", "winston", "pino", "debug"],
+    "diff_line_band": [6, 80],
+    "expected_halt": null
+  },
+  "seed": null
+}

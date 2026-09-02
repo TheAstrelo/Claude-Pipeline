@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=0
+note=WARN/PRE-EXISTING only, and the word BLOCKER appears nowhere between pipes.
+source=synthetic

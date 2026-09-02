@@ -1,0 +1,1 @@
+| BLOCKER | src/routes/auth.js:39 | 401 is returned before the bcrypt compare, so response timing reveals which emails exist. | Time POST /login for a known vs unknown email | Run a dummy compare on the unknown-user branch. |

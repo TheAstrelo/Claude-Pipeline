@@ -1,0 +1,6 @@
+status=expected
+field=reviewed_diff_sha
+artifact=code-review.md
+attestation=9b1f4e7a2c8d5b3e6f0a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
+note=Whole attestation block inside a code fence still matches because the prefix is optional and the fence lines are ignored.
+source=synthetic

@@ -1,0 +1,5 @@
+status=expected
+lint_errors=1
+lint_match=anchor not found in src/app.js
+note=The anchor drops the /api prefix and does not occur in the file: one lint error.
+source=synthetic

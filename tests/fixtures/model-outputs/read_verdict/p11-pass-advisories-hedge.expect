@@ -1,0 +1,7 @@
+status=xfail
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=MISSING
+want_after_fix=PASS
+note=The prompt itself says 'advisories alone are still PASS', so a model restating that on the verdict line is following instructions; the parser returns MISSING and Phase 11 HARD-fails.
+source=synthetic

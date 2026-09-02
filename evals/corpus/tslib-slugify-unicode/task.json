@@ -1,0 +1,22 @@
+{
+  "id": "tslib-slugify-unicode",
+  "title": "slugify: fold diacritics and collapse repeated dashes",
+  "fixture": "ts-lib",
+  "kind": "routine",
+  "task": "Improve slugify in src/slugify.ts: (1) accented Latin letters must fold to their base letter (é→e, ü→u, ã→a), so slugify(\"Crème Brûlée\") === \"creme-brulee\"; (2) any run of one or more separator characters must collapse into a single dash, so slugify(\"hello   world\") === \"hello-world\" and slugify(\"a -- b\") === \"a-b\". Leading and trailing dashes are still trimmed, the output stays lower-case a-z0-9 and dashes, and every existing test must keep passing. Use only the standard library (String.prototype.normalize) — no dependencies.",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/slugify-unicode.test.ts", "to": "src/acceptance/slugify-unicode.test.ts" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/slugify.ts"],
+    "must_not_touch": ["src/lruCache.ts", "src/parseDuration.ts", "src/index.ts", "package.json", "tsconfig.json"],
+    "forbidden_new_deps": ["slugify", "@sindresorhus/slugify", "unidecode", "transliteration", "diacritics", "remove-accents", "lodash"],
+    "diff_line_band": [2, 60],
+    "expected_halt": null
+  },
+  "seed": null
+}

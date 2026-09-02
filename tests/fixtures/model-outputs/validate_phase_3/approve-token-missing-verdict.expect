@@ -1,0 +1,6 @@
+status=xfail
+gate=hard=1 soft=0
+want_after_fix=hard=0 soft=0
+log_match=HARD:has_verdict — no APPROVED/REVISE_DESIGN verdict
+note=The model used the Phase 12 token APPROVE; the Phase 3 gate HARD-fails a clean design. Same root cause as read_verdict/p3-approve-substring.
+source=synthetic

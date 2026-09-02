@@ -1,0 +1,5 @@
+status=xfail
+gate=hard=0 soft=1
+want_after_fix=hard=1 soft=0
+note=A real, cited BLOCKER written as '| **BLOCKER** |' is invisible to count_gating_blockers, so REVISE_DESIGN is demoted to proceed-with-notes: the design goes to planning with a known defect (fail-open).
+source=synthetic

@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:security_verdict — CRITICAL
+note=CRITICAL is a HARD failure.
+source=synthetic

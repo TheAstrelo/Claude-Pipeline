@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=The anchor is the first backticked span only, so trailing prose with a second span does not corrupt it.
+source=synthetic

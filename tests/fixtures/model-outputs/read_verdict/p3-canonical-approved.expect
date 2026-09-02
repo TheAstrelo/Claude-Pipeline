@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVED|REVISE_DESIGN
+artifact=critique.md
+verdict=APPROVED
+note=Clean canonical Phase 3 output.
+source=synthetic

@@ -1,0 +1,5 @@
+status=expected
+lint_errors=1
+lint_match=anchor not found in src/routes/health.js
+note=Three steps: CREATE (unchecked), MODIFY with a good anchor, MODIFY whose anchor is the DESIRED text rather than the current text — exactly one error.
+source=synthetic

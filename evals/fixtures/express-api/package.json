@@ -1,0 +1,15 @@
+{
+  "name": "express-api-fixture",
+  "version": "1.4.2",
+  "description": "A tiny Express API used as an evaluation fixture for the pipeline",
+  "main": "src/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test \"src/**/*.test.js\""
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

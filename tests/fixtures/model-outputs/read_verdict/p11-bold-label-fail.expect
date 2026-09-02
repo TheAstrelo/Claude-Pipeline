@@ -1,0 +1,6 @@
+status=expected
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=FAIL
+note=Bold-label FAIL.
+source=synthetic

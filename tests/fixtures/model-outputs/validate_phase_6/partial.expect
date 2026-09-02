@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:build_verdict — Builder reported PARTIAL
+note=PARTIAL is a HARD failure.
+source=synthetic

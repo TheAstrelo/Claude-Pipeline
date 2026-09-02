@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=Token matching is case-sensitive; the heading label itself is case-insensitive ([Vv]erdict), which is inconsistent.
+source=synthetic

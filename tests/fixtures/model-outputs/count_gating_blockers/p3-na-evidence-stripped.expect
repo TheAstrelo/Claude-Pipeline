@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=0
+note='N/A' in the Evidence cell is treated as uncited.
+source=synthetic

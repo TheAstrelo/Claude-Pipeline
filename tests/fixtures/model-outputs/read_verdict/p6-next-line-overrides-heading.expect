@@ -1,0 +1,7 @@
+status=xfail
+tokens=SUCCESS|PARTIAL|FAILED
+artifact=build-report.md
+verdict=PARTIAL
+want_after_fix=SUCCESS
+note=The line right under a valid verdict heading is also grabbed and last-match-wins: a sentence ending in another token ('...ended PARTIAL.') overrides the heading's SUCCESS. Phase 6 then HARD-fails a successful build.
+source=synthetic

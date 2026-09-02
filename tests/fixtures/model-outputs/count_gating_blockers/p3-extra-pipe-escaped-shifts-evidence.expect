@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=1
+want_after_fix=0
+note=A markdown-escaped pipe (\|) in the Issue cell shifts the columns so field 6 is Issue text instead of the real Evidence cell ('—'); an UNCITED blocker gates. Should be stripped like p3-dash-evidence-stripped.
+source=synthetic

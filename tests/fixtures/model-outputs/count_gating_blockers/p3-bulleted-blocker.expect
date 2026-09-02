@@ -1,0 +1,6 @@
+status=xfail
+artifact=critique.md
+blockers=0
+want_after_fix=1
+note=Findings written as a bulleted list instead of the table have no pipes at all; a cited BLOCKER counts for nothing (fail-open).
+source=synthetic

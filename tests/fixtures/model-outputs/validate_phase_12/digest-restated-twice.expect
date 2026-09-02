@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=0
+note=Identical restatements agree and pass.
+source=synthetic

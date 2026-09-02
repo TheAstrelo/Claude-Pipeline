@@ -40,7 +40,19 @@ npm install && npm test
 # Full test battery (one command; auto-discovers every tests/*.sh suite)
 bash tests/run-all.sh          # sequential
 bash tests/run-all.sh -p       # parallel
+
+# Real-provider evaluation corpus (spends money; see evals/README.md)
+node evals/run-corpus.mts --dry-run
+node evals/run-corpus.mts --only=express-version-endpoint --max-run-budget-usd=20
+node evals/score.mts evals/results/<date>.json
 ```
+
+The mocked battery proves the engine's bookkeeping and commit-integrity
+invariants against scripted providers. Only the corpus under `evals/corpus/`
+(sealed tasks with hidden acceptance tests, run weekly by
+`.github/workflows/eval-corpus.yml`) measures whether the pipeline produces
+working, non-slop code; every roadmap milestone is judged against
+`evals/results/`.
 
 Flags the engine actually parses: `--provider=auto|claude|codex`,
 `--profile=yolo|fast|standard|paranoid`, `--mode=auto|dev`, `--push`
@@ -196,7 +208,7 @@ evals/
 ├── corpus/<task>/       # sealed real-provider tasks (task.json, task.md, hidden/ acceptance tests)
 ├── fixtures/<name>/     # small runnable projects the corpus targets
 ├── results/             # corpus run results (committed by the weekly workflow)
-├── run-corpus.ts        # corpus runner (node 22, no build step); score.ts summarizes results
+├── run-corpus.mts        # corpus runner (node 22, no build step); score.mts summarizes results
 └── *.v1.json            # frozen routing / release-SLO fixtures for the offline evaluators
 tests/                   # mocked-provider battery; run-all.sh auto-discovers tests/*.sh
 docs/archive/            # superseded audits, PRD, plan v1 (historical)

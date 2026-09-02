@@ -1,0 +1,5 @@
+status=xfail
+gate=hard=0 soft=0
+want_after_fix=hard=0 soft=2
+note=A model that echoes the prompt's heading template literally ('## Verification (Build: PASS/FAIL, Types: PASS/FAIL)') satisfies both greps even though the body says FAIL twice. Both checks should warn.
+source=synthetic

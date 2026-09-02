@@ -1,0 +1,6 @@
+status=expected
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=PASS
+note=Section order does not matter to the verdict parser.
+source=synthetic

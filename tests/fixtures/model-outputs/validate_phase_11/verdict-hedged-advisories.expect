@@ -1,0 +1,6 @@
+status=xfail
+gate=hard=1 soft=0
+want_after_fix=hard=0 soft=0
+log_match=HARD:security_verdict — no '## Verdict: PASS|FAIL|CRITICAL' line found
+note='PASS (advisories only)' restates the prompt's own rule and is unparseable; a clean scan HARD-halts.
+source=synthetic

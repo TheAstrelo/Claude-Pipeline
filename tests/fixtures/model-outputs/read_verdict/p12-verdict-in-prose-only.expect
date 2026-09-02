@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+note=Tokens mentioned only in prose, with no Verdict anchor, never parse — correct.
+source=synthetic

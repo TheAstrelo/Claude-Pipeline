@@ -1,0 +1,4 @@
+status=expected
+gate=hard=1 soft=2
+note=FAILED verdict plus failing build and types: one HARD, two SOFT.
+source=synthetic

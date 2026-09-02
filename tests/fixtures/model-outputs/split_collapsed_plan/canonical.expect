@@ -1,0 +1,4 @@
+status=expected
+split=ok:brief,design,plan
+note=Bare marker lines exactly as the prompt requests.
+source=synthetic

@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=CREATE steps are never path- or anchor-checked, even when the model adds a stray Anchor line.
+source=synthetic

@@ -1,0 +1,5 @@
+status=xfail
+split=fail:brief,plan
+want_after_fix=ok:brief,design,plan
+note=A marker followed by a title word on the same line is not recognised, the whole design section is appended to brief.md, and the collapsed call halts the run (exit 1) on a formatting slip.
+source=synthetic

@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+note=The bracketed template line is rejected because ']' is not in the allowed tail class.
+source=synthetic

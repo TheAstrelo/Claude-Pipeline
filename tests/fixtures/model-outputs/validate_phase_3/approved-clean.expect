@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=0
+log_match=pass:has_verdict (APPROVED)
+note=Canonical APPROVED with WARN/PRE-EXISTING rows only.
+source=synthetic

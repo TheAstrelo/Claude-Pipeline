@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=0
+note=The word BLOCKED in prose does not gate — only a table row does (the documented fix for the old false halt).
+source=synthetic

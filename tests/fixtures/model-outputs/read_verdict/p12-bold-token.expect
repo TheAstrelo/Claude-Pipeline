@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=Bold emphasis around the token is stripped before matching.
+source=synthetic

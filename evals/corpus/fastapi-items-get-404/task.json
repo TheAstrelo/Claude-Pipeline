@@ -1,0 +1,22 @@
+{
+  "id": "fastapi-items-get-404",
+  "title": "GET /items/{id} with a 404 for unknown ids",
+  "fixture": "fastapi-svc",
+  "kind": "routine",
+  "task": "Add GET /items/{item_id} to the FastAPI service in app/main.py: for a known id respond 200 with the stored item in the same JSON shape POST /items returns; for an unknown id respond 404 with the body {\"detail\": \"item not found\"}. Use the existing ItemStore.get from app/store.py. No new dependencies.",
+  "test_command": ["python3", "-m", "pytest", "-q"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/tests/test_items_get.py", "to": "tests/test_items_get.py" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["app/main.py"],
+    "must_not_touch": ["app/store.py", "pyproject.toml", "requirements.txt", "tests/conftest.py"],
+    "forbidden_new_deps": [],
+    "diff_line_band": [4, 70],
+    "expected_halt": null
+  },
+  "seed": null
+}

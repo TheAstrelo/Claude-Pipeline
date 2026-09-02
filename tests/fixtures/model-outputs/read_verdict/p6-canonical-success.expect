@@ -1,0 +1,6 @@
+status=expected
+tokens=SUCCESS|PARTIAL|FAILED
+artifact=build-report.md
+verdict=SUCCESS
+note=Clean canonical Phase 6 output.
+source=synthetic

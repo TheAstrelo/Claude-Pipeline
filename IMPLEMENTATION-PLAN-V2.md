@@ -50,7 +50,7 @@ Measured on the eval corpus (M1) at every milestone, reported in
 | Test battery wall-clock | 18–22 min | < 5 min unit + integration; corpus runs are a separate weekly job |
 | Root markdown | 264 KB / 10 files | ≤ 60 KB / 4 files |
 
-## Milestone 0 — Cleanup and truth (S, no engine behavior change)
+## Milestone 0 — Cleanup and truth (S, no engine behavior change) — DONE
 
 Cheap, independent, and it removes confusion for everything that follows.
 
@@ -82,7 +82,20 @@ Cheap, independent, and it removes confusion for everything that follows.
 *Acceptance:* `bash tests/run-all.sh` still green; no file under `.claude/`
 mentions "RDO" or pins `haiku`; root markdown ≤ 60 KB.
 
-## Milestone 1 — The evaluation harness (M, the prerequisite for everything)
+## Milestone 1 — The evaluation harness (M, the prerequisite for everything) — DONE
+
+Landed: 14 sealed tasks on 5 fixtures (`evals/corpus`, `evals/fixtures`),
+the runner and scorer (`evals/run-corpus.mts`, `evals/score.mts`), the weekly
+budget-capped workflow, 129 authored parser fixtures plus a live-capture
+helper (`tests/parser-golden.sh`, `tests/fixtures/model-outputs/`), and the
+provider failure-mode suite (`tests/provider-failure-smoke.sh`). The first
+real task run found two engine defects that had blocked every real Node
+project: the plan lint rejected backticked paths (fixed, six fixtures flipped
+from xfail), and the engine's own `node_modules` symlink in the run worktree
+tripped its escaping-symlink scanner because a `dir/` gitignore pattern does
+not match a symlink (fixed with a per-run `core.excludesFile`;
+`tests/worktree-link-smoke.sh` is the regression). The pilot then passed end
+to end: `evals/results/2026-09-02-pilot.json`.
 
 This is the thing the project has never had. Without it every later change
 is another guess. It is built against the *current* bash engine first so
@@ -106,14 +119,14 @@ the rewrite in M3 has a baseline to beat.
    injection sink in the touched path). At least two tasks must be
    deliberately terse ("add caching to the items route") to exercise the
    assumptions path.
-3. **Runner** `evals/run-corpus.ts` (this is the first TypeScript in the
+3. **Runner** `evals/run-corpus.mts` (this is the first TypeScript in the
    repo and seeds the M3 toolchain): for each task, copy the fixture to a
    temp dir, `git init && git commit`, run the engine with `--no-commit`
    (or commit to the run branch and inspect it), copy `hidden/` in, run the
    hidden tests, apply the rubric, collect cost/tokens/wall-clock/halts
    from the run artifacts, compute the slop score, write one JSON row.
    `--engine=bash|ts` selects the implementation so M3 can run both.
-4. **Scoring** `evals/score.ts`: pass rate, catch rate, halts, cost,
+4. **Scoring** `evals/score.mts`: pass rate, catch rate, halts, cost,
    wall-clock, slop score, plus a per-task diff against the previous
    result file so regressions are named, not averaged away.
 5. **Golden model outputs** `tests/fixtures/model-outputs/<role>/*.md`:

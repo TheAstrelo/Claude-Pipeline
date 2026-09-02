@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=Only the IMMEDIATELY following line is grabbed; a blank line between the heading and the token (very common markdown) yields MISSING.
+source=synthetic

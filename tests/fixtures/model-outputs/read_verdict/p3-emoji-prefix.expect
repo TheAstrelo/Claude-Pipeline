@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVED|REVISE_DESIGN
+artifact=critique.md
+verdict=REVISE_DESIGN
+note=Emoji before the token is deleted as non-ASCII.
+source=synthetic

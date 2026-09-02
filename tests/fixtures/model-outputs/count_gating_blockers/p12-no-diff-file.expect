@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=2
+note=With no review.diff present, no path filtering happens and every BLOCKER row counts (fail-closed). In a real run review.diff always exists by Phase 12.
+source=synthetic

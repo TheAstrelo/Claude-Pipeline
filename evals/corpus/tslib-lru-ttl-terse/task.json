@@ -1,0 +1,22 @@
+{
+  "id": "tslib-lru-ttl-terse",
+  "title": "LRUCache TTL (terse variant)",
+  "fixture": "ts-lib",
+  "kind": "terse",
+  "task": "lru cache entries should be able to expire",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/lru-ttl.test.ts", "to": "src/acceptance/lru-ttl.test.ts" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/lruCache.ts"],
+    "must_not_touch": ["src/slugify.ts", "src/parseDuration.ts", "package.json", "tsconfig.json"],
+    "forbidden_new_deps": ["lru-cache", "quick-lru", "tiny-lru", "node-cache", "@isaacs/ttlcache", "lodash"],
+    "diff_line_band": [15, 160],
+    "expected_halt": null
+  },
+  "seed": null
+}

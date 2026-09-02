@@ -1,0 +1,22 @@
+{
+  "id": "go-wordcount-top-n",
+  "title": "wordcount.TopN: the n most frequent words",
+  "fixture": "go-cli",
+  "kind": "routine",
+  "task": "Add TopN(text string, n int) []Pair to package wordcount (internal/wordcount/wordcount.go). It returns the n most frequent words in text, most frequent first, using the same normalisation as Count (reuse Count rather than re-tokenising). Words with equal counts are ordered alphabetically. When n exceeds the number of distinct words return all of them; when n <= 0 return an empty slice. Add a unit test next to the existing ones. No new dependencies.",
+  "test_command": ["go", "test", "./..."],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/internal/wordcount/topn_test.go", "to": "internal/wordcount/topn_test.go" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["internal/wordcount/**"],
+    "must_not_touch": ["main.go", "go.mod"],
+    "forbidden_new_deps": [],
+    "diff_line_band": [10, 120],
+    "expected_halt": null
+  },
+  "seed": null
+}

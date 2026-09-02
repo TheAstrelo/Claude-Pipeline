@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=1
+note=One cited BLOCKER plus WARN and PRE-EXISTING rows: only the BLOCKER counts.
+source=synthetic

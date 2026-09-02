@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=Colon outside the bold markers still anchors (the ** prefix is what the awk keys on).
+source=synthetic

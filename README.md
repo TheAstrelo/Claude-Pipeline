@@ -446,7 +446,7 @@ Claude-Pipeline/
 │   ├── corpus/<task>/            # Sealed real-provider tasks: task.json, task.md, hidden/ tests
 │   ├── fixtures/<name>/          # Small runnable projects the corpus tasks target
 │   ├── results/                  # Corpus run results (committed by the weekly workflow)
-│   ├── run-corpus.ts · score.ts  # Corpus runner and scorer (node 22, no build step)
+│   ├── run-corpus.mts · score.mts  # Corpus runner and scorer (node 22, no build step)
 │   └── *.v1.json                 # Frozen routing / release-SLO fixtures for the offline evaluators
 ├── docs/
 │   ├── archive/                  # Superseded audits, PRD, and plan (historical)

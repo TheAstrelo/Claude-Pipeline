@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=Phase 12 asks for APPROVE but Phase 3 asks for APPROVED; models cross the vocabularies constantly. The superstring is rejected by design (run-pipeline.sh:4966-4967), which halts a clean approval. The fix should accept APPROVED as a synonym of APPROVE (or unify the vocabularies).
+source=synthetic

@@ -1,0 +1,22 @@
+{
+  "id": "express-version-endpoint",
+  "title": "Add GET /api/version to the Express API",
+  "fixture": "express-api",
+  "kind": "routine",
+  "task": "Add a GET /api/version endpoint that responds with JSON { \"version\": \"<version>\" } where <version> is the \"version\" field of package.json (read it from the file, do not hard-code the string). Register it alongside the existing /api/health and /api/items routes.",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/version.test.js", "to": "src/acceptance/version.test.js" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/routes/**", "src/index.js"],
+    "must_not_touch": ["src/routes/items.js", "src/middleware/**", "package.json", ".env.example"],
+    "forbidden_new_deps": [],
+    "diff_line_band": [5, 90],
+    "expected_halt": null
+  },
+  "seed": null
+}

@@ -1,0 +1,5 @@
+status=xfail
+gate=hard=0 soft=0
+want_after_fix=hard=0 soft=1
+note='Build.*PASS' is unanchored, so 'Build: FAIL, Types: PASS' on one line confirms the build as passing. Should be one SOFT warning.
+source=synthetic

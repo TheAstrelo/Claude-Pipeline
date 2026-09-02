@@ -1,0 +1,4 @@
+status=expected
+split=ok:brief,design,plan
+note=Markers wrapped in bold are accepted (the marker regex allows * # ` and whitespace around the token).
+source=synthetic

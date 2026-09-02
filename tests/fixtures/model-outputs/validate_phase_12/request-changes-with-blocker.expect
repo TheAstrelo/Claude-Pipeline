@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=0
+log_match=pass:code_review_verdict (REQUEST_CHANGES — auto-heal will run)
+note=REQUEST_CHANGES is NOT a gate failure here; the orchestrator's heal loop owns it. The validator does not count BLOCKER rows itself.
+source=synthetic

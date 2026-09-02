@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=4
+note=All four in-diff BLOCKERs count; the refuter would only examine the first three.
+source=synthetic

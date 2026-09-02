@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=4
+note=Four cited BLOCKERs all count here; note refute_blockers (run-pipeline.sh:6155) only ever refutes the first three (head -3), so the fourth can never be refuted.
+source=synthetic

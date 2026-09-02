@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVED|REVISE_DESIGN
+artifact=critique.md
+verdict=MISSING
+want_after_fix=APPROVED
+note=The mirror of p12-approved-superstring: Phase 3 wants APPROVED, the model wrote the Phase 12 token APPROVE, and the verdict is MISSING (HARD halt on a clean design).
+source=synthetic

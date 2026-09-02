@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=1
+note=A 5-column table (Evidence column dropped) has fewer than 8 pipe-fields, so the evidence check is skipped and the row counts — fail-CLOSED by design (run-pipeline.sh:6105-6111).
+source=synthetic

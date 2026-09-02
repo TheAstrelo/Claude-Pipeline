@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=APPROVE
+note=Token on the line immediately after the heading is grabbed by the awk pass.
+source=synthetic

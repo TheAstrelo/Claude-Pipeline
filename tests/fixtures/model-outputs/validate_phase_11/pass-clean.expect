@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=0
+log_match=pass:security_attestation (exact diff/tree)
+note=Canonical PASS with both attestations matching the orchestrator digests.
+source=synthetic

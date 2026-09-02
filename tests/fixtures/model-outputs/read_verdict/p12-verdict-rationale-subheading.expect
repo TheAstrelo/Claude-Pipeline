@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=REQUEST_CHANGES
+want_after_fix=APPROVE
+note='### Verdict rationale' matches the heading anchor, its NEXT line is grabbed, that line ends with 'REQUEST_CHANGES.' (period is in the tail class), and last-match-wins flips a clean APPROVE into REQUEST_CHANGES. A subheading that is not the verdict line should not contribute.
+source=synthetic

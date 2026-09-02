@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=0
+tree=unavailable
+note=When the orchestrator has no tree OID, the model must echo 'unavailable' and it matches.
+source=synthetic

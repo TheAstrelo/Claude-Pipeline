@@ -1,0 +1,6 @@
+status=expected
+tokens=SUCCESS|PARTIAL|FAILED
+artifact=build-report.md
+verdict=FAILED
+note=The heading label is case-insensitive ([Vv]erdict) even though the token is not.
+source=synthetic

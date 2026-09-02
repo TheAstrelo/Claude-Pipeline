@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=REQUEST_CHANGES
+note=Bold label instead of a heading is an accepted anchor.
+source=synthetic

@@ -1,0 +1,22 @@
+{
+  "id": "express-items-pagination-terse",
+  "title": "Items pagination (terse variant)",
+  "fixture": "express-api",
+  "kind": "terse",
+  "task": "add pagination to items",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/items-pagination.test.js", "to": "src/acceptance/items-pagination.test.js" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/routes/items.js"],
+    "must_not_touch": ["src/index.js", "src/routes/health.js", "src/middleware/**", "package.json", ".env.example"],
+    "forbidden_new_deps": ["express-paginate", "express-validator", "joi", "zod", "yup", "validator"],
+    "diff_line_band": [8, 120],
+    "expected_halt": null
+  },
+  "seed": null
+}

@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=A backticked path is captured without its backticks (run-pipeline.sh lint_plan), so an existing file is not reported missing.
+source=synthetic

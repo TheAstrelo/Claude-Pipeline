@@ -1,0 +1,6 @@
+status=expected
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=REQUEST_CHANGES
+note=A typed .verdict sidecar (Codex JSON-schema output) wins over the markdown when it holds a valid token.
+source=synthetic

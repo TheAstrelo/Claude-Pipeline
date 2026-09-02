@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:scan_complete — missing Findings section
+note=No '## Findings' heading: scan_complete HARD-fails even with PASS and good attestations.
+source=synthetic

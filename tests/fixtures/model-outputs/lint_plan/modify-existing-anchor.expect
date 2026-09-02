@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=MODIFY of an existing file with an anchor that literally occurs in it: clean.
+source=synthetic

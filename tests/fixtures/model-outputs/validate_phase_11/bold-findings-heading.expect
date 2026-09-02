@@ -1,0 +1,6 @@
+status=xfail
+gate=hard=1 soft=0
+want_after_fix=hard=0 soft=0
+log_match=HARD:scan_complete — missing Findings section
+note=A bold 'Findings' label instead of a ## heading fails the literal '## Findings' grep; the verdict parser tolerates bold labels but the section check does not.
+source=synthetic

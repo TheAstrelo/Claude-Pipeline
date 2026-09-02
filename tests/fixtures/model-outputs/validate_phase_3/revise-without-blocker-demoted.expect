@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=1
+log_match=SOFT:design_approved — REVISE_DESIGN without any BLOCKER finding (demoted: not a halt)
+note=REVISE_DESIGN citing zero BLOCKER rows is mechanically demoted to a SOFT warning (documented calibration rule).
+source=synthetic

@@ -1,0 +1,4 @@
+status=expected
+split=ok:brief,design,plan
+note=The whole output wrapped in a code fence still splits (fence lines land in the preamble/plan, markers are still alone on their lines).
+source=synthetic

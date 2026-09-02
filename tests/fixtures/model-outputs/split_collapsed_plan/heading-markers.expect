@@ -1,0 +1,4 @@
+status=expected
+split=ok:brief,design,plan
+note=Markers rendered as headings are accepted.
+source=synthetic

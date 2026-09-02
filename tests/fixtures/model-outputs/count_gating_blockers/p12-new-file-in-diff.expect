@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=1
+note=A file added by the diff (--- /dev/null, +++ b/path) is a valid citation target.
+source=synthetic

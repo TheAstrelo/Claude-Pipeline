@@ -1,0 +1,22 @@
+{
+  "id": "tslib-lru-ttl",
+  "title": "LRUCache: optional per-entry TTL with an injectable clock",
+  "fixture": "ts-lib",
+  "kind": "routine",
+  "task": "Add optional per-entry expiry to LRUCache in src/lruCache.ts. set(key, value, ttlMs?) takes an optional time-to-live in milliseconds; once ttlMs has elapsed since that set, get(key) returns undefined and has(key) returns false — the entry behaves as if absent. Entries set without a ttl never expire. Re-setting a key replaces its ttl (or removes it when no ttl is given). For testability the constructor must accept an optional second argument, an options object { now?: () => number } supplying the clock (default Date.now); every time read must go through it. LRU eviction semantics are unchanged and all existing tests must keep passing. No dependencies.",
+  "test_command": ["npm", "test"],
+  "hidden": {
+    "copy": [
+      { "from": "hidden/src/acceptance/lru-ttl.test.ts", "to": "src/acceptance/lru-ttl.test.ts" }
+    ],
+    "expect": "tests-pass-and-rubric"
+  },
+  "rubric": {
+    "must_touch": ["src/lruCache.ts"],
+    "must_not_touch": ["src/slugify.ts", "src/parseDuration.ts", "package.json", "tsconfig.json"],
+    "forbidden_new_deps": ["lru-cache", "quick-lru", "tiny-lru", "node-cache", "@isaacs/ttlcache", "lodash"],
+    "diff_line_band": [15, 160],
+    "expected_halt": null
+  },
+  "seed": null
+}

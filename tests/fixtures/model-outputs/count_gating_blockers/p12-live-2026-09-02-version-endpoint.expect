@@ -1,0 +1,5 @@
+status=expected
+artifact=code-review.md
+blockers=0
+note=Captured from a real run (2026-09-02-version-endpoint). The recorded value is what the parser returned at capture time: review it, and flip to xfail with want_after_fix= if it is wrong.
+source=live

@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=Anchors full of regex metacharacters (^ $ . + ? / \ { }) are matched with grep -F, so they resolve literally.
+source=synthetic

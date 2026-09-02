@@ -1,0 +1,5 @@
+status=expected
+gate=hard=0 soft=1
+log_match=SOFT:build_passes — build check not confirmed
+note=A bold-labelled Build: FAIL is correctly not confirmed; Types: PASS is.
+source=synthetic

@@ -1,0 +1,7 @@
+status=xfail
+tokens=APPROVE|REQUEST_CHANGES
+artifact=code-review.md
+verdict=MISSING
+want_after_fix=APPROVE
+note=The anchor regex requires two or more hashes (##+); a single-hash heading is ignored.
+source=synthetic

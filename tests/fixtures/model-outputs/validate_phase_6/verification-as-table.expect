@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=0
+note=A verification table still satisfies the loose 'Build.*PASS' / 'Types.*PASS' greps.
+source=synthetic

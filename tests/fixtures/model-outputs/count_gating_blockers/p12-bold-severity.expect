@@ -1,0 +1,6 @@
+status=xfail
+artifact=code-review.md
+blockers=0
+want_after_fix=1
+note=Bold severity hides the row in diff mode too (fail-open).
+source=synthetic

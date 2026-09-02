@@ -1,0 +1,10 @@
+[project]
+name = "fastapi-svc-fixture"
+version = "0.1.0"
+description = "A minimal FastAPI service used as an evaluation fixture for the pipeline"
+requires-python = ">=3.11"
+dependencies = ["fastapi", "httpx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

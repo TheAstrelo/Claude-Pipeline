@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:no_blockers — BLOCKER findings recorded despite APPROVED verdict
+note=An APPROVED verdict contradicted by a cited BLOCKER row is a HARD failure (fail-closed).
+source=synthetic

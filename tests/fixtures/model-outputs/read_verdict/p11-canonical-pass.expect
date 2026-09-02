@@ -1,0 +1,6 @@
+status=expected
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=PASS
+note=Clean canonical Phase 11 output (the isolated .report file the engine reads for Claude).
+source=synthetic

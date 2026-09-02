@@ -1,0 +1,5 @@
+status=expected
+lint_errors=1
+lint_match=MODIFY path does not exist on disk: src/legacy/router.js
+note='**File:** path MODIFY' without square brackets is linted like the bracketed form; a MODIFY of a non-existent path is caught before Phase 6.
+source=synthetic

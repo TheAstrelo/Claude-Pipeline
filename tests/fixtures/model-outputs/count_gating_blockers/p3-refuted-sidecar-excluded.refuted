@@ -1,0 +1,1 @@
+| 4 | Concurrency | BLOCKER | Two concurrent logins for the same user race on `sessions.put` and the second silently overwrites the first, logging one device out. | design.md §4 "Session store", lines 41-48 | Key sessions by (userId, deviceId) or use an append-only store. |

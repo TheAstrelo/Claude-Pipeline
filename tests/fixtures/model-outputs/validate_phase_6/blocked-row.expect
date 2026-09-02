@@ -1,0 +1,5 @@
+status=expected
+gate=hard=1 soft=0
+log_match=HARD:no_blocked — BLOCKED step rows found
+note=A BLOCKED step row gates even under a SUCCESS verdict (fail-closed on the contradiction).
+source=synthetic

@@ -1,0 +1,4 @@
+status=expected
+gate=hard=0 soft=0
+note=Canonical SUCCESS with Build: PASS / Types: PASS.
+source=synthetic

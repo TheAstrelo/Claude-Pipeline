@@ -1,0 +1,6 @@
+status=expected
+tokens=SUCCESS|PARTIAL|FAILED
+artifact=build-report.md
+verdict=PARTIAL
+note=Bold PARTIAL parses.
+source=synthetic

@@ -1,0 +1,6 @@
+status=expected
+tokens=PASS|FAIL|CRITICAL
+artifact=qa-report.md.report
+verdict=PASS
+note=Captured from a real run (2026-09-02-version-endpoint). The recorded value is what the parser returned at capture time: review it, and flip to xfail with want_after_fix= if it is wrong.
+source=live

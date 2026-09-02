@@ -1,0 +1,5 @@
+status=expected
+artifact=critique.md
+blockers=1
+note=A raw pipe inside the Issue cell shifts columns, but field 6 is then still non-empty prose, so the row counts.
+source=synthetic
