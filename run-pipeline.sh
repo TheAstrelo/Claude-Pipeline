@@ -7078,9 +7078,23 @@ lint_plan() {
       fi
     elif [[ "$line" =~ $anchor_re ]]; then
       anchor="${BASH_REMATCH[2]}"
-      if [[ "$current_action" == "MODIFY" && -f "$current_file" ]] &&
-         ! grep -qF -- "$anchor" "$current_file" 2>/dev/null; then
-        PLAN_LINT_ERRORS+="anchor not found in $current_file: $anchor"$'\n'
+      if [[ "$current_action" == "MODIFY" && -f "$current_file" ]]; then
+        # An anchor that itself contains backticks (a template literal) is
+        # written with \` escapes inside the span, and the span capture stops
+        # at the first backtick; accept the literal text, its unescaped form,
+        # and the prefix before an escaped backtick — any of them locates the
+        # change site.
+        local -a anchor_forms=("$anchor")
+        local unescaped="${anchor//\\\`/\`}"
+        [[ "$unescaped" != "$anchor" ]] && anchor_forms+=("$unescaped")
+        [[ "$anchor" == *'\' ]] && anchor_forms+=("${anchor%\\}")
+        local form anchor_found=false
+        for form in "${anchor_forms[@]}"; do
+          [[ -n "$form" ]] && grep -qF -- "$form" "$current_file" 2>/dev/null && { anchor_found=true; break; }
+        done
+        if [[ "$anchor_found" != "true" ]]; then
+          PLAN_LINT_ERRORS+="anchor not found in $current_file: $anchor"$'\n'
+        fi
       fi
     fi
   done < "$file"

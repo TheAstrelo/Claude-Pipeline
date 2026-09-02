@@ -1,0 +1,4 @@
+status=expected
+lint_errors=0
+note=The anchor is a template literal, so the model escapes the inner backticks as \` inside its own backtick span and the span capture stops at the first one. lint_plan now also tries the unescaped form and the prefix before the escaped backtick, so the step is accepted (seen live: evals corpus task express-logger-refactor, 2026-09-02).
+source=live

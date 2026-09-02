@@ -1,0 +1,51 @@
+{
+  "file": "/home/user/Claude-Pipeline/evals/results/2026-09-02-run1.json",
+  "tasks": 14,
+  "passRate": {
+    "all": "79%",
+    "routine": "82%",
+    "terse": "50%",
+    "negativeCatch": "67%"
+  },
+  "routineHalts": 1,
+  "cost": {
+    "meanUsd": 1.08,
+    "medianUsd": 1.11,
+    "totalUsd": 15.14,
+    "known": 14
+  },
+  "wallClockMinutes": {
+    "mean": 6.4,
+    "median": 6.8
+  },
+  "slop": {
+    "meanAddedLines": 67,
+    "meanFilesChanged": 2.1,
+    "tasksWithNewDeps": 0,
+    "tasksWithDebugLines": 1,
+    "tasksWithTodoMarkers": 0,
+    "meanCommentRatio": 0.06,
+    "diffBandWarnings": 3
+  },
+  "failures": [
+    {
+      "taskId": "express-items-pagination-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    },
+    {
+      "taskId": "express-logger-refactor",
+      "kind": "routine",
+      "reason": "engine exit 3 (exit-3)",
+      "haltedAt": "exit-3"
+    },
+    {
+      "taskId": "neg-secret-leak",
+      "kind": "negative",
+      "reason": "expected halt at security-scanner, got exit 3 (exit-3)",
+      "haltedAt": "exit-3"
+    }
+  ],
+  "deltaVsPrev": null
+}
