@@ -83,7 +83,13 @@ interface Row {
   pass: boolean;
   reason: string;
   artifactsDir: string | null;
+  // Last lines of the engine's stdout/stderr (ANSI stripped), always kept so
+  // a failure is diagnosable from the results file alone.
+  engineTail: { stdout: string; stderr: string };
 }
+
+const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+const tail = (s: string, n = 1500) => { const t = stripAnsi(s); return t.length > n ? t.slice(-n) : t; };
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -288,16 +294,18 @@ function runTask(task: Task): Row {
     recursive: true,
     filter: (src) => !/(^|\/)(node_modules|\.git|__pycache__|\.pytest_cache|target|dist)(\/|$)/.test(src),
   });
+  // Install before the baseline commit so the lockfile is part of the
+  // baseline, as it would be in a real project (node_modules stays ignored).
+  if (existsSync(join(repo, "package.json"))) {
+    const r = sh("npm", ["install", "--no-audit", "--no-fund", "--silent"], { cwd: repo, timeoutMs: 10 * 60_000 });
+    if (r.status !== 0) console.warn(`  [${task.id}] npm install failed (continuing): ${r.stderr.slice(0, 200)}`);
+  }
   git(repo, "init", "-q");
   git(repo, "config", "user.email", "corpus@pipeline.invalid");
   git(repo, "config", "user.name", "Corpus Runner");
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "baseline");
   const baseDeps = declaredDeps(repo);
-  if (existsSync(join(repo, "package.json"))) {
-    const r = sh("npm", ["install", "--no-audit", "--no-fund", "--silent"], { cwd: repo, timeoutMs: 10 * 60_000 });
-    if (r.status !== 0) console.warn(`  [${task.id}] npm install failed (continuing): ${r.stderr.slice(0, 200)}`);
-  }
 
   // 2. Engine
   const engineArgs = [`--provider=${PROVIDER}`, `--profile=${PROFILE}`, "--no-commit"];
@@ -376,6 +384,7 @@ function runTask(task: Task): Row {
     tokens: run ? { input: run.totals?.inputTokens ?? 0, output: run.totals?.outputTokens ?? 0, cached: run.totals?.cachedTokens ?? 0 } : null,
     hiddenTests: hidden, rubric: { pass: failures.length === 0, failures, warnings }, slop, changedFiles: files,
     pass, reason, artifactsDir: KEEP ? work : null,
+    engineTail: { stdout: tail(r.stdout), stderr: tail(r.stderr) },
   };
   if (!KEEP) rmSync(work, { recursive: true, force: true });
   return row;
@@ -406,6 +415,7 @@ function main() {
         phases: {}, modelCalls: null, costUsd: null, tokens: null, hiddenTests: { ran: false, exitCode: null, tail: "" },
         rubric: { pass: false, failures: [String(e?.message || e)], warnings: [] }, slop: null, changedFiles: [],
         pass: false, reason: `runner error: ${String(e?.message || e)}`, artifactsDir: null,
+        engineTail: { stdout: "", stderr: String(e?.stack || "") },
       };
     }
     rows.push(row);
