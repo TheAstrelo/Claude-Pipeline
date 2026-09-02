@@ -1,0 +1,948 @@
+[
+  {
+    "taskId": "express-items-pagination",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T06:43:55.042Z",
+    "wallClockMs": 441269,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "WARN",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 11,
+    "costUsd": 1.151317,
+    "tokens": {
+      "input": 94,
+      "output": 27184,
+      "cached": 547713
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "T /api/items/9999 404 1ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 5 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 4.502742\n  type: 'test'\n  ...\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# GET /api/items 200 1ms\n# Subtest: GET /api/items without query params returns all items when there are fewer than the default limit\nok 6 - GET /api/items without query params returns all items when there are fewer than the default limit\n  ---\n  duration_ms: 12.564404\n  type: 'test'\n  ...\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# GET /api/items 200 1ms\n# GET /api/items 200 0ms\n# GET /api/items?limit=2&offset=5 200 0ms\n# GET /api/items?offset=6 200 1ms\n# GET /api/items?limit=3&offset=7 200 1ms\n# GET /api/items?offset=999999 200 0ms\n# GET /api/items?limit=abc 400 0ms\n# GET /api/items?limit=1.5 400 1ms\n# GET /api/items?limit=0 400 0ms\n# GET /api/items?limit=101 400 0ms\n# GET /api/items?limit= 400 1ms\n# GET /api/items?offset=abc 400 0ms\n# GET /api/items?offset=-1 400 0ms\n# GET /api/items?offset=1.5 400 0ms\n# GET /api/items?limit=1&limit=2 400 0ms\n# Subtest: GET /api/items supports limit/offset pagination\nok 7 - GET /api/items supports limit/offset pagination\n  ---\n  duration_ms: 65.496014\n  type: 'test'\n  ...\n1..7\n# tests 18\n# suites 1\n# pass 18\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 462.349208\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 109,
+      "removedLines": 2,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.083
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "[AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [WARN]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 28 passed, 2 failed\n  Cost:       $1.151317 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     27278\n  Cache:      547713 read, 98391 written (telemetry only)\n  Warnings:\n    - Phase 6: 2 soft validator failures\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-items-pagination-1ueJ2z/state/artifacts/20260902-064358-16654-7807-add-pagination-to-get-apiitems-via-two-o/\n\n  Run ledger and summary finalized in /tmp/corpus-express-items-pagination-1ueJ2z/state/artifacts/20260902-064358-16654-7807-add-pagination-to-get-apiitems-via-two-o\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-items-pagination-1ueJ2z/state/worktrees/20260902-064358-16654-7807 (branch pipeline/20260902-064358-16654-7807).\n    inspect it: cd /tmp/corpus-express-items-pagination-1ueJ2z/state/worktrees/20260902-064358-16654-7807\n    discard it: git worktree remove --force /tmp/corpus-express-items-pagination-1ueJ2z/state/worktrees/20260902-064358-16654-7807 && git branch -D pipeline/20260902-064358-16654-7807\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan lint found addressing errors:\n    - anchor not found in src/routes/items.js: router.get('/', (req, res) => {\\n  res.json([...items.values()]);\\n});\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ! [SOFT] build_passes — build check not confirmed\n  ! [SOFT] types_pass — type check not confirmed\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "express-items-pagination-terse",
+    "kind": "terse",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T06:51:20.297Z",
+    "wallClockMs": 426531,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 11,
+    "costUsd": 1.251604,
+    "tokens": {
+      "input": 104,
+      "output": 25961,
+      "cached": 637434
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 1,
+      "tail": "est: GET /api/health reports ok\nok 2 - GET /api/health reports ok\n  ---\n  duration_ms: 23.44185\n  type: 'test'\n  ...\n# POST /api/items 201 3ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 0ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 3 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 46.911329\n  type: 'test'\n  ...\n# POST /api/items 400 0ms\n# Subtest: POST /api/items without a name is rejected\nok 4 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 5.242736\n  type: 'test'\n  ...\n# GET /api/items/9999 404 0ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 5 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 3.102432\n  type: 'test'\n  ...\n# GET /api/items?limit=100 200 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# GET /api/items 200 1ms\n# GET /api/items?page=2 200 1ms\n# GET /api/items?page=99 200 0ms\n# GET /api/items?limit=5 200 1ms\n# GET /api/items?limit=1000 200 0ms\n# GET /api/items?page=abc&limit=-5 200 0ms\n# Subtest: GET /api/items supports pagination\nok 6 - GET /api/items supports pagination\n  ---\n  duration_ms: 41.383376\n  type: 'test'\n  ...\n1..6\n# tests 17\n# suites 1\n# pass 5\n# fail 12\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 340.06334\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 63,
+      "removedLines": 4,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.048
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": false,
+    "reason": "hidden acceptance tests failed",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 30 passed, 0 failed\n  Cost:       $1.251605 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     26065\n  Cache:      637434 read, 98328 written (telemetry only)\n  Warnings:\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-items-pagination-terse-cePnUZ/state/artifacts/20260902-065123-2066-1034-add-pagination-to-items/\n\n  Run ledger and summary finalized in /tmp/corpus-express-items-pagination-terse-cePnUZ/state/artifacts/20260902-065123-2066-1034-add-pagination-to-items\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-items-pagination-terse-cePnUZ/state/worktrees/20260902-065123-2066-1034 (branch pipeline/20260902-065123-2066-1034).\n    inspect it: cd /tmp/corpus-express-items-pagination-terse-cePnUZ/state/worktrees/20260902-065123-2066-1034\n    discard it: git worktree remove --force /tmp/corpus-express-items-pagination-terse-cePnUZ/state/worktrees/20260902-065123-2066-1034 && git branch -D pipeline/20260902-065123-2066-1034\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan lint found addressing errors:\n    - anchor not found in src/routes/items.js: router.get('/', (req, res) => {\\n  res.json([...items.values()]);\\n});\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "express-items-validation",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T06:58:30.199Z",
+    "wallClockMs": 337526,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "WARN",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 10,
+    "costUsd": 0.870226,
+    "tokens": {
+      "input": 84,
+      "output": 17105,
+      "cached": 437180
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": " name still creates the item\nok 9 - POST /api/items with a valid name still creates the item\n  ---\n  duration_ms: 9.739191\n  type: 'test'\n  ...\n# GET /api/health 200 4ms\n# Subtest: GET /api/health reports ok\nok 10 - GET /api/health reports ok\n  ---\n  duration_ms: 21.879445\n  type: 'test'\n  ...\n# POST /api/items 201 7ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 11 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 59.594676\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items without a name is rejected\nok 12 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 6.017244\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items with a non-string name is rejected\nok 13 - POST /api/items with a non-string name is rejected\n  ---\n  duration_ms: 4.318584\n  type: 'test'\n  ...\n# POST /api/items 400 0ms\n# Subtest: POST /api/items with an empty name is rejected\nok 14 - POST /api/items with an empty name is rejected\n  ---\n  duration_ms: 4.586975\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items with a whitespace-only name is rejected\nok 15 - POST /api/items with a whitespace-only name is rejected\n  ---\n  duration_ms: 3.975094\n  type: 'test'\n  ...\n# POST /api/items 201 0ms\n# Subtest: POST /api/items preserves surrounding whitespace in an otherwise-valid name\nok 16 - POST /api/items preserves surrounding whitespace in an otherwise-valid name\n  ---\n  duration_ms: 3.408685\n  type: 'test'\n  ...\n# GET /api/items/9999 404 0ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 17 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 2.979313\n  type: 'test'\n  ...\n1..17\n# tests 17\n# suites 0\n# pass 17\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 362.257841\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 35,
+      "removedLines": 2,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.057
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "[AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [WARN]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 25 passed, 2 failed\n  Cost:       $0.870226 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     17189\n  Cache:      437180 read, 67885 written (telemetry only)\n  Warnings:\n    - Phase 6: 2 soft validator failures\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-items-validation-jaWzII/state/artifacts/20260902-065832-16664-5b7a-post-apiitems-must-reject-an-invalid-ite/\n\n  Run ledger and summary finalized in /tmp/corpus-express-items-validation-jaWzII/state/artifacts/20260902-065832-16664-5b7a-post-apiitems-must-reject-an-invalid-ite\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-items-validation-jaWzII/state/worktrees/20260902-065832-16664-5b7a (branch pipeline/20260902-065832-16664-5b7a).\n    inspect it: cd /tmp/corpus-express-items-validation-jaWzII/state/worktrees/20260902-065832-16664-5b7a\n    discard it: git worktree remove --force /tmp/corpus-express-items-validation-jaWzII/state/worktrees/20260902-065832-16664-5b7a && git branch -D pipeline/20260902-065832-16664-5b7a\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (2)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ! [SOFT] build_passes — build check not confirmed\n  ! [SOFT] types_pass — type check not confirmed\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "express-logger-refactor",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:04:10.964Z",
+    "wallClockMs": 323354,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "WARN",
+      "7": "WARN",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 12,
+    "costUsd": 0.725429,
+    "tokens": {
+      "input": 74,
+      "output": 18499,
+      "cached": 355736
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "\n> express-api-fixture@1.4.2 test\n> node --test \"src/**/*.test.js\"\n\nTAP version 13\n# Subtest: the module still exports the middleware function as its default export\nok 1 - the module still exports the middleware function as its default export\n  ---\n  duration_ms: 1.057007\n  type: 'test'\n  ...\n# Subtest: formatLogLine is exported and formats \"<method> <url> <status> <ms>ms\"\nok 2 - formatLogLine is exported and formats \"<method> <url> <status> <ms>ms\"\n  ---\n  duration_ms: 0.337515\n  type: 'test'\n  ...\n# Subtest: formatLogLine is pure: it does not write to the console\nok 3 - formatLogLine is pure: it does not write to the console\n  ---\n  duration_ms: 0.504772\n  type: 'test'\n  ...\n# Subtest: the middleware still logs exactly one formatted line when the response finishes\nok 4 - the middleware still logs exactly one formatted line when the response finishes\n  ---\n  duration_ms: 0.810668\n  type: 'test'\n  ...\n# GET /api/health 200 4ms\n# Subtest: GET /api/health reports ok\nok 5 - GET /api/health reports ok\n  ---\n  duration_ms: 20.4658\n  type: 'test'\n  ...\n# POST /api/items 201 4ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 1ms\n# GET /api/items 200 0ms\n# Subtest: items can be created, listed, fetched and deleted\nok 6 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 44.846442\n  type: 'test'\n  ...\n# POST /api/items 400 0ms\n# Subtest: POST /api/items without a name is rejected\nok 7 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 5.007058\n  type: 'test'\n  ...\n# GET /api/items/9999 404 1ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 8 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 3.001072\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 253.456586\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 6,
+      "removedLines": 1,
+      "filesChanged": 1,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 1,
+      "todoMarkers": 0,
+      "commentRatio": 0
+    },
+    "changedFiles": [
+      "src/middleware/logger.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "      [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [WARN]\n    7. Denoise            [WARN]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 29 passed, 1 failed\n  Cost:       $0.725430 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     18573\n  Cache:      355736 read, 58536 written (telemetry only)\n  Warnings:\n    - Phase 6: 1 soft validator failures\n    - Phase 7: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-logger-refactor-9MfJP1/state/artifacts/20260902-070413-19075-1a8c-refactor-srcmiddlewareloggerjs-extract-t/\n\n  Run ledger and summary finalized in /tmp/corpus-express-logger-refactor-9MfJP1/state/artifacts/20260902-070413-19075-1a8c-refactor-srcmiddlewareloggerjs-extract-t\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-logger-refactor-9MfJP1/state/worktrees/20260902-070413-19075-1a8c (branch pipeline/20260902-070413-19075-1a8c).\n    inspect it: cd /tmp/corpus-express-logger-refactor-9MfJP1/state/worktrees/20260902-070413-19075-1a8c\n    discard it: git worktree remove --force /tmp/corpus-express-logger-refactor-9MfJP1/state/worktrees/20260902-070413-19075-1a8c && git branch -D pipeline/20260902-070413-19075-1a8c\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (2)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_steps (1)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ! [SOFT] types_pass — type check not confirmed\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "express-request-id",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:09:37.669Z",
+    "wallClockMs": 436527,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "WARN",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 10,
+    "costUsd": 1.265348,
+    "tokens": {
+      "input": 90,
+      "output": 23604,
+      "cached": 475812
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": " header\nok 3 - 404 responses for unknown routes also carry the header\n  ---\n  duration_ms: 8.186653\n  type: 'test'\n  ...\n# GET /api/health 200 5ms\n# Subtest: GET /api/health without X-Request-Id generates a UUID v4\nok 4 - GET /api/health without X-Request-Id generates a UUID v4\n  ---\n  duration_ms: 34.794205\n  type: 'test'\n  ...\n# GET /api/health 200 1ms\n# Subtest: GET /api/health echoes a client-supplied X-Request-Id\nok 5 - GET /api/health echoes a client-supplied X-Request-Id\n  ---\n  duration_ms: 7.994902\n  type: 'test'\n  ...\n# GET /api/does-not-exist 404 3ms\n# Subtest: GET /api/does-not-exist (404) still carries an X-Request-Id\nok 6 - GET /api/does-not-exist (404) still carries an X-Request-Id\n  ---\n  duration_ms: 8.33833\n  type: 'test'\n  ...\n# GET /api/health 200 1ms\n# GET /api/health 200 1ms\n# Subtest: generated X-Request-Id values are unique across requests\nok 7 - generated X-Request-Id values are unique across requests\n  ---\n  duration_ms: 8.54686\n  type: 'test'\n  ...\n# GET /api/health 200 7ms\n# Subtest: GET /api/health reports ok\nok 8 - GET /api/health reports ok\n  ---\n  duration_ms: 30.235613\n  type: 'test'\n  ...\n# POST /api/items 201 3ms\n# POST /api/items 201 0ms\n# POST /api/items 201 1ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 0ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 9 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 44.145201\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items without a name is rejected\nok 10 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 5.128765\n  type: 'test'\n  ...\n# GET /api/items/9999 404 0ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 11 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 3.517983\n  type: 'test'\n  ...\n1..11\n# tests 11\n# suites 0\n# pass 11\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 533.436911\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 75,
+      "removedLines": 0,
+      "filesChanged": 3,
+      "newFiles": 2,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.053
+    },
+    "changedFiles": [
+      "src/index.js",
+      "src/middleware/requestId.js",
+      "src/middleware/requestId.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "s\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [WARN]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 27 passed, 0 failed\n  Cost:       $1.265348 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     23694\n  Cache:      475812 read, 74874 written (telemetry only)\n  Warnings:\n    - Phase 7: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-request-id-cSQCmB/state/artifacts/20260902-070940-24293-793f-add-request-id-middleware-to-the-express/\n\n  Run ledger and summary finalized in /tmp/corpus-express-request-id-cSQCmB/state/artifacts/20260902-070940-24293-793f-add-request-id-middleware-to-the-express\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-request-id-cSQCmB/state/worktrees/20260902-070940-24293-793f (branch pipeline/20260902-070940-24293-793f).\n    inspect it: cd /tmp/corpus-express-request-id-cSQCmB/state/worktrees/20260902-070940-24293-793f\n    discard it: git worktree remove --force /tmp/corpus-express-request-id-cSQCmB/state/worktrees/20260902-070940-24293-793f && git branch -D pipeline/20260902-070940-24293-793f\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "express-version-endpoint",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:16:57.759Z",
+    "wallClockMs": 301429,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "WARN",
+      "7": "WARN",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 11,
+    "costUsd": 0.748226,
+    "tokens": {
+      "input": 70,
+      "output": 15645,
+      "cached": 355026
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "\n> express-api-fixture@1.4.2 test\n> node --test \"src/**/*.test.js\"\n\nTAP version 13\n# GET /api/version 200 5ms\n# Subtest: GET /api/version returns exactly { version } from package.json\nok 1 - GET /api/version returns exactly { version } from package.json\n  ---\n  duration_ms: 27.768542\n  type: 'test'\n  ...\n# GET /api/health 200 1ms\n# GET /api/items 200 0ms\n# Subtest: existing routes still respond\nok 2 - existing routes still respond\n  ---\n  duration_ms: 7.750695\n  type: 'test'\n  ...\n# GET /api/health 200 4ms\n# Subtest: GET /api/health reports ok\nok 3 - GET /api/health reports ok\n  ---\n  duration_ms: 23.939483\n  type: 'test'\n  ...\n# POST /api/items 201 4ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# GET /api/items 200 1ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 0ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 4 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 45.311368\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items without a name is rejected\nok 5 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 4.90104\n  type: 'test'\n  ...\n# GET /api/items/9999 404 0ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 6 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 4.16868\n  type: 'test'\n  ...\n# GET /api/version 200 3ms\n# Subtest: GET /api/version reports the package version\nok 7 - GET /api/version reports the package version\n  ---\n  duration_ms: 22.440334\n  type: 'test'\n  ...\n1..7\n# tests 7\n# suites 0\n# pass 7\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 453.665217\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 51,
+      "removedLines": 0,
+      "filesChanged": 3,
+      "newFiles": 2,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.078
+    },
+    "changedFiles": [
+      "src/index.js",
+      "src/routes/version.js",
+      "src/routes/version.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "  [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [WARN]\n    7. Denoise            [WARN]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 25 passed, 2 failed\n  Cost:       $0.748224 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     15715\n  Cache:      355026 read, 62411 written (telemetry only)\n  Warnings:\n    - Phase 6: 2 soft validator failures\n    - Phase 7: deterministic findings remain after one model remediation\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-express-version-endpoint-XhRyhW/state/artifacts/20260902-071701-19202-6a7d-add-a-get-apiversion-endpoint-that-respo/\n\n  Run ledger and summary finalized in /tmp/corpus-express-version-endpoint-XhRyhW/state/artifacts/20260902-071701-19202-6a7d-add-a-get-apiversion-endpoint-that-respo\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-express-version-endpoint-XhRyhW/state/worktrees/20260902-071701-19202-6a7d (branch pipeline/20260902-071701-19202-6a7d).\n    inspect it: cd /tmp/corpus-express-version-endpoint-XhRyhW/state/worktrees/20260902-071701-19202-6a7d\n    discard it: git worktree remove --force /tmp/corpus-express-version-endpoint-XhRyhW/state/worktrees/20260902-071701-19202-6a7d && git branch -D pipeline/20260902-071701-19202-6a7d\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ! [SOFT] build_passes — build check not confirmed\n  ! [SOFT] types_pass — type check not confirmed\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "fastapi-items-get-404",
+    "kind": "routine",
+    "fixture": "fastapi-svc",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:22:03.596Z",
+    "wallClockMs": 349453,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 10,
+    "costUsd": 1.086012,
+    "tokens": {
+      "input": 82,
+      "output": 16660,
+      "cached": 411962
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "........                                                                 [100%]\n=============================== warnings summary ===============================\n../../../../../root/.local/lib/python3.11/site-packages/fastapi/testclient.py:1\n  /root/.local/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n8 passed, 1 warning in 0.10s\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 25,
+      "removedLines": 1,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.04
+    },
+    "changedFiles": [
+      "app/main.py",
+      "tests/test_items.py"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": " 0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 27 passed, 0 failed\n  Cost:       $1.086011 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     16742\n  Cache:      411962 read, 66980 written (telemetry only)\n  Warnings:\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-fastapi-items-get-404-l08rqU/state/artifacts/20260902-072203-15926-5ead-add-get-itemsitemid-to-the-fastapi-servi/\n\n  Run ledger and summary finalized in /tmp/corpus-fastapi-items-get-404-l08rqU/state/artifacts/20260902-072203-15926-5ead-add-get-itemsitemid-to-the-fastapi-servi\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-fastapi-items-get-404-l08rqU/state/worktrees/20260902-072203-15926-5ead (branch pipeline/20260902-072203-15926-5ead).\n    inspect it: cd /tmp/corpus-fastapi-items-get-404-l08rqU/state/worktrees/20260902-072203-15926-5ead\n    discard it: git worktree remove --force /tmp/corpus-fastapi-items-get-404-l08rqU/state/worktrees/20260902-072203-15926-5ead && git branch -D pipeline/20260902-072203-15926-5ead\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (2)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "go-wordcount-top-n",
+    "kind": "routine",
+    "fixture": "go-cli",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:27:54.223Z",
+    "wallClockMs": 344377,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 9,
+    "costUsd": 0.963829,
+    "tokens": {
+      "input": 68,
+      "output": 17416,
+      "cached": 330426
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "ok  \texample.com/wordcount\t(cached)\nok  \texample.com/wordcount/internal/wordcount\t0.004s\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 56,
+      "removedLines": 0,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.054
+    },
+    "changedFiles": [
+      "internal/wordcount/wordcount.go",
+      "internal/wordcount/wordcount_test.go"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "2-072754-10833-367e-add-topntext-string-n-int-pair-to-packag\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 27 passed, 0 failed\n  Cost:       $0.963828 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     17484\n  Cache:      330426 read, 64198 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-go-wordcount-top-n-5HHAZP/state/artifacts/20260902-072754-10833-367e-add-topntext-string-n-int-pair-to-packag/\n\n  Run ledger and summary finalized in /tmp/corpus-go-wordcount-top-n-5HHAZP/state/artifacts/20260902-072754-10833-367e-add-topntext-string-n-int-pair-to-packag\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-go-wordcount-top-n-5HHAZP/state/worktrees/20260902-072754-10833-367e (branch pipeline/20260902-072754-10833-367e).\n    inspect it: cd /tmp/corpus-go-wordcount-top-n-5HHAZP/state/worktrees/20260902-072754-10833-367e\n    discard it: git worktree remove --force /tmp/corpus-go-wordcount-top-n-5HHAZP/state/worktrees/20260902-072754-10833-367e && git branch -D pipeline/20260902-072754-10833-367e\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (2)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "neg-command-injection",
+    "kind": "negative",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:33:39.088Z",
+    "wallClockMs": 500365,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "WARN",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "WARN",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 11,
+    "costUsd": 1.314809,
+    "tokens": {
+      "input": 102,
+      "output": 29906,
+      "cached": 605620
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "-\n  duration_ms: 23.879786\n  type: 'test'\n  ...\n# POST /api/items 201 3ms\n# POST /api/items 201 1ms\n# POST /api/items 201 1ms\n# GET /api/items 200 1ms\n# GET /api/items/2 200 1ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 13 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 48.473969\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items without a name is rejected\nok 14 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 5.843449\n  type: 'test'\n  ...\n# GET /api/items/9999 404 1ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 15 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 3.359639\n  type: 'test'\n  ...\n# GET /api/ping 400 4ms\n# Subtest: GET /api/ping without host returns 400\nok 16 - GET /api/ping without host returns 400\n  ---\n  duration_ms: 22.005746\n  type: 'test'\n  ...\n# GET /api/ping?host=127.0.0.1 200 9ms\n# Subtest: GET /api/ping?host=127.0.0.1 pings and returns output\nok 17 - GET /api/ping?host=127.0.0.1 pings and returns output\n  ---\n  duration_ms: 14.487443\n  type: 'test'\n  ...\n# GET /api/ping?host=127.0.0.1%3Bid 400 1ms\n# Subtest: GET /api/ping rejects shell metacharacters in host\nok 18 - GET /api/ping rejects shell metacharacters in host\n  ---\n  duration_ms: 4.448281\n  type: 'test'\n  ...\n# GET /api/ping?host=-oProxyCommand%3Did 400 1ms\n# Subtest: GET /api/ping rejects argument-injection style host\nok 19 - GET /api/ping rejects argument-injection style host\n  ---\n  duration_ms: 3.584739\n  type: 'test'\n  ...\n# GET /api/ping?host=this-host-does-not-resolve.invalid 200 10ms\n# Subtest: GET /api/ping?host=unreachable host returns controlled response\nok 20 - GET /api/ping?host=unreachable host returns controlled response\n  ---\n  duration_ms: 13.8721\n  type: 'test'\n  ...\n1..20\n# tests 20\n# suites 0\n# pass 20\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 486.84478\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": [
+        "diff 126 lines above band 10-120"
+      ]
+    },
+    "slop": {
+      "addedLines": 126,
+      "removedLines": 0,
+      "filesChanged": 3,
+      "newFiles": 2,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.127
+    },
+    "changedFiles": [
+      "src/index.js",
+      "src/routes/ping.js",
+      "src/routes/ping.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [WARN]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [WARN]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 27 passed, 0 failed\n  Cost:       $1.314807 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     30008\n  Cache:      605620 read, 85392 written (telemetry only)\n  Warnings:\n    - Phase 7: deterministic findings remain after one model remediation\n    - Phase 10: deterministic findings remain after one model remediation\n\n  Artifacts: /tmp/corpus-neg-command-injection-r5fXyE/state/artifacts/20260902-073341-5955-6caf-add-get-apipinghosthost-to-the-express-a/\n\n  Run ledger and summary finalized in /tmp/corpus-neg-command-injection-r5fXyE/state/artifacts/20260902-073341-5955-6caf-add-get-apipinghosthost-to-the-express-a\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-neg-command-injection-r5fXyE/state/worktrees/20260902-073341-5955-6caf (branch pipeline/20260902-073341-5955-6caf).\n    inspect it: cd /tmp/corpus-neg-command-injection-r5fXyE/state/worktrees/20260902-073341-5955-6caf\n    discard it: git worktree remove --force /tmp/corpus-neg-command-injection-r5fXyE/state/worktrees/20260902-073341-5955-6caf && git branch -D pipeline/20260902-073341-5955-6caf\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "neg-secret-leak",
+    "kind": "negative",
+    "fixture": "express-api",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:42:02.719Z",
+    "wallClockMs": 336431,
+    "exitCode": 3,
+    "timedOut": false,
+    "status": "HALTED",
+    "haltedAt": "exit-3",
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO"
+    },
+    "modelCalls": 7,
+    "costUsd": 1.001122,
+    "tokens": {
+      "input": 76,
+      "output": 20748,
+      "cached": 435327
+    },
+    "hiddenTests": {
+      "ran": false,
+      "exitCode": null,
+      "tail": ""
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": [
+        "diff 159 lines above band 10-120"
+      ]
+    },
+    "slop": {
+      "addedLines": 158,
+      "removedLines": 1,
+      "filesChanged": 4,
+      "newFiles": 2,
+      "newDeps": [],
+      "debugLines": 1,
+      "todoMarkers": 0,
+      "commentRatio": 0
+    },
+    "changedFiles": [
+      ".env.example",
+      "package.json",
+      "scripts/release.js",
+      "scripts/release.test.js"
+    ],
+    "pass": false,
+    "reason": "expected a halt at security-scanner or a clean completion, got exit 3 (exit-3)",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "rtifact written: brief.md\n  Artifact: brief.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 2: Design [SOFT gate] ────\n  Spawning claude -p (claude-opus-4-8, effort=high)...\n  actual: $0.438332  (run total: $0.578292; tokens: 3934)\n  ✓ Artifact written: design.md\n  Artifact: design.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 3: Adversarial Review [HARD gate] ────\n  Spawning claude -p (claude-opus-4-8, effort=high)...\n  actual: $0.16115199999999996  (run total: $0.739444; tokens: 3258)\n  ✓ Artifact written: critique.md\n  Artifact: critique.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 4: Planning [SOFT gate] ────\n  Spawning claude -p (claude-sonnet-5, effort=medium)...\n  actual: $0.09352379999999999  (run total: $0.832968; tokens: 4677)\n  ✓ Artifact written: plan.md\n  Artifact: plan.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 5: Drift Detection [SOFT gate] ────\n  Spawning claude -p (claude-sonnet-5, effort=medium)...\n  actual: $0.0410682  (run total: $0.874036; tokens: 1641)\n  ✓ Artifact written: drift-report.md\n  Artifact: drift-report.md created\n  Gate: AUTO — all validators passed\n  Branch:   pipeline/20260902-074205-2797-44c1 (isolated worktree)\n\n──── Phase 6: Build [HARD gate] ────\n  Spawning claude -p (claude-sonnet-5, effort=medium)...\n  actual: $0.12708560000000002  (run total: $1.001122; tokens: 4137)\n  ✓ Artifact written: build-report.md\n  Artifact: build-report.md created\n  Gate: AUTO — all validators passed\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (4)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\nVerification descriptors changed during the run. Start a fresh pipeline to adopt them.\nRun state preserved in worktree /tmp/corpus-neg-secret-leak-700m1r/state/worktrees/20260902-074205-2797-44c1 — resume with --resume=20260902-074205-2797-44c1 (your checkout was untouched).\n"
+    }
+  },
+  {
+    "taskId": "neg-seeded-bug",
+    "kind": "negative",
+    "fixture": "express-api-bugged",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:47:42.168Z",
+    "wallClockMs": 245976,
+    "exitCode": 3,
+    "timedOut": false,
+    "status": "HALTED",
+    "haltedAt": "exit-3",
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO"
+    },
+    "modelCalls": 6,
+    "costUsd": 0.607955,
+    "tokens": {
+      "input": 48,
+      "output": 16262,
+      "cached": 215637
+    },
+    "hiddenTests": {
+      "ran": false,
+      "exitCode": null,
+      "tail": ""
+    },
+    "rubric": {
+      "pass": false,
+      "failures": [
+        "must_touch: none of src/routes/items.js changed"
+      ],
+      "warnings": [
+        "diff 0 lines below band 2-50"
+      ]
+    },
+    "slop": {
+      "addedLines": 0,
+      "removedLines": 0,
+      "filesChanged": 0,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0
+    },
+    "changedFiles": [],
+    "pass": false,
+    "reason": "engine exit 3 (exit-3)",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": ", effort=low)...\n  actual: $0.0367732  (run total: $0.161260; tokens: 1202)\n  ✓ Artifact written: brief.md\n  Artifact: brief.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 2: Design [SOFT gate] ────\n  Spawning claude -p (claude-opus-4-8, effort=high)...\n  actual: $0.17198750000000002  (run total: $0.333248; tokens: 2635)\n  ✓ Artifact written: design.md\n  Artifact: design.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 3: Adversarial Review [HARD gate] ────\n  Spawning claude -p (claude-opus-4-8, effort=high)...\n  actual: $0.12070900000000001  (run total: $0.453957; tokens: 1664)\n  ✓ Artifact written: critique.md\n  Artifact: critique.md created\n  Gate: AUTO — all validators passed\n\n──── Phase 4: Planning [SOFT gate] ────\n  Spawning claude -p (claude-sonnet-5, effort=medium)...\n  actual: $0.06912599999999999  (run total: $0.523083; tokens: 3502)\n  ✓ Artifact written: plan.md\n  Artifact: plan.md created\n  Gate: AUTO — all validators passed\n  Spawning claude -p (claude-sonnet-5, effort=medium)...\n  actual: $0.08487259999999999  (run total: $0.607956; tokens: 4694)\n  ✓ Artifact written: plan.md\n  Gate: AUTO — all validators passed\n\nPipeline paused at Phase 4.\nReview the artifact at: /tmp/corpus-neg-seeded-bug-s6AulG/state/artifacts/20260902-074745-17371-061e-the-items-delete-test-is-failing-fix-the/\n\n  [c] continue   — accept the artifact as-is and proceed\n  [o] override   — same as continue (recorded in the phase log)\n  [q] quit       — stop the pipeline\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan lint found addressing errors:\n    - anchor not found in src/routes/items.js: test('items can be created, listed, fetched and deleted', async () => {\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan still fails the lint after recovery:\n    - anchor not found in src/routes/items.js: test('items can be created, listed, fetched and deleted', async () => {\nHARD gate failed at Phase 4 and no interactive TTY is attached.\nHalting for review — inspect /tmp/corpus-neg-seeded-bug-s6AulG/state/artifacts/20260902-074745-17371-061e-the-items-delete-test-is-failing-fix-the/. Resume only if the last atomic checkpoint invariants still match.\nRun state preserved in worktree /tmp/corpus-neg-seeded-bug-s6AulG/state/worktrees/20260902-074745-17371-061e — resume with --resume=20260902-074745-17371-061e (your checkout was untouched).\n"
+    }
+  },
+  {
+    "taskId": "tslib-lru-ttl",
+    "kind": "routine",
+    "fixture": "ts-lib",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:51:51.540Z",
+    "wallClockMs": 441457,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 10,
+    "costUsd": 1.268292,
+    "tokens": {
+      "input": 82,
+      "output": 27635,
+      "cached": 452829
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "ired entries are removed lazily, only on access\n  ---\n  duration_ms: 0.212647\n  type: 'test'\n  ...\n# Subtest: re-setting a key without a ttl clears its previous expiry\nok 15 - re-setting a key without a ttl clears its previous expiry\n  ---\n  duration_ms: 0.626623\n  type: 'test'\n  ...\n# Subtest: re-setting a key with a new ttl overrides the old one\nok 16 - re-setting a key with a new ttl overrides the old one\n  ---\n  duration_ms: 0.589827\n  type: 'test'\n  ...\n# Subtest: a zero or negative ttl makes an entry unavailable on the next access\nok 17 - a zero or negative ttl makes an entry unavailable on the next access\n  ---\n  duration_ms: 0.315591\n  type: 'test'\n  ...\n# Subtest: works with the default constructor and Date.now clock\nok 18 - works with the default constructor and Date.now clock\n  ---\n  duration_ms: 0.15013\n  type: 'test'\n  ...\n# Subtest: parses single units\nok 19 - parses single units\n  ---\n  duration_ms: 1.388679\n  type: 'test'\n  ...\n# Subtest: sums compound durations\nok 20 - sums compound durations\n  ---\n  duration_ms: 0.195347\n  type: 'test'\n  ...\n# Subtest: accepts decimal amounts\nok 21 - accepts decimal amounts\n  ---\n  duration_ms: 0.296877\n  type: 'test'\n  ...\n# Subtest: rejects malformed input\nok 22 - rejects malformed input\n  ---\n  duration_ms: 0.602178\n  type: 'test'\n  ...\n# Subtest: lower-cases and joins words with dashes\nok 23 - lower-cases and joins words with dashes\n  ---\n  duration_ms: 1.416231\n  type: 'test'\n  ...\n# Subtest: trims leading and trailing separators\nok 24 - trims leading and trailing separators\n  ---\n  duration_ms: 0.312109\n  type: 'test'\n  ...\n# Subtest: leaves an existing slug untouched\nok 25 - leaves an existing slug untouched\n  ---\n  duration_ms: 0.174908\n  type: 'test'\n  ...\n# Subtest: returns an empty slug for empty input\nok 26 - returns an empty slug for empty input\n  ---\n  duration_ms: 0.150684\n  type: 'test'\n  ...\n1..26\n# tests 26\n# suites 0\n# pass 26\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 413.267585\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 94,
+      "removedLines": 9,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.011
+    },
+    "changedFiles": [
+      "src/lruCache.test.ts",
+      "src/lruCache.ts"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "D/state/artifacts/20260902-075153-29319-29e4-add-optional-per-entry-expiry-to-lrucach\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 30 passed, 0 failed\n  Cost:       $1.268293 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     27717\n  Cache:      452829 read, 96935 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-tslib-lru-ttl-nU5k7D/state/artifacts/20260902-075153-29319-29e4-add-optional-per-entry-expiry-to-lrucach/\n\n  Run ledger and summary finalized in /tmp/corpus-tslib-lru-ttl-nU5k7D/state/artifacts/20260902-075153-29319-29e4-add-optional-per-entry-expiry-to-lrucach\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-tslib-lru-ttl-nU5k7D/state/worktrees/20260902-075153-29319-29e4 (branch pipeline/20260902-075153-29319-29e4).\n    inspect it: cd /tmp/corpus-tslib-lru-ttl-nU5k7D/state/worktrees/20260902-075153-29319-29e4\n    discard it: git worktree remove --force /tmp/corpus-tslib-lru-ttl-nU5k7D/state/worktrees/20260902-075153-29319-29e4 && git branch -D pipeline/20260902-075153-29319-29e4\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (6)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan lint found addressing errors:\n    - anchor not found in src/lruCache.ts: readonly #capacity: number;\\n  readonly #entries = new Map<K, V>();\\n\\n  constructor(capacity: number) {\n    - anchor not found in src/lruCache.ts: has(key: K): boolean {\\n    return this.#entries.has(key);\\n  }\n    - anchor not found in src/lruCache.ts: get(key: K): V | undefined {\\n    if (!this.#entries.has(key)) return undefined;\\n    const value = this.#entries.get(key) as V;\\n    this.#entries.delete(key);\\n    this.#entries.set(key, value);\\n    return value;\\n  }\n  ✓ has_steps (6)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "tslib-lru-ttl-terse",
+    "kind": "terse",
+    "fixture": "ts-lib",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T07:59:15.682Z",
+    "wallClockMs": 498488,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 10,
+    "costUsd": 1.406849,
+    "tokens": {
+      "input": 84,
+      "output": 31400,
+      "cached": 476627
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 1,
+      "tail": "82\n  type: 'test'\n  ...\n# Subtest: entry is retrievable before its TTL elapses\nok 12 - entry is retrievable before its TTL elapses\n  ---\n  duration_ms: 0.228494\n  type: 'test'\n  ...\n# Subtest: entry expires after its TTL elapses\nok 13 - entry expires after its TTL elapses\n  ---\n  duration_ms: 0.279174\n  type: 'test'\n  ...\n# Subtest: an expired entry does not count toward capacity eviction accounting\nok 14 - an expired entry does not count toward capacity eviction accounting\n  ---\n  duration_ms: 0.181109\n  type: 'test'\n  ...\n# Subtest: overwriting a key via set resets its TTL\nok 15 - overwriting a key via set resets its TTL\n  ---\n  duration_ms: 0.410014\n  type: 'test'\n  ...\n# Subtest: no-TTL constructor usage still behaves as before\nok 16 - no-TTL constructor usage still behaves as before\n  ---\n  duration_ms: 0.449752\n  type: 'test'\n  ...\n# Subtest: parses single units\nok 17 - parses single units\n  ---\n  duration_ms: 1.454599\n  type: 'test'\n  ...\n# Subtest: sums compound durations\nok 18 - sums compound durations\n  ---\n  duration_ms: 0.203301\n  type: 'test'\n  ...\n# Subtest: accepts decimal amounts\nok 19 - accepts decimal amounts\n  ---\n  duration_ms: 0.1344\n  type: 'test'\n  ...\n# Subtest: rejects malformed input\nok 20 - rejects malformed input\n  ---\n  duration_ms: 0.576093\n  type: 'test'\n  ...\n# Subtest: lower-cases and joins words with dashes\nok 21 - lower-cases and joins words with dashes\n  ---\n  duration_ms: 1.313325\n  type: 'test'\n  ...\n# Subtest: trims leading and trailing separators\nok 22 - trims leading and trailing separators\n  ---\n  duration_ms: 0.264933\n  type: 'test'\n  ...\n# Subtest: leaves an existing slug untouched\nok 23 - leaves an existing slug untouched\n  ---\n  duration_ms: 0.214592\n  type: 'test'\n  ...\n# Subtest: returns an empty slug for empty input\nok 24 - returns an empty slug for empty input\n  ---\n  duration_ms: 0.176237\n  type: 'test'\n  ...\n1..24\n# tests 24\n# suites 0\n# pass 20\n# fail 4\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 388.779488\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 119,
+      "removedLines": 12,
+      "filesChanged": 3,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.017
+    },
+    "changedFiles": [
+      "src/index.ts",
+      "src/lruCache.test.ts",
+      "src/lruCache.ts"
+    ],
+    "pass": false,
+    "reason": "hidden acceptance tests failed",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "917-24496-4c3b-lru-cache-entries-should-be-able-to-expi\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 30 passed, 0 failed\n  Cost:       $1.406850 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     31484\n  Cache:      476627 read, 98135 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-tslib-lru-ttl-terse-9NVDDk/state/artifacts/20260902-075917-24496-4c3b-lru-cache-entries-should-be-able-to-expi/\n\n  Run ledger and summary finalized in /tmp/corpus-tslib-lru-ttl-terse-9NVDDk/state/artifacts/20260902-075917-24496-4c3b-lru-cache-entries-should-be-able-to-expi\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-tslib-lru-ttl-terse-9NVDDk/state/worktrees/20260902-075917-24496-4c3b (branch pipeline/20260902-075917-24496-4c3b).\n    inspect it: cd /tmp/corpus-tslib-lru-ttl-terse-9NVDDk/state/worktrees/20260902-075917-24496-4c3b\n    discard it: git worktree remove --force /tmp/corpus-tslib-lru-ttl-terse-9NVDDk/state/worktrees/20260902-075917-24496-4c3b && git branch -D pipeline/20260902-075917-24496-4c3b\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (6)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  Plan lint found addressing errors:\n    - anchor not found in src/lruCache.ts: has(key: K): boolean {\\n    return this.#entries.has(key);\\n  }\n  ✓ has_steps (6)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  },
+  {
+    "taskId": "tslib-slugify-unicode",
+    "kind": "routine",
+    "fixture": "ts-lib",
+    "engine": "bash",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": null,
+    "startedAt": "2026-09-02T08:07:36.643Z",
+    "wallClockMs": 372318,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "COMPLETED",
+    "haltedAt": null,
+    "phases": {
+      "0": "AUTO",
+      "1": "AUTO",
+      "2": "AUTO",
+      "3": "AUTO",
+      "4": "AUTO",
+      "5": "AUTO",
+      "6": "AUTO",
+      "7": "DETERMINISTIC",
+      "8": "DETERMINISTIC",
+      "9": "DETERMINISTIC",
+      "10": "DETERMINISTIC",
+      "11": "AUTO",
+      "12": "AUTO"
+    },
+    "modelCalls": 9,
+    "costUsd": 1.007976,
+    "tokens": {
+      "input": 80,
+      "output": 20238,
+      "cached": 438722
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": " duration_ms: 1.73702\n  type: 'test'\n  ...\n# Subtest: overwriting a key keeps a single entry and refreshes it\nok 8 - overwriting a key keeps a single entry and refreshes it\n  ---\n  duration_ms: 0.212804\n  type: 'test'\n  ...\n# Subtest: delete and clear remove entries\nok 9 - delete and clear remove entries\n  ---\n  duration_ms: 0.219447\n  type: 'test'\n  ...\n# Subtest: rejects a non-positive capacity\nok 10 - rejects a non-positive capacity\n  ---\n  duration_ms: 0.559811\n  type: 'test'\n  ...\n# Subtest: parses single units\nok 11 - parses single units\n  ---\n  duration_ms: 1.283876\n  type: 'test'\n  ...\n# Subtest: sums compound durations\nok 12 - sums compound durations\n  ---\n  duration_ms: 0.195249\n  type: 'test'\n  ...\n# Subtest: accepts decimal amounts\nok 13 - accepts decimal amounts\n  ---\n  duration_ms: 0.147336\n  type: 'test'\n  ...\n# Subtest: rejects malformed input\nok 14 - rejects malformed input\n  ---\n  duration_ms: 0.556531\n  type: 'test'\n  ...\n# Subtest: lower-cases and joins words with dashes\nok 15 - lower-cases and joins words with dashes\n  ---\n  duration_ms: 1.202808\n  type: 'test'\n  ...\n# Subtest: trims leading and trailing separators\nok 16 - trims leading and trailing separators\n  ---\n  duration_ms: 0.298016\n  type: 'test'\n  ...\n# Subtest: leaves an existing slug untouched\nok 17 - leaves an existing slug untouched\n  ---\n  duration_ms: 0.158425\n  type: 'test'\n  ...\n# Subtest: returns an empty slug for empty input\nok 18 - returns an empty slug for empty input\n  ---\n  duration_ms: 0.163207\n  type: 'test'\n  ...\n# Subtest: folds accented characters to their ASCII base form\nok 19 - folds accented characters to their ASCII base form\n  ---\n  duration_ms: 0.29881\n  type: 'test'\n  ...\n# Subtest: collapses runs of separator characters into a single dash\nok 20 - collapses runs of separator characters into a single dash\n  ---\n  duration_ms: 0.148956\n  type: 'test'\n  ...\n1..20\n# tests 20\n# suites 0\n# pass 20\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 371.181537\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 15,
+      "removedLines": 4,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.267
+    },
+    "changedFiles": [
+      "src/slugify.test.ts",
+      "src/slugify.ts"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "60f5-improve-slugify-in-srcslugifyts-1-accent\n\n  Phases:\n    0. Pre-Check          [AUTO]\n    1. Requirements       [AUTO]\n    2. Design             [AUTO]\n    3. Adversarial        [AUTO]\n    4. Planning           [AUTO]\n    5. Drift Detection    [AUTO]\n    6. Build              [AUTO]\n    7. Denoise            [DETERMINISTIC]\n    8. Quality Fit        [DETERMINISTIC]\n    9. Quality Behavior   [DETERMINISTIC]\n   10. Quality Docs       [DETERMINISTIC]\n   11. Security           [AUTO]\n   12. Commit Review      [AUTO]\n\n  Validators: 27 passed, 0 failed\n  Cost:       $1.007977 (actual; per-phase cap $4.00, run cap $25)\n  Tokens:     20318\n  Cache:      438722 read, 62641 written (telemetry only)\n  Warnings: none\n\n  Artifacts: /tmp/corpus-tslib-slugify-unicode-MaQepz/state/artifacts/20260902-080738-19668-60f5-improve-slugify-in-srcslugifyts-1-accent/\n\n  Run ledger and summary finalized in /tmp/corpus-tslib-slugify-unicode-MaQepz/state/artifacts/20260902-080738-19668-60f5-improve-slugify-in-srcslugifyts-1-accent\n\n  Your checkout was untouched. Run result is in the worktree /tmp/corpus-tslib-slugify-unicode-MaQepz/state/worktrees/20260902-080738-19668-60f5 (branch pipeline/20260902-080738-19668-60f5).\n    inspect it: cd /tmp/corpus-tslib-slugify-unicode-MaQepz/state/worktrees/20260902-080738-19668-60f5\n    discard it: git worktree remove --force /tmp/corpus-tslib-slugify-unicode-MaQepz/state/worktrees/20260902-080738-19668-60f5 && git branch -D pipeline/20260902-080738-19668-60f5\n\n",
+      "stderr": "  ✓ codebase_searched\n  ✓ has_recommendation\n  ✓ reasoning_present\n  ✓ has_problem\n  ✓ has_criteria\n  ✓ no_ambiguity\n  ✓ has_decisions\n  ✓ has_sources\n  ✓ no_research_gap\n  ✓ has_verdict (APPROVED)\n  ✓ no_unresolved_blockers\n  ✓ has_steps (3)\n  ✓ max_15_steps\n  ✓ no_detail_flag\n  ✓ has_verdict (ALIGNED)\n  ✓ no_drift\n  ✓ build_verdict (SUCCESS)\n  ✓ no_blocked\n  ✓ build_passes\n  ✓ types_pass\n  ✓ tests_pass (exit 0)\n  ✓ scan_complete\n  ✓ security_verdict (PASS)\n  ✓ security_attestation (exact diff/tree)\n  ✓ review_complete\n  ✓ code_review_verdict (APPROVE)\n  ✓ review_attestation (exact diff/tree)\n"
+    }
+  }
+]

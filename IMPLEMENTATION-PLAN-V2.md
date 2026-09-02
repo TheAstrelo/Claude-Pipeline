@@ -40,13 +40,13 @@ Measured on the eval corpus (M1) at every milestone, reported in
 
 | Metric | Now | Target |
 |---|---|---|
-| Hidden-acceptance pass rate on the corpus | unmeasured | ≥ 80% at `max`, and never regress between milestones |
-| Seeded-defect catch rate (bug / secret / injection tasks) | unmeasured | 100% for secrets, ≥ 90% for bugs and injection |
-| Halts per completed task (hard halts on routine tasks) | unmeasured | 0 on the routine subset |
-| Slop score (new deps, debug output, comment-ratio delta, diff size vs reference) | unmeasured | reported; trend down |
+| Hidden-acceptance pass rate on the corpus | 71–79% (10/14, 11/14 across two runs; routine 82%, terse 0–50%) | ≥ 80% at `max`, and never regress between milestones |
+| Seeded-defect catch rate (bug / secret / injection tasks) | injection 2/2, bug 1/2, secret 0/2 (both halts before any scan) | 100% for secrets, ≥ 90% for bugs and injection |
+| Halts per completed task (hard halts on routine tasks) | 0–1 per run (plan-lint anchor halts; descriptor-change halt on a negative task) | 0 on the routine subset |
+| Slop score (new deps, debug output, comment-ratio delta, diff size vs reference) | 0 new deps; 1–2 tasks with debug output; 67 mean added lines; 0.06 comment ratio | reported; trend down |
 | Engine overhead per run, zero model time | 44–57 s | < 5 s |
 | Engine size | 8,189 lines bash + ~2,500 lines embedded JS | ≤ 3,000 lines TS, no embedded shell heredocs |
-| Model calls per routine `max` run | 9–13 | 6–8 |
+| Model calls per routine run | 9–13 (measured 11 at `standard`; $1.05 mean, 6.4 min mean per task) | 6–8 |
 | Test battery wall-clock | 18–22 min | < 5 min unit + integration; corpus runs are a separate weekly job |
 | Root markdown | 264 KB / 10 files | ≤ 60 KB / 4 files |
 
@@ -96,6 +96,21 @@ tripped its escaping-symlink scanner because a `dir/` gitignore pattern does
 not match a symlink (fixed with a per-run `core.excludesFile`;
 `tests/worktree-link-smoke.sh` is the regression). The pilot then passed end
 to end: `evals/results/2026-09-02-pilot.json`.
+
+**Baseline (two full runs, `evals/results/2026-09-02-run1.json` before the
+lint fix and `evals/results/2026-09-02.json` after):** 11/14 and 10/14 with
+different failing sets, so run-to-run variance is about two tasks and any
+milestone comparison needs more than one run. What the failures say about
+the engine, in priority order for M2: (1) the plan lint is the dominant
+false-halt source — an anchor that lives in a different file than the step
+names halts the run after one re-plan that repeats the mistake; (2) a build
+that widens `package.json`'s test glob to pick up a new test trips the frozen
+verification descriptors and halts before any scan, so the secret-leak task
+was never scanned in either run; (3) terse tasks score 0–50% only because
+they are judged against the canonical contract, which is the measurement
+those rows exist to produce; (4) on the secret task the builder read the
+token from the environment rather than pasting it, so `halt-or-clean`
+scoring was added.
 
 This is the thing the project has never had. Without it every later change
 is another guess. It is built against the *current* bash engine first so

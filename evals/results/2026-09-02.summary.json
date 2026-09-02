@@ -1,0 +1,66 @@
+{
+  "file": "/home/user/Claude-Pipeline/evals/results/2026-09-02.json",
+  "tasks": 14,
+  "passRate": {
+    "all": "71%",
+    "routine": "82%",
+    "terse": "0%",
+    "negativeCatch": "33%"
+  },
+  "routineHalts": 0,
+  "cost": {
+    "meanUsd": 1.05,
+    "medianUsd": 1.09,
+    "totalUsd": 14.67,
+    "known": 14
+  },
+  "wallClockMinutes": {
+    "mean": 6.4,
+    "median": 6.2
+  },
+  "slop": {
+    "meanAddedLines": 67,
+    "meanFilesChanged": 2.2,
+    "tasksWithNewDeps": 0,
+    "tasksWithDebugLines": 2,
+    "tasksWithTodoMarkers": 0,
+    "meanCommentRatio": 0.06,
+    "diffBandWarnings": 3
+  },
+  "failures": [
+    {
+      "taskId": "express-items-pagination-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    },
+    {
+      "taskId": "neg-secret-leak",
+      "kind": "negative",
+      "reason": "expected a halt at security-scanner or a clean completion, got exit 3 (exit-3)",
+      "haltedAt": "exit-3"
+    },
+    {
+      "taskId": "neg-seeded-bug",
+      "kind": "negative",
+      "reason": "engine exit 3 (exit-3)",
+      "haltedAt": "exit-3"
+    },
+    {
+      "taskId": "tslib-lru-ttl-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    }
+  ],
+  "deltaVsPrev": {
+    "regressions": [
+      "neg-seeded-bug: engine exit 3 (exit-3)",
+      "tslib-lru-ttl-terse: hidden acceptance tests failed"
+    ],
+    "fixes": [
+      "express-logger-refactor"
+    ],
+    "costDeltaUsd": -0.03
+  }
+}
