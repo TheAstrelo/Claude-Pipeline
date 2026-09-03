@@ -8,6 +8,7 @@
  * prompt buys drift, not quality.
  */
 
+import { isBlockingVerdict } from "../gates.js";
 import type { Finding, PlanStep } from "../gates.js";
 
 export const ENGINEERING_STANDARD = `Engineering standard:
@@ -102,34 +103,88 @@ export function asFindings(value: unknown): Finding[] {
 }
 
 /**
- * Markdown fallback for an adapter that returned no structured output. It
- * reads the verdict line and any severity-tagged table rows, so a schema
- * hiccup costs parsing quality rather than failing the phase open.
+ * Markdown fallback for an adapter that returned no structured output.
+ *
+ * When anchored verdict lines disagree — a model that restates its verdict, or
+ * quotes another one — the blocking verdict wins. The shell engine took the
+ * last line, which fails open: an APPROVE further down the page could bury a
+ * REQUEST_CHANGES above it. Ambiguity should cost a review cycle, not a gate.
  */
 export function parseMarkdownVerdict(report: string, allowed: string[]): string | null {
-  const pattern = new RegExp(`^\\s*#*\\s*\\**\\s*(?:Verdict|VERDICT)\\s*\\**\\s*:?\\s*\\**\\s*(${allowed.join("|")})\\b`, "im");
-  const match = pattern.exec(report);
-  if (match?.[1]) return match[1].toUpperCase();
-  for (const verdict of allowed) {
-    if (new RegExp(`\\b${verdict}\\b`).test(report)) return verdict;
+  const anchored = new RegExp(`^\\s*#*\\s*\\**\\s*(?:Verdict|VERDICT)\\s*\\**\\s*:?\\s*\\**\\s*(${allowed.join("|")})\\b`, "gim");
+  const found: string[] = [];
+  for (const match of report.matchAll(anchored)) {
+    const verdict = match[1]?.toUpperCase();
+    if (verdict && !found.includes(verdict)) found.push(verdict);
   }
-  return null;
+  if (found.length === 1) return found[0]!;
+  if (found.length > 1) return found.find(isBlockingVerdict) ?? found[found.length - 1]!;
+  // No anchored line: fall back to any allowed token appearing at all, still
+  // preferring the blocking one.
+  const loose = allowed.filter(verdict => new RegExp(`\\b${verdict}\\b`).test(report));
+  if (!loose.length) return null;
+  return loose.find(isBlockingVerdict) ?? loose[0]!;
 }
 
+/** Column headings a model might use for each field of a finding. */
+const COLUMN_ALIASES: Record<"severity" | "location" | "summary" | "evidence", RegExp> = {
+  severity: /^(severity|level|sev)$/i,
+  location: /^(file|file:line|location|path|where)$/i,
+  summary: /^(issue|finding|summary|problem|description|what)$/i,
+  evidence: /^(evidence|trigger|exploit path|repro|reproduction|why)$/i,
+};
+
+/**
+ * Findings from a markdown table.
+ *
+ * The columns are read from the table's own header rather than assumed by
+ * position: review phases use different tables, and mis-reading which cell is
+ * the evidence would let an uncited BLOCKER through the gate that exists to
+ * strip it.
+ */
 export function parseMarkdownFindings(report: string): Finding[] {
   const findings: Finding[] = [];
+  let columns: Partial<Record<keyof typeof COLUMN_ALIASES, number>> | null = null;
+
   for (const line of report.split("\n")) {
-    if (!line.trim().startsWith("|")) continue;
-    const cells = line.split("|").map(c => c.trim().replace(/^\*+|\*+$/g, ""));
-    const severity = cells.find(c => /^(BLOCKER|WARN|PRE[-_ ]?EXISTING)$/i.test(c));
-    if (!severity) continue;
-    const rest = cells.filter(c => c && c !== severity);
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) { columns = null; continue; }
+    const cells = trimmed.split("|").slice(1, -1).map(c => c.trim().replace(/^\*+|\*+$/g, ""));
+    if (!cells.length) continue;
+    if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue; // separator row
+
+    const header = headerColumns(cells);
+    if (header) { columns = header; continue; }
+
+    const severityIndex = columns?.severity ?? cells.findIndex(c => /^(BLOCKER|WARN|PRE[-_ ]?EXISTING)$/i.test(c));
+    const severityCell = severityIndex >= 0 ? cells[severityIndex] : undefined;
+    if (!severityCell || !/^(BLOCKER|WARN|PRE[-_ ]?EXISTING)$/i.test(severityCell)) continue;
+
+    const pick = (field: keyof typeof COLUMN_ALIASES, fallback: number): string => {
+      const index = columns?.[field];
+      if (index !== undefined && index >= 0) return cells[index] ?? "";
+      const rest = cells.filter((_, i) => i !== severityIndex);
+      return rest[fallback] ?? "";
+    };
     findings.push({
-      severity: /^BLOCKER$/i.test(severity) ? "BLOCKER" : /^PRE/i.test(severity) ? "PRE_EXISTING" : "WARN",
-      location: rest[0] ?? "",
-      summary: rest[1] ?? "",
-      evidence: rest[2] ?? "",
+      severity: /^BLOCKER$/i.test(severityCell) ? "BLOCKER" : /^PRE/i.test(severityCell) ? "PRE_EXISTING" : "WARN",
+      location: pick("location", 0),
+      summary: pick("summary", 1),
+      evidence: pick("evidence", 2),
     });
   }
   return findings;
+}
+
+function headerColumns(cells: string[]): Partial<Record<keyof typeof COLUMN_ALIASES, number>> | null {
+  const found: Partial<Record<keyof typeof COLUMN_ALIASES, number>> = {};
+  let matched = 0;
+  cells.forEach((cell, index) => {
+    for (const [field, pattern] of Object.entries(COLUMN_ALIASES) as Array<[keyof typeof COLUMN_ALIASES, RegExp]>) {
+      if (found[field] === undefined && pattern.test(cell)) { found[field] = index; matched++; }
+    }
+  });
+  // Two recognized headings is enough to trust the row as a header; one could
+  // be a data cell that happens to read like a column name.
+  return matched >= 2 ? found : null;
 }
