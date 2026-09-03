@@ -660,6 +660,15 @@ export class Runner {
       throw new HaltError("commit", "the reviewed tree is not the tree that was verified and scanned; refusing to commit");
     }
 
+    // And the tree must still be that tree now. Anything that changed the
+    // worktree after the review — a stray background process, a reviewer that
+    // wrote despite its read-only scope — invalidates the approval rather than
+    // being quietly committed around.
+    const atCommit = candidateTreeOid(this.worktree!.ctx, this.baseHead, this.pathspec);
+    if (atCommit !== tree) {
+      throw new HaltError("commit", "the candidate tree changed after it was reviewed; refusing to commit an unreviewed tree");
+    }
+
     const outcome = commitReviewedTree({
       worktree: this.worktree!, reviewedTree: tree,
       reviewedDiffSha: "sha256:" + hashOf(this.reviewedDiff),

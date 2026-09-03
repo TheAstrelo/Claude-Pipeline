@@ -565,3 +565,40 @@ describe("critique that will not converge", () => {
     expect(result.warnings.join(" ")).toMatch(/critique did not converge/);
   });
 });
+
+describe("the commit boundary", () => {
+  it("refuses when a model commits on its own", async () => {
+    const root = project();
+    const before = sh(root, "git", ["rev-parse", "HEAD"]).trim();
+    const { result } = await runWith(root, goodHandler({
+      build: request => {
+        writeFileSync(join(request.cwd, "src/feature.js"), "module.exports.feature = () => true;\n");
+        // A model that takes the commit into its own hands.
+        sh(request.cwd, "git", ["add", "-A"]);
+        sh(request.cwd, "git", ["-c", "user.email=m@m", "-c", "user.name=m", "-c", "commit.gpgSign=false", "commit", "-q", "-m", "unauthorized"]);
+        return { structured: { verdict: "SUCCESS", filesChanged: ["src/feature.js"], notes: "", blockedReason: null } };
+      },
+    }));
+    // The run branch moved off the baseline, so the atomic commit refuses
+    // rather than building on a commit nothing reviewed.
+    expect(result.status).toBe("HALTED");
+    expect(result.haltedAt).toBe("commit");
+    expect(sh(root, "git", ["rev-parse", "HEAD"]).trim()).toBe(before);
+  });
+
+  it("refuses when the tree changes after the review", async () => {
+    const root = project();
+    const { result } = await runWith(root, goodHandler({
+      // The reviewer is read-only in a real run; here it writes, standing in
+      // for anything that touches the tree between approval and commit.
+      review: request => {
+        writeFileSync(join(request.cwd, "src/smuggled.js"), "module.exports = 'not reviewed';\n");
+        return { structured: { verdict: "APPROVE", findings: [], coverage: [] } };
+      },
+    }));
+    expect(result.status).toBe("HALTED");
+    expect(result.haltedAt).toBe("commit");
+    expect(result.message).toMatch(/changed after it was reviewed/);
+    expect(sh(root, "git", ["rev-list", "--count", "HEAD"]).trim()).toBe("1");
+  });
+});

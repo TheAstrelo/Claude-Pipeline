@@ -22,7 +22,7 @@ const HELP = `claude-pipeline — a task description in, reviewed code out.
 Usage: claude-pipeline [options] "<task>"
 
 Options:
-  --provider=auto|claude|codex   Executor (default: auto)
+  --provider=auto|claude|codex   Executor (default: auto, which is Claude today)
   --quality=max|balanced|cheap   Model lane and effort per role (default: max)
   --profile=yolo|fast|standard|paranoid
                                  What runs and how gates behave (default: standard)
