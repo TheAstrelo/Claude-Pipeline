@@ -31,3 +31,38 @@ jobs:
       # if any suite fails.
       - name: Run full test battery
         run: bash tests/run-all.sh
+
+  engine:
+    name: TypeScript engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+
+      # The suite drives whole runs over real temporary git repositories with
+      # an in-process fake adapter, so it needs a git identity but no
+      # credentials and no network.
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@pipeline.invalid"
+          git config --global user.name "Pipeline CI"
+
+      - name: Install
+        working-directory: engine
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: engine
+        run: npm run typecheck
+
+      # Live provider tests are skipped without PIPELINE_LIVE=1; this job never
+      # spends money.
+      - name: Test
+        working-directory: engine
+        run: npm test
