@@ -30,7 +30,7 @@ import {
 } from "./git.js";
 import { Ledger } from "./ledger.js";
 import { scanCandidate, ScannerEscapeError, type SecurityEvidence } from "./security.js";
-import { applyGate, profileOf, routeRole, runsRole, type EngineConfig, type Role } from "./config.js";
+import { applyGate, profileOf, routeRole, runsRole, type EngineConfig, type GateKind, type Role } from "./config.js";
 import type { Adapter, ExecuteRequest, ExecuteResult, Lane } from "./providers/types.js";
 import { buildPlanPrompt, parsePlan, PLAN_SCHEMA, renderPlanArtifacts, type PlanOutput } from "./roles/plan.js";
 import { buildCritiquePrompt, CRITIQUE_SCHEMA, parseCritique, renderCritique } from "./roles/critique.js";
@@ -318,10 +318,16 @@ export class Runner {
         return;
       }
       if (attempt === limits.maxCritiqueRetries) {
-        const outcome = applyGate("HARD", false, profileOf(this.config).gateMode);
-        if (outcome === "halt") {
-          throw new HaltError("critique", `the design was sent back and did not converge: ${confirmed.map(f => f.summary).join("; ")}`);
+        // A design the critique keeps rejecting is a stop-and-ask signal where
+        // gates are strict. Where they are not, the build still has to pass the
+        // real tests and the commit review, so the run continues with a note.
+        const kind: GateKind = limits.gateMode === "mixed" || limits.gateMode === "hard" ? "HARD" : "SOFT";
+        const summary = confirmed.map(f => f.summary).join("; ");
+        if (applyGate(kind, false, limits.gateMode) === "halt") {
+          throw new HaltError("critique", `the design was sent back and did not converge: ${summary}`);
         }
+        this.warn(`critique did not converge; proceeding with notes: ${summary}`);
+        this.stageDone("critique");
         return;
       }
       this.log(`  Critique asked for a revision (${confirmed.length} blocker(s)); re-planning`);
@@ -498,6 +504,7 @@ export class Runner {
       throw new HaltError("verify", `verification failed (${failing.map(n => `${n}=${statuses[n]}`).join(", ")}); security and review would be reviewing a broken tree`);
     }
     this.verifiedTree = candidateTreeOid(this.worktree!.ctx, this.baseHead, this.pathspec);
+    this.stages["verify"] = "DONE";
   }
 
   private async stageSecurity(): Promise<void> {
@@ -556,6 +563,7 @@ export class Runner {
       }
     }
     this.securityTree = candidateTreeOid(this.worktree!.ctx, this.baseHead, this.pathspec);
+    this.stages["security"] = "DONE";
   }
 
   private async stageReview(): Promise<RunResult> {
@@ -590,6 +598,7 @@ export class Runner {
       if (decision.passed) {
         this.reviewedTree = tree;
         this.reviewedDiff = diff;
+        this.stages["review"] = "DONE";
         return await this.finish(review);
       }
 
@@ -598,6 +607,7 @@ export class Runner {
         this.log("  Every review blocker was refuted; approving");
         this.reviewedTree = tree;
         this.reviewedDiff = diff;
+        this.stages["review"] = "DONE";
         return await this.finish(review);
       }
       if (round === limits.maxReviewHeals) {
@@ -694,7 +704,7 @@ export class Runner {
     let cap = this.config.budget.perCallUsd;
 
     for (let attempt = 1; ; attempt++) {
-      this.assertRunBudget(cap);
+      const effectiveCap = this.capForNextCall(cap);
       const full: ExecuteRequest = {
         ...request,
         label,
@@ -703,7 +713,7 @@ export class Runner {
         cwd: this.worktree?.path ?? this.config.repoRoot,
         addDirs: [this.artifacts],
         timeoutMs: this.config.callTimeoutMs,
-        budgetUsd: cap,
+        budgetUsd: effectiveCap,
         ...(request.toolScope === "write-exec"
           ? { denyCommands: DENY_COMMANDS, protectedPaths: PROTECTED_PATHS, formatCommand: null }
           : {}),
@@ -884,14 +894,19 @@ export class Runner {
     }
   }
 
-  private assertRunBudget(nextCap: number | null): void {
+  /**
+   * Returns the cap to actually use for the next call: the requested one, or
+   * whatever is left of the run budget when that is smaller. Warning about a
+   * clamp without applying it would let a run walk past its own cap.
+   */
+  private capForNextCall(requested: number | null): number | null {
     const runCap = this.config.budget.runUsd;
-    if (runCap === null) return;
-    const projected = this.costUsd + (nextCap ?? 0);
-    if (this.costUsd >= runCap) throw new BudgetError("run", `the run budget of $${runCap.toFixed(2)} is spent`);
-    if (projected > runCap) {
-      this.warn(`next call capped at the remaining run budget ($${(runCap - this.costUsd).toFixed(2)})`);
-    }
+    if (runCap === null) return requested;
+    const remaining = runCap - this.costUsd;
+    if (remaining <= 0) throw new BudgetError("run", `the run budget of $${runCap.toFixed(2)} is spent`);
+    if (requested === null || requested <= remaining) return requested;
+    this.warn(`capping the next call at the remaining run budget ($${remaining.toFixed(2)})`);
+    return remaining;
   }
 
   private changedTextFiles(): Array<{ path: string; body: string }> {

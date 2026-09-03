@@ -497,3 +497,73 @@ describe("resume", () => {
     expect(result.status).toBe("COMPLETED");
   });
 });
+
+describe("run budget", () => {
+  it("clamps a call to what is left of the run budget rather than only warning", async () => {
+    const root = project();
+    const { result, adapter } = await runWith(root, request => {
+      if (request.label === "plan") {
+        // Spend most of the run budget on the first call.
+        return { structured: PLAN, usage: { inputTokens: 10, outputTokens: 10, cachedTokens: 0, costUsd: 4.5 } };
+      }
+      return goodHandler()(request);
+    }, { budget: resolveBudget({ policy: "elastic", perCallUsd: 4, runUsd: 5 }) });
+
+    const afterPlan = adapter.calls.find(c => c.label === "critique")!;
+    expect(afterPlan.budgetUsd).toBeCloseTo(0.5, 5);
+    expect(result.warnings.join(" ")).toMatch(/remaining run budget/);
+  });
+
+  it("stops once the run budget is spent", async () => {
+    const root = project();
+    const { result } = await runWith(root, request => {
+      if (request.label === "plan") return { structured: PLAN, usage: { inputTokens: 1, outputTokens: 1, cachedTokens: 0, costUsd: 6 } };
+      return goodHandler()(request);
+    }, { budget: resolveBudget({ policy: "elastic", perCallUsd: 4, runUsd: 5 }) });
+    expect(result.exitCode).toBe(4);
+    expect(result.message).toMatch(/run budget/);
+  });
+
+  it("records every stage it finished in the run summary", async () => {
+    const root = project();
+    const { result } = await runWith(root, goodHandler());
+    expect(result.stages["plan"]).toBe("DONE");
+    expect(result.stages["build"]).toBe("DONE");
+    expect(result.stages["verify"]).toBe("DONE");
+    expect(result.stages["security"]).toBe("DONE");
+    expect(result.stages["review"]).toBe("DONE");
+  });
+
+  it("marks the stage that halted", async () => {
+    const root = project();
+    const { result } = await runWith(root, goodHandler({
+      build: () => ({ exit: "error", errorMessage: "provider fell over" }),
+    }));
+    expect(result.haltedAt).toBe("build");
+    expect(result.stages["build"]).toBe("HALTED");
+  });
+});
+
+describe("critique that will not converge", () => {
+  const stubborn = () => goodHandler({
+    critique: () => ({ structured: {
+      verdict: "REVISE_DESIGN",
+      findings: [{ severity: "BLOCKER", location: "src/feature.js:1", summary: "the whole approach is wrong", evidence: "the design creates a module where a function would do" }],
+    } }),
+    "refute:critique": () => ({ structured: { confirmed: true, reason: "agreed" } }),
+  });
+
+  it("halts in standard, where gates are strict", async () => {
+    const root = project();
+    const { result } = await runWith(root, stubborn(), { profile: "standard" });
+    expect(result.status).toBe("HALTED");
+    expect(result.haltedAt).toBe("critique");
+  });
+
+  it("proceeds with a note in fast, where the later gates still apply", async () => {
+    const root = project();
+    const { result } = await runWith(root, stubborn(), { profile: "fast" });
+    expect(result.status).toBe("COMPLETED");
+    expect(result.warnings.join(" ")).toMatch(/critique did not converge/);
+  });
+});
