@@ -125,7 +125,7 @@ export function chooseAdapter(config: EngineConfig): Adapter {
 }
 
 export function makeRunId(task: string, now = new Date()): string {
-  const stamp = now.toISOString().replace(/[-:T]/g, "").slice(0, 15);
+  const stamp = now.toISOString().replace(/[-:T]/g, "").slice(0, 14);
   const slug = task.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "run";
   return `${stamp}-${slug}`;
 }

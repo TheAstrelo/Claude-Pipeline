@@ -4,7 +4,7 @@
  * repository; only the model is fake.
  */
 import { describe, expect, it, afterEach } from "vitest";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, write, cleanup, sh } from "./helpers.js";
 import { FakeAdapter } from "../src/providers/fake.js";
@@ -166,7 +166,7 @@ console.log("ok");
     });
     const { result, adapter } = await runWith(root, goodHandler({
       build: request => {
-        require("node:fs").rmSync(join(request.cwd, "src/index.js"));
+        rmSync(join(request.cwd, "src/index.js"));
         writeFileSync(join(request.cwd, "src/feature.js"), "module.exports.feature = () => true;\n");
         return { structured: { verdict: "SUCCESS", filesChanged: ["src/feature.js"], notes: "", blockedReason: null } };
       },
@@ -442,5 +442,58 @@ describe("routing", () => {
     expect(byLabel["review"]!.model).toBe("fake-review");
     expect(byLabel["qafix"]!.model).toBe("fake-balanced");
     expect(byLabel["review"]!.effort).toBe("max");
+  });
+});
+
+describe("resume", () => {
+  it("re-enters a halted run, keeps the built tree, and does not re-plan", async () => {
+    const root = project();
+    // First attempt: the review fails hard after the build succeeded.
+    const first = await runWith(root, goodHandler({
+      review: () => ({ exit: "error", errorMessage: "provider fell over" }),
+    }));
+    expect(first.result.status).toBe("HALTED");
+
+    // The worktree and its work survive for the resume.
+    const worktree = join(root, ".pipeline", "worktrees", "testrun");
+    expect(existsSync(join(worktree, "src/feature.js"))).toBe(true);
+
+    const second = await runWith(root, goodHandler(), { resumeRunId: "testrun" });
+    expect(second.result.status).toBe("COMPLETED");
+    // Plan, critique and build were not paid for again.
+    expect(second.adapter.countOf("plan")).toBe(0);
+    expect(second.adapter.countOf("critique")).toBe(0);
+    expect(second.adapter.countOf("build")).toBe(0);
+    expect(second.adapter.countOf("review")).toBe(1);
+    expect(sh(root, "git", ["show", `${second.result.commit}:src/feature.js`])).toContain("feature");
+  });
+
+  it("refuses to resume under a different task, naming the reason", async () => {
+    const root = project();
+    await runWith(root, goodHandler({ review: () => ({ exit: "error", errorMessage: "fell over" }) }));
+    const { result } = await runWith(root, goodHandler(), { resumeRunId: "testrun", task: "a completely different task" });
+    expect(result.status).toBe("HALTED");
+    expect(result.message).toMatch(/resume needs the same task/);
+  });
+
+  it("refuses to resume when the verification descriptors changed", async () => {
+    const root = project();
+    await runWith(root, goodHandler({ review: () => ({ exit: "error", errorMessage: "fell over" }) }));
+    write(root, { "package.json": JSON.stringify({ name: "fixture", scripts: { test: "node test/run.js", pretest: "echo sneaky" } }, null, 2) + "\n" });
+    sh(root, "git", ["add", "-A"]);
+    sh(root, "git", ["commit", "-q", "-m", "change scripts"]);
+    const { result } = await runWith(root, goodHandler(), { resumeRunId: "testrun" });
+    expect(result.status).toBe("HALTED");
+    expect(result.message).toMatch(/cannot resume/);
+  });
+
+  it("restores a worktree left mid-write", async () => {
+    const root = project();
+    await runWith(root, goodHandler({ review: () => ({ exit: "error", errorMessage: "fell over" }) }));
+    // Simulate an interrupted write inside the engine-owned worktree.
+    writeFileSync(join(root, ".pipeline", "worktrees", "testrun", "src/feature.js"), "half-writ");
+    const { result } = await runWith(root, goodHandler(), { resumeRunId: "testrun" });
+    expect(result.warnings.join(" ")).toMatch(/mid-write|does not match the checkpoint/);
+    expect(result.status).toBe("COMPLETED");
   });
 });

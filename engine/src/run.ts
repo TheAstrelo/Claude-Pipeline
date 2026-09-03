@@ -10,6 +10,7 @@
  *   tests never substitutes for the test run.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -25,7 +26,7 @@ import {
 import {
   candidateChangedFiles, candidateDiff, candidatePathspec, commitReviewedTree, createRunWorktree,
   ensureIgnoredStateDir, headSha, isClean, isGitRepo, pushBranch, removeRunWorktree, treeOfCommit,
-  candidateTreeOid, type GitContext, type Worktree,
+  candidateTreeOid, excludeEnvFor, git, type GitContext, type Worktree,
 } from "./git.js";
 import { Ledger } from "./ledger.js";
 import { scanCandidate, ScannerEscapeError, type SecurityEvidence } from "./security.js";
@@ -55,6 +56,9 @@ export interface RunResult {
   commit: string | null;
   costUsd: number;
   modelCalls: number;
+  tokens: { input: number; output: number; cached: number };
+  /** Stage → outcome, for the run summary and the evaluation harness. */
+  stages: Record<string, string>;
   haltedAt: string | null;
   message: string;
   warnings: string[];
@@ -64,13 +68,26 @@ interface Checkpoint {
   runId: string;
   engineVersion: string;
   stage: string;
+  completedStages: string[];
   baseHead: string;
   taskHash: string;
   configHash: string;
   verificationPlanSha: string;
   candidateTree: string | null;
+  worktreePath: string | null;
   at: string;
 }
+
+/** Why a resume was refused, with the fix, rather than a bare mismatch. */
+const RESUME_HINTS: Record<string, string> = {
+  runId: "the checkpoint belongs to a different run",
+  engineVersion: "the engine was upgraded since the run started; start a fresh run",
+  baseHead: "the repository moved since the run started; start a fresh run from the new base",
+  taskHash: "the task text differs from the original run; resume needs the same task",
+  configHash: "the profile, quality or commit settings differ from the original run",
+  verificationPlanSha: "the package scripts or verification tooling changed since the run started",
+  worktree: "the run worktree is gone; start a fresh run",
+};
 
 const DENY_COMMANDS = [
   { pattern: /\bgit\s+(commit|push|reset|checkout|switch|restore|rebase|merge|stash|clean|tag|worktree|update-ref|filter-branch|am|cherry-pick|revert)\b/, reason: "the orchestrator owns the git history for this run" },
@@ -86,6 +103,8 @@ export class Runner {
   private readonly warnings: string[] = [];
   private costUsd = 0;
   private modelCalls = 0;
+  private tokens = { input: 0, output: 0, cached: 0 };
+  private readonly stages: Record<string, string> = {};
   private budgetExtensions = 0;
   private worktree: Worktree | null = null;
   private plan: PlanOutput | null = null;
@@ -142,7 +161,9 @@ export class Runner {
     this.baseTree = treeOfCommit(origin, this.baseHead) ?? "";
     ensureIgnoredStateDir(this.config.stateDir);
 
-    if (!this.config.allowDirty && !isClean(origin)) {
+    if (!isClean(origin)) {
+      // Not an error: the run happens in its own worktree at the baseline
+      // commit, so uncommitted work is simply not part of it.
       this.warn("the checkout has uncommitted changes; they are not part of this run");
     }
 
@@ -157,35 +178,51 @@ export class Runner {
     if (!preflight.ok) throw new HaltError("preflight", preflight.error ?? "the provider is not usable here");
     for (const note of preflight.fallbacks) this.warn(note);
 
+    // The worktree comes first: everything the run measures — the verification
+    // descriptors, the baseline, the candidate — must be the baseline commit in
+    // the engine's own tree, never the user's checkout with its uncommitted
+    // work and untracked files in it.
+    if (this.config.resumeRunId) {
+      // Resume re-derives the plan below and compares it to the checkpoint, so
+      // the worktree has to exist before detection either way.
+      this.worktree = this.enterResumedWorktree();
+    } else {
+      this.worktree = createRunWorktree({
+        originRoot: this.config.repoRoot, stateDir: this.config.stateDir,
+        runId: this.runId, baseHead: this.baseHead,
+      });
+    }
+    this.pathspec = candidatePathspec(this.worktree.ctx);
+    this.log(`  Worktree: ${this.worktree.path} (your checkout stays untouched)`);
+
     // Verification descriptors are frozen before anything can edit them.
-    const plan = detectVerificationCommands(this.config.repoRoot, Math.round(this.config.commandTimeoutMs / 1000));
+    const plan = detectVerificationCommands(this.worktree.path, Math.round(this.config.commandTimeoutMs / 1000));
     this.verification = { plan, digest: planDigest(plan) };
     writeArtifact(join(this.artifacts, "verification-plan.json"), JSON.stringify(plan, null, 2) + "\n");
     this.log(`  Verification: ${CHECK_NAMES.map(n => `${n}=${plan.commands[n].length ? commandDisplay(plan.commands[n]) : "none"}`).join("  ")}`);
 
-    if (this.config.baselineChecks) {
+    if (this.config.resumeRunId) this.verifyResumeInvariants();
+
+    if (this.config.baselineChecks && !this.alreadyDone("baseline")) {
       const baseline = await runBaseline({
-        plan, ctx: origin, cwd: this.config.repoRoot,
+        plan, ctx: this.worktree.ctx, cwd: this.worktree.path,
         timeoutMs: this.config.commandTimeoutMs, artifactsDir: this.artifacts,
       });
       if (baseline.selfDirtying.length) {
         throw new HaltError("baseline", `the project's own check commands modify the working tree: ${baseline.selfDirtying.join(", ")}. Gitignore those outputs and rerun.`);
       }
       this.baseline = baseline.statuses;
+      writeArtifact(join(this.artifacts, "baseline.json"), JSON.stringify(baseline.statuses, null, 2) + "\n");
       this.ledger.append("baseline_recorded", { checks: baseline.statuses });
       const failing = CHECK_NAMES.filter(n => baseline.statuses[n] !== "PASS" && baseline.statuses[n] !== "NOT_CONFIGURED");
       if (failing.length) {
         this.log(`  Pre-existing baseline failures: ${failing.map(n => `${n}=${baseline.statuses[n]}`).join(", ")}`);
         this.log("  They will not gate this run; regressions this run introduces still will.");
       }
+      this.stageDone("baseline");
+    } else if (this.alreadyDone("baseline")) {
+      this.baseline = this.loadBaseline();
     }
-
-    this.worktree = createRunWorktree({
-      originRoot: this.config.repoRoot, stateDir: this.config.stateDir,
-      runId: this.runId, baseHead: this.baseHead,
-    });
-    this.pathspec = candidatePathspec(this.worktree.ctx);
-    this.log(`  Worktree: ${this.worktree.path} (your checkout stays untouched)`);
 
     this.context = buildContextPack({
       task: this.config.task, root: this.worktree.path, ctx: this.worktree.ctx, plan,
@@ -204,6 +241,7 @@ export class Runner {
   // ---------------------------------------------------------------- stages
 
   private async stagePlan(): Promise<void> {
+    if (this.alreadyDone("plan")) { this.plan = this.loadPlan(); if (this.plan) { this.log("  Plan: reused from the checkpoint"); return; } }
     this.checkpoint("plan");
     const limits = profileOf(this.config);
     let critique: string | null = null;
@@ -221,13 +259,11 @@ export class Runner {
       const parsed = parsePlan(result.structured);
       if (!parsed) throw new HaltError("plan", "the planning phase returned nothing usable");
       this.plan = parsed;
-      for (const [name, body] of Object.entries(renderPlanArtifacts(parsed))) {
-        writeArtifact(join(this.artifacts, name), body);
-      }
+      this.persistPlan(parsed);
 
       const lint = lintPlan(parsed.steps, file => this.readWorktreeFile(file));
       const uncovered = findUncoveredCriteria(parsed.brief.criteria.map(c => c.id), parsed.steps);
-      if (!lint.length && !uncovered.length) return;
+      if (!lint.length && !uncovered.length) { this.stageDone("plan"); return; }
 
       const problems = [
         ...lint.map(f => `Step ${f.step} (${f.file}): ${f.problem}`),
@@ -240,6 +276,7 @@ export class Runner {
         this.warn(`plan lint did not converge; passing ${problems.length} finding(s) to the build`);
         lintNotes = problems.join("\n");
         this.planLintNotes = lintNotes;
+        this.stageDone("plan");
         return;
       }
       lintNotes = problems.join("\n");
@@ -249,9 +286,12 @@ export class Runner {
   }
 
   private planLintNotes: string | null = null;
+  private readonly completedStages: string[] = [];
+  private resumedFrom: Checkpoint | null = null;
 
   private async stageCritique(): Promise<void> {
     if (!runsRole(this.config, "critique")) return;
+    if (this.alreadyDone("critique")) { this.log("  Critique: already passed in the checkpoint"); return; }
     this.checkpoint("critique");
     const limits = profileOf(this.config);
 
@@ -269,11 +309,12 @@ export class Runner {
 
       const decision = decideReviewGate(critique, null);
       this.recordGate("critique", decision);
-      if (decision.passed) return;
+      if (decision.passed) { this.stageDone("critique"); return; }
 
       const confirmed = await this.refute("critique", decision.gating);
       if (!confirmed.length) {
         this.log("  Every critique blocker was refuted on review; proceeding");
+        this.stageDone("critique");
         return;
       }
       if (attempt === limits.maxCritiqueRetries) {
@@ -299,15 +340,27 @@ export class Runner {
       toolScope: "read-web", sandbox: "read-only", schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
     });
     const parsed = parsePlan(result.structured);
-    if (parsed) {
-      this.plan = parsed;
-      for (const [name, body] of Object.entries(renderPlanArtifacts(parsed))) {
-        writeArtifact(join(this.artifacts, name), body);
-      }
+    if (parsed) this.persistPlan(parsed);
+  }
+
+  private loadPlan(): PlanOutput | null {
+    const path = join(this.artifacts, "plan.json");
+    if (!existsSync(path)) return null;
+    try { return JSON.parse(readFileSync(path, "utf8")) as PlanOutput; } catch { return null; }
+  }
+
+  private persistPlan(plan: PlanOutput): void {
+    this.plan = plan;
+    for (const [name, body] of Object.entries(renderPlanArtifacts(plan))) {
+      writeArtifact(join(this.artifacts, name), body);
     }
+    // The structured form is what a resume reloads; the markdown is for humans
+    // and for the phases that quote it.
+    writeArtifact(join(this.artifacts, "plan.json"), JSON.stringify(plan, null, 2) + "\n");
   }
 
   private async stageBuild(): Promise<void> {
+    if (this.alreadyDone("build")) { this.log("  Build: already applied in the resumed worktree"); return; }
     this.checkpoint("build");
     const result = await this.callRole("build", {
       prompt: buildBuildPrompt({
@@ -334,6 +387,7 @@ export class Runner {
     this.log(`  Build touched ${changed.length} file(s)`);
 
     await this.buildFixLoop();
+    this.stageDone("build");
   }
 
   /**
@@ -375,6 +429,7 @@ export class Runner {
 
   private async stageQa(): Promise<void> {
     if (!runsRole(this.config, "qafix")) return;
+    if (this.alreadyDone("qa")) return;
     this.checkpoint("qa");
     const files = this.changedTextFiles();
     const findings = scanForQaFindings(files, { documentsRoutes: this.context!.documentsRoutes });
@@ -382,6 +437,7 @@ export class Runner {
     if (!findings.length) {
       this.ledger.append("check_run", { stage: "qa", model: "SKIPPED", findings: 0 });
       this.log("  Deterministic quality checks clean; no model call");
+      this.stageDone("qa");
       return;
     }
     this.log(`  Deterministic quality checks found ${findings.length} item(s); fixing`);
@@ -396,6 +452,7 @@ export class Runner {
     const after = scanForQaFindings(this.changedTextFiles(), { documentsRoutes: this.context!.documentsRoutes });
     this.ledger.append("check_run", { stage: "qa", before: findings.length, after: after.length });
     if (after.length) this.warn(`${after.length} quality finding(s) remain after the fix pass`);
+    this.stageDone("qa");
   }
 
   /**
@@ -655,6 +712,9 @@ export class Runner {
       const result = await this.adapter.execute(full);
       this.modelCalls++;
       this.costUsd += result.usage.costUsd ?? 0;
+      this.tokens.input += result.usage.inputTokens;
+      this.tokens.output += result.usage.outputTokens;
+      this.tokens.cached += result.usage.cachedTokens;
       this.ledger.append("model_call", {
         role, label, attempt, model: full.model, effort: full.effort, exit: result.exit,
         costUsd: result.usage.costUsd, tokens: result.usage.outputTokens, denials: result.denials,
@@ -737,6 +797,84 @@ export class Runner {
     });
   }
 
+  /**
+   * Re-enter a halted run's worktree.
+   *
+   * Every invariant is checked before anything is reused, and a refusal names
+   * the fix rather than the mismatch. The worktree is engine-owned, so a
+   * workspace left mid-write is restored to its checkpointed tree — nothing a
+   * person authored is at risk there.
+   */
+  private enterResumedWorktree(): Worktree {
+    const path = join(this.artifacts, "checkpoint.json");
+    if (!existsSync(path)) throw new HaltError("resume", `no checkpoint for run ${this.runId}; it may have been pruned`);
+    let checkpoint: Checkpoint;
+    try {
+      checkpoint = JSON.parse(readFileSync(path, "utf8")) as Checkpoint;
+    } catch {
+      throw new HaltError("resume", "the checkpoint is unreadable; start a fresh run");
+    }
+
+    // Everything checkable before the worktree is entered, checked first.
+    const expected: Array<[keyof typeof RESUME_HINTS, unknown, unknown]> = [
+      ["runId", checkpoint.runId, this.runId],
+      ["engineVersion", checkpoint.engineVersion, ENGINE_VERSION],
+      ["baseHead", checkpoint.baseHead, this.baseHead],
+      ["taskHash", checkpoint.taskHash, hashOf(this.config.task)],
+      ["configHash", checkpoint.configHash, this.configHash()],
+    ];
+    for (const [name, was, now] of expected) {
+      if (was !== now) throw new HaltError("resume", `cannot resume: ${RESUME_HINTS[name]}`);
+    }
+
+    const worktreePath = checkpoint.worktreePath;
+    if (!worktreePath || !existsSync(worktreePath)) throw new HaltError("resume", `cannot resume: ${RESUME_HINTS["worktree"]}`);
+
+    const branch = `pipeline/${this.runId}`;
+    const env = excludeEnvFor(this.config.stateDir, this.runId, existsSync(join(worktreePath, "node_modules")) ? ["node_modules"] : []);
+    const worktree: Worktree = { path: worktreePath, branch, baseHead: this.baseHead, env, ctx: { cwd: worktreePath, env } };
+
+    // A run interrupted mid-write leaves a tree that matches no checkpoint.
+    // Restoring it is safe here and is the difference between resuming and
+    // starting over.
+    const pathspec = candidatePathspec(worktree.ctx);
+    const current = candidateTreeOid(worktree.ctx, this.baseHead, pathspec);
+    if (checkpoint.candidateTree && current !== checkpoint.candidateTree) {
+      const restored = git(worktree.ctx, ["checkout", "--", "."]).status === 0;
+      this.warn(restored
+        ? "the workspace was mid-write; restored it to the checkpointed tree"
+        : "the workspace does not match the checkpoint and could not be restored");
+    }
+
+    this.resumedFrom = checkpoint;
+    for (const stage of checkpoint.completedStages) this.completedStages.push(stage);
+    this.log(`  Resuming ${this.runId} after: ${checkpoint.completedStages.join(", ") || "nothing"}`);
+    this.ledger.append("note", { resumedFrom: checkpoint.stage, completed: checkpoint.completedStages });
+    return worktree;
+  }
+
+  /** The one invariant that can only be checked once the plan is re-derived. */
+  private verifyResumeInvariants(): void {
+    const checkpoint = this.resumedFrom;
+    if (!checkpoint) return;
+    if (checkpoint.verificationPlanSha !== this.verification.digest) {
+      throw new HaltError("resume", `cannot resume: ${RESUME_HINTS["verificationPlanSha"]}`);
+    }
+  }
+
+  private loadBaseline(): BaselineStatuses | null {
+    const path = join(this.artifacts, "baseline.json");
+    if (!existsSync(path)) return null;
+    try { return JSON.parse(readFileSync(path, "utf8")) as BaselineStatuses; } catch { return null; }
+  }
+
+  private configHash(): string {
+    return hashOf(JSON.stringify({
+      profile: this.config.profile, quality: this.config.quality, provider: this.config.provider,
+      commit: this.config.commit, allowUntested: this.config.allowUntestedCommit,
+    }));
+  }
+
   private assertNoDrift(): void {
     try {
       assertPlanUnchanged(this.worktree!.path, this.verification.plan, this.verification.digest);
@@ -797,13 +935,25 @@ export class Runner {
     if (decision.demoted) this.warn(`${stage}: blocking verdict demoted because it cited no gating finding`);
   }
 
+  /** Has this stage already run in the checkpoint we resumed from? */
+  private alreadyDone(stage: string): boolean {
+    return this.resumedFrom !== null && this.resumedFrom.completedStages.includes(stage);
+  }
+
+  private stageDone(stage: string): void {
+    if (!this.completedStages.includes(stage)) this.completedStages.push(stage);
+    this.stages[stage] = "DONE";
+    this.checkpoint(stage);
+  }
+
   private checkpoint(stage: string): void {
+    if (!this.stages[stage]) this.stages[stage] = "RUNNING";
     const checkpoint: Checkpoint = {
-      runId: this.runId, engineVersion: ENGINE_VERSION, stage, baseHead: this.baseHead,
-      taskHash: hashOf(this.config.task), configHash: hashOf(JSON.stringify({
-        profile: this.config.profile, quality: this.config.quality, provider: this.config.provider,
-        commit: this.config.commit, allowUntested: this.config.allowUntestedCommit,
-      })),
+      runId: this.runId, engineVersion: ENGINE_VERSION, stage,
+      completedStages: [...this.completedStages],
+      worktreePath: this.worktree?.path ?? null,
+      baseHead: this.baseHead,
+      taskHash: hashOf(this.config.task), configHash: this.configHash(),
       verificationPlanSha: this.verification?.digest ?? "",
       candidateTree: this.worktree ? candidateTreeOid(this.worktree.ctx, this.baseHead, this.pathspec) : null,
       at: new Date().toISOString(),
@@ -819,11 +969,12 @@ export class Runner {
   }
 
   private result(status: RunStatus, exitCode: ExitCode, message: string, haltedAt: string | null): RunResult {
+    if (haltedAt) this.stages[haltedAt] = exitCode === 4 ? "BUDGET" : "HALTED";
     return {
       status, exitCode, runId: this.runId, artifactsDir: this.artifacts,
       branch: this.worktree?.branch ?? null, commit: null,
-      costUsd: this.costUsd, modelCalls: this.modelCalls, haltedAt, message,
-      warnings: [...this.warnings],
+      costUsd: this.costUsd, modelCalls: this.modelCalls, tokens: { ...this.tokens },
+      stages: { ...this.stages }, haltedAt, message, warnings: [...this.warnings],
     };
   }
 }
@@ -841,8 +992,6 @@ class BudgetError extends Error {
 }
 
 function hashOf(value: string): string {
-  // Local import keeps the hot path free of a top-level crypto dependency.
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
   return createHash("sha256").update(value).digest("hex");
 }
 

@@ -21,6 +21,16 @@ export function writeRunJson(result: RunResult, config: EngineConfig, engineVers
     provider: config.provider,
     branch: result.branch,
     commit: result.commit,
+    // `totals` and `phases` keep the shape the evaluation harness reads, so a
+    // TypeScript run is directly comparable with the shell engine's results.
+    phases: result.stages,
+    totals: {
+      modelCalls: result.modelCalls,
+      estimatedCostUsd: Number(result.costUsd.toFixed(6)),
+      inputTokens: result.tokens.input,
+      outputTokens: result.tokens.output,
+      cachedTokens: result.tokens.cached,
+    },
     costUsd: Number(result.costUsd.toFixed(6)),
     modelCalls: result.modelCalls,
     warnings: result.warnings,
@@ -28,6 +38,8 @@ export function writeRunJson(result: RunResult, config: EngineConfig, engineVers
     finishedAt: new Date().toISOString(),
   };
   writeFileSync(join(result.artifactsDir, "run.json"), JSON.stringify(body, null, 2) + "\n");
+  // A stable pointer to the newest run's evidence, for humans and for tooling.
+  writeFileSync(join(config.stateDir, "artifacts", "current.txt"), result.artifactsDir + "\n");
   appendHistory(config.stateDir, body);
 }
 

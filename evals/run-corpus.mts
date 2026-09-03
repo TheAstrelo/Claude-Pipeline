@@ -257,6 +257,9 @@ function findArtifacts(stateDir: string): string | null {
 
 function haltedWhere(exit: number | null, run: any, stdout: string): string | null {
   if (exit === 0) return null;
+  // The TypeScript engine records where it stopped directly; the shell engine
+  // has to be inferred from its per-phase results below.
+  if (typeof run?.haltedAt === "string" && run.haltedAt) return run.haltedAt;
   if (run?.security?.latestScannerResult === "BLOCK" || /scanner.*BLOCK|BLOCK.*scanner/i.test(stdout)) return "security-scanner";
   const phases: Record<string, string> = run?.phases || {};
   const names: Record<string, string> = {

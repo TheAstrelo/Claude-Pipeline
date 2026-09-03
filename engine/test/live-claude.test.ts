@@ -4,6 +4,7 @@
  * guard settings actually hold end to end.
  */
 import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, write, cleanup } from "./helpers.js";
@@ -132,6 +133,5 @@ suite("claude adapter (live)", () => {
 });
 
 function gitLog(root: string): number {
-  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
   return execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: root, encoding: "utf8" }).trim() === "1" ? 1 : 2;
 }
