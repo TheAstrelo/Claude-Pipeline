@@ -27,7 +27,6 @@ Options:
   --profile=yolo|fast|standard|paranoid
                                  What runs and how gates behave (default: standard)
   --no-commit                    Review only; never commit
-  --allow-dirty                  Proceed with uncommitted changes in the checkout
   --allow-untested-commit        Commit even with no test command (recorded)
   --push                         Push the run branch after committing
   --pr                           --push, and print pull-request guidance
@@ -44,7 +43,16 @@ Options:
 
 Budgets are opt-in. Without --max-run-budget-usd the run is uncapped; with one,
 each call starts at a $4 cap that doubles on demand within the run cap.
+
+Uncommitted work in your checkout never needs a flag: every run happens in its
+own worktree at the last commit, so your changes are simply not part of it.
 `;
+
+const KNOWN_FLAGS = new Set([
+  "provider", "quality", "profile", "no-commit", "allow-untested-commit",
+  "push", "pr", "budget", "max-budget-usd", "max-run-budget-usd",
+  "model-strong", "model-fast", "model-review", "state-dir", "resume",
+]);
 
 export function parseArgs(argv: string[]): { config: EngineConfig; error?: string; help?: boolean; version?: boolean } {
   const positional: string[] = [];
@@ -59,6 +67,7 @@ export function parseArgs(argv: string[]): { config: EngineConfig; error?: strin
       positional.push(arg);
     }
   }
+  const unknown = [...flags.keys()].filter(name => !KNOWN_FLAGS.has(name));
   const task = positional.join(" ").trim();
   const numeric = (name: string): number | null => {
     const raw = flags.get(name);
@@ -85,7 +94,6 @@ export function parseArgs(argv: string[]): { config: EngineConfig; error?: strin
       review: flags.get("model-review") ?? null,
     },
     commit: !flags.has("no-commit"),
-    allowDirty: flags.has("allow-dirty"),
     allowUntestedCommit: flags.has("allow-untested-commit"),
     push: flags.has("push") || flags.has("pr"),
     openPr: flags.has("pr"),
@@ -94,10 +102,13 @@ export function parseArgs(argv: string[]): { config: EngineConfig; error?: strin
     stateDir: resolve(flags.get("state-dir") ?? process.env["PIPELINE_STATE_DIR"] ?? ".pipeline"),
     repoRoot: process.cwd(),
     resumeRunId: flags.get("resume") ?? null,
-    nonInteractive: process.env["PIPELINE_NONINTERACTIVE"] === "1",
     baselineChecks: process.env["PIPELINE_BASELINE_CHECKS"] !== "0",
   };
 
+  if (unknown.length) {
+    // Silently ignoring --quailty=max would run at the default and look fine.
+    return { config, error: `unknown option(s): ${unknown.map(f => `--${f}`).join(", ")}` };
+  }
   if (!task) return { config, error: "a task description is required" };
   if (Number.isNaN(perCall) || Number.isNaN(runCap)) return { config, error: "budget caps must be non-negative numbers" };
   for (const [name, allowed] of [

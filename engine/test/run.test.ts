@@ -39,7 +39,6 @@ function config(root: string, over: Partial<EngineConfig> = {}): EngineConfig {
     budget: resolveBudget({ policy: "elastic", perCallUsd: null, runUsd: null }),
     models: { strong: null, balanced: null, review: null },
     commit: true,
-    allowDirty: false,
     allowUntestedCommit: false,
     push: false,
     openPr: false,
@@ -48,7 +47,6 @@ function config(root: string, over: Partial<EngineConfig> = {}): EngineConfig {
     stateDir: join(root, ".pipeline"),
     repoRoot: root,
     resumeRunId: null,
-    nonInteractive: true,
     baselineChecks: true,
     ...over,
   };

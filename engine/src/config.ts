@@ -176,7 +176,6 @@ export interface EngineConfig {
   /** Model overrides; null means "use the adapter's default for that lane". */
   models: { strong: string | null; balanced: string | null; review: string | null };
   commit: boolean;
-  allowDirty: boolean;
   allowUntestedCommit: boolean;
   push: boolean;
   openPr: boolean;
@@ -187,7 +186,6 @@ export interface EngineConfig {
   stateDir: string;
   repoRoot: string;
   resumeRunId: string | null;
-  nonInteractive: boolean;
   baselineChecks: boolean;
 }
 
