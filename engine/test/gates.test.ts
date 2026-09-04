@@ -165,3 +165,31 @@ describe("plan lint", () => {
     ], read)).toEqual([]);
   });
 });
+
+describe("prompt contracts that keep the pipeline honest", () => {
+  it("tells the planner an existing failing test is the specification", async () => {
+    const { buildPlanPrompt } = await import("../src/roles/plan.js");
+    const prompt = buildPlanPrompt({
+      task: "the items delete test is failing; fix the bug",
+      contextPack: "", precedents: null, critique: null, lintFindings: null, hasTestCommand: true,
+    });
+    expect(prompt).toMatch(/that test \*is\* the acceptance test/);
+    expect(prompt).toMatch(/Do not modify it, do not add cases to it/);
+  });
+
+  it("does not ask for acceptance tests where there is no test command", async () => {
+    const { buildPlanPrompt } = await import("../src/roles/plan.js");
+    const prompt = buildPlanPrompt({
+      task: "write the docs", contextPack: "", precedents: null,
+      critique: null, lintFindings: null, hasTestCommand: false,
+    });
+    expect(prompt).toContain("No test command was detected");
+    expect(prompt).not.toContain("acceptance test");
+  });
+
+  it("carries the no-weakening and scope rules into every code-producing prompt", async () => {
+    const { ENGINEERING_STANDARD } = await import("../src/roles/common.js");
+    expect(ENGINEERING_STANDARD).toMatch(/already specifies the behavior you are changing/);
+    expect(ENGINEERING_STANDARD).toMatch(/Stay inside the area the task and the plan name/);
+  });
+});

@@ -17,7 +17,8 @@ export const ENGINEERING_STANDARD = `Engineering standard:
 - No abstraction with one caller, no configuration for a need nobody has stated, no feature flags nobody asked for.
 - Comments, docstrings and defensive checks only where the surrounding file already has them. Match the file you are editing, not your habits.
 - Write tests in the style of the example test above, placed where the existing test command already finds them.
-- Never edit the package scripts the verification commands call, and never weaken a test to make it pass.
+- Never edit a test that already specifies the behavior you are changing. A failing test is the specification: change the code until it passes. Never weaken a test, delete an assertion, or edit the package scripts the verification commands call.
+- Stay inside the area the task and the plan name. If you think a change is needed elsewhere, say so instead of making it.
 - No debug output, no TODO markers, no commented-out code left behind.`;
 
 /** The evidence rule for every phase that may block the run. */

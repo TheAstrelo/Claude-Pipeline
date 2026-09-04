@@ -143,7 +143,11 @@ One pass over four questions, in order. Later answers must be consistent with ea
 **4. Steps.** The plan the builder executes. Each step names one file, an action, an anchor, an intent and a test. Anchors must be text that literally occurs in the file today, copied exactly — the orchestrator checks this before the build runs, and a wrong anchor costs a re-plan. Intent describes what changes and why; do not write the code here. Every success criterion must be named by at least one step, and at least one of those steps must have a real test.`);
 
   if (input.hasTestCommand) {
-    parts.push(`**Acceptance-first.** This repository has a test command. The earliest steps must author tests that encode the success criteria and fail today. A change whose tests were already green proves nothing about the task, and the pipeline gates on the real test run, so tests that do not exercise the new behavior only delay the failure.`);
+    parts.push(`**Acceptance-first.** This repository has a test command, and the pipeline gates on the real test run.
+
+First check whether a test that already exists covers the criteria and fails today. If one does — the task begins from a failing test, or points at one — that test *is* the acceptance test and it is the specification. Do not modify it, do not add cases to it, and do not move it: the plan changes the code until that test passes. A pipeline that edits the failing test is the exact failure this pipeline exists to prevent, and adding cases beside it is one step from it.
+
+Only where nothing covers a criterion should an early step author a new failing test for it, placed where the existing test command already finds it. A change whose tests were already green proves nothing about the task.`);
   } else {
     parts.push(`**No test command was detected.** Do not invent a test framework or add one as a dependency. State in each step's test field how a human would verify it by hand.`);
   }
