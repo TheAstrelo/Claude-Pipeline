@@ -124,5 +124,197 @@
       "stdout": "\n  standard · quality=max · claude\n  Task: add pagination to items\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-express-items-pagination-terse-54Jeyt/state/worktrees/20260903232109-add-pagination-to-items (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=none  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks clean; no model call\n  test: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260903232109-add-pagination-to-items\n  Evidence: /tmp/corpus-express-items-pagination-terse-54Jeyt/state/artifacts/20260903232109-add-pagination-to-items\n  Branch:   pipeline/20260903232109-add-pagination-to-items\n  Cost:     $1.87 over 5 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n",
       "stderr": ""
     }
+  },
+  {
+    "taskId": "express-items-validation",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "ts",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-03T23:30:37.633Z",
+    "wallClockMs": 790364,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "REVIEW_ONLY",
+    "haltedAt": null,
+    "phases": {
+      "baseline": "DONE",
+      "plan": "DONE",
+      "critique": "DONE",
+      "build": "DONE",
+      "qa": "DONE",
+      "verify": "RUNNING",
+      "security": "RUNNING",
+      "review": "RUNNING"
+    },
+    "modelCalls": 8,
+    "costUsd": 2.790163,
+    "tokens": {
+      "input": 106,
+      "output": 58293,
+      "cached": 524491
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "ted the same way\nok 8 - POST /api/items with no body at all is rejected the same way\n  ---\n  duration_ms: 2.234867\n  type: 'test'\n  ...\n# POST /api/items 201 1ms\n# GET /api/items/1 200 1ms\n# Subtest: POST /api/items with a valid name still creates the item\nok 9 - POST /api/items with a valid name still creates the item\n  ---\n  duration_ms: 5.481293\n  type: 'test'\n  ...\n# GET /api/health 200 3ms\n# Subtest: GET /api/health reports ok\nok 10 - GET /api/health reports ok\n  ---\n  duration_ms: 15.465909\n  type: 'test'\n  ...\n# POST /api/items 201 3ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# GET /api/items 200 1ms\n# GET /api/items/2 200 0ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 1ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 11 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 34.868205\n  type: 'test'\n  ...\n# POST /api/items 400 0ms\n# Subtest: POST /api/items without a name is rejected\nok 12 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 4.525601\n  type: 'test'\n  ...\n# GET /api/items/9999 404 1ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 13 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 2.590129\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# POST /api/items 400 0ms\n# POST /api/items 400 1ms\n# POST /api/items 400 1ms\n# POST /api/items 400 0ms\n# POST /api/items 400 0ms\n# POST /api/items 400 0ms\n# POST /api/items 400 0ms\n# Subtest: POST /api/items with a non-string or blank name is rejected\nok 14 - POST /api/items with a non-string or blank name is rejected\n  ---\n  duration_ms: 9.804691\n  type: 'test'\n  ...\n# POST /api/items 201 1ms\n# Subtest: POST /api/items keeps surrounding whitespace in a valid name\nok 15 - POST /api/items keeps surrounding whitespace in a valid name\n  ---\n  duration_ms: 2.505055\n  type: 'test'\n  ...\n1..15\n# tests 15\n# suites 0\n# pass 15\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 217.394596\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 27,
+      "removedLines": 1,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0
+    },
+    "changedFiles": [
+      "src/routes/items.js",
+      "src/routes/items.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "id names keep creating items with 201 as today. Do not add dependencies.\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-express-items-validation-Ghi8y7/state/worktrees/20260903233039-post-api-items-must-reject-an-invalid-it (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=none  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  refute:critique: claude-opus-5 (xhigh)\n  Critique asked for a revision (1 blocker(s)); re-planning\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks clean; no model call\n  test: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260903233039-post-api-items-must-reject-an-invalid-it\n  Evidence: /tmp/corpus-express-items-validation-Ghi8y7/state/artifacts/20260903233039-post-api-items-must-reject-an-invalid-it\n  Branch:   pipeline/20260903233039-post-api-items-must-reject-an-invalid-it\n  Cost:     $2.79 over 8 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n",
+      "stderr": ""
+    }
+  },
+  {
+    "taskId": "express-logger-refactor",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "ts",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-03T23:43:50.523Z",
+    "wallClockMs": 527833,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "REVIEW_ONLY",
+    "haltedAt": null,
+    "phases": {
+      "baseline": "DONE",
+      "plan": "DONE",
+      "critique": "DONE",
+      "build": "DONE",
+      "qa": "DONE",
+      "verify": "RUNNING",
+      "security": "RUNNING",
+      "review": "RUNNING"
+    },
+    "modelCalls": 6,
+    "costUsd": 1.906362,
+    "tokens": {
+      "input": 92,
+      "output": 38938,
+      "cached": 535779
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": "hen the response finishes\nok 4 - the middleware still logs exactly one formatted line when the response finishes\n  ---\n  duration_ms: 0.486589\n  type: 'test'\n  ...\n# Subtest: the module default export is still the middleware\nok 5 - the module default export is still the middleware\n  ---\n  duration_ms: 0.81806\n  type: 'test'\n  ...\n# Subtest: formatLogLine is exported as a function of three parameters\nok 6 - formatLogLine is exported as a function of three parameters\n  ---\n  duration_ms: 0.205374\n  type: 'test'\n  ...\n# Subtest: formatLogLine builds \"<method> <originalUrl> <statusCode> <ms>ms\"\nok 7 - formatLogLine builds \"<method> <originalUrl> <statusCode> <ms>ms\"\n  ---\n  duration_ms: 0.145447\n  type: 'test'\n  ...\n# Subtest: formatLogLine is pure\nok 8 - formatLogLine is pure\n  ---\n  duration_ms: 1.39023\n  type: 'test'\n  ...\n# Subtest: a completed request logs exactly one line\nok 9 - a completed request logs exactly one line\n  ---\n  duration_ms: 21.375205\n  type: 'test'\n  ...\n# GET /api/health 200 3ms\n# Subtest: GET /api/health reports ok\nok 10 - GET /api/health reports ok\n  ---\n  duration_ms: 16.632739\n  type: 'test'\n  ...\n# POST /api/items 201 2ms\n# POST /api/items 201 0ms\n# POST /api/items 201 0ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 0ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 1ms\n# GET /api/items 200 1ms\n# Subtest: items can be created, listed, fetched and deleted\nok 11 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 35.685749\n  type: 'test'\n  ...\n# POST /api/items 400 1ms\n# Subtest: POST /api/items without a name is rejected\nok 12 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 4.107889\n  type: 'test'\n  ...\n# GET /api/items/9999 404 1ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 13 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 2.556095\n  type: 'test'\n  ...\n1..13\n# tests 13\n# suites 0\n# pass 13\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 273.968008\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": [
+        "diff 94 lines above band 6-80"
+      ]
+    },
+    "slop": {
+      "addedLines": 93,
+      "removedLines": 1,
+      "filesChanged": 2,
+      "newFiles": 1,
+      "newDeps": [],
+      "debugLines": 4,
+      "todoMarkers": 0,
+      "commentRatio": 0.032
+    },
+    "changedFiles": [
+      "src/middleware/logger.js",
+      "src/middleware/logger.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "ware/logger') callers are unchanged. Behaviour must not change and no other file should be modified.\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-express-logger-refactor-ByVWy5/state/worktrees/20260903234353-refactor-src-middleware-logger-js-extrac (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=none  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks found 1 item(s); fixing\n  qafix: claude-sonnet-5 (high)\n  ! 1 quality finding(s) remain after the fix pass\n  test: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260903234353-refactor-src-middleware-logger-js-extrac\n  Evidence: /tmp/corpus-express-logger-refactor-ByVWy5/state/artifacts/20260903234353-refactor-src-middleware-logger-js-extrac\n  Branch:   pipeline/20260903234353-refactor-src-middleware-logger-js-extrac\n  Cost:     $1.91 over 6 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n    - 1 quality finding(s) remain after the fix pass\n",
+      "stderr": ""
+    }
+  },
+  {
+    "taskId": "express-request-id",
+    "kind": "routine",
+    "fixture": "express-api",
+    "engine": "ts",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-03T23:52:41.161Z",
+    "wallClockMs": 578068,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "REVIEW_ONLY",
+    "haltedAt": null,
+    "phases": {
+      "baseline": "DONE",
+      "plan": "DONE",
+      "critique": "DONE",
+      "build": "DONE",
+      "qa": "DONE",
+      "verify": "RUNNING",
+      "security": "RUNNING",
+      "review": "RUNNING"
+    },
+    "modelCalls": 6,
+    "costUsd": 2.051522,
+    "tokens": {
+      "input": 100,
+      "output": 42674,
+      "cached": 597921
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": " carry the header\nok 3 - 404 responses for unknown routes also carry the header\n  ---\n  duration_ms: 6.148018\n  type: 'test'\n  ...\n# GET /api/health 200 3ms\n# Subtest: a known route carries a non-empty x-request-id\nok 4 - a known route carries a non-empty x-request-id\n  ---\n  duration_ms: 18.347361\n  type: 'test'\n  ...\n# GET /nope 404 1ms\n# Subtest: the default 404 for an unknown route carries a non-empty x-request-id\nok 5 - the default 404 for an unknown route carries a non-empty x-request-id\n  ---\n  duration_ms: 4.840302\n  type: 'test'\n  ...\n# GET /api/health 200 1ms\n# GET /nope 404 0ms\n# Subtest: an incoming X-Request-Id is echoed back unchanged\nok 6 - an incoming X-Request-Id is echoed back unchanged\n  ---\n  duration_ms: 5.608099\n  type: 'test'\n  ...\n# GET /api/health 200 0ms\n# GET /api/health 200 1ms\n# Subtest: generated ids are UUIDs and differ between requests\nok 7 - generated ids are UUIDs and differ between requests\n  ---\n  duration_ms: 4.537821\n  type: 'test'\n  ...\n# GET /api/health 200 4ms\n# Subtest: GET /api/health reports ok\nok 8 - GET /api/health reports ok\n  ---\n  duration_ms: 19.387081\n  type: 'test'\n  ...\n# POST /api/items 201 3ms\n# POST /api/items 201 1ms\n# POST /api/items 201 0ms\n# GET /api/items 200 0ms\n# GET /api/items/2 200 0ms\n# DELETE /api/items/1 200 1ms\n# GET /api/items/1 404 0ms\n# GET /api/items 200 0ms\n# Subtest: items can be created, listed, fetched and deleted\nok 9 - items can be created, listed, fetched and deleted\n  ---\n  duration_ms: 33.752525\n  type: 'test'\n  ...\n# POST /api/items 400 0ms\n# Subtest: POST /api/items without a name is rejected\nok 10 - POST /api/items without a name is rejected\n  ---\n  duration_ms: 3.845896\n  type: 'test'\n  ...\n# GET /api/items/9999 404 0ms\n# Subtest: GET /api/items/:id for an unknown id is 404\nok 11 - GET /api/items/:id for an unknown id is 404\n  ---\n  duration_ms: 2.389158\n  type: 'test'\n  ...\n1..11\n# tests 11\n# suites 0\n# pass 11\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 365.372535\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 81,
+      "removedLines": 0,
+      "filesChanged": 3,
+      "newFiles": 2,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.037
+    },
+    "changedFiles": [
+      "src/index.js",
+      "src/middleware/requestId.js",
+      "src/middleware/requestId.test.js"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "s own module under src/middleware/ and register it in src/index.js before the routes. Do not add dependencies.\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-express-request-id-AC6iIx/state/worktrees/20260903235243-add-request-id-middleware-to-the-express (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=none  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 3 file(s)\n  Deterministic quality checks found 1 item(s); fixing\n  qafix: claude-sonnet-5 (high)\n  ! 1 quality finding(s) remain after the fix pass\n  test: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260903235243-add-request-id-middleware-to-the-express\n  Evidence: /tmp/corpus-express-request-id-AC6iIx/state/artifacts/20260903235243-add-request-id-middleware-to-the-express\n  Branch:   pipeline/20260903235243-add-request-id-middleware-to-the-express\n  Cost:     $2.05 over 6 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n    - 1 quality finding(s) remain after the fix pass\n",
+      "stderr": ""
+    }
   }
 ]
