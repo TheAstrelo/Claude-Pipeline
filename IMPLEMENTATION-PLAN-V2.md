@@ -357,6 +357,48 @@ results ≥ the M2 bash results on every metric; overhead < 5 s; then
 `run-pipeline.sh` and the shell suites are deleted and `/auto-pipeline`
 launches the TS binary.
 
+**Spike result:** the Agent SDK authenticates wherever the CLI does and
+supports every option the adapter contract needs — model, effort,
+`settingSources: []`, `cwd`, `allowedTools`/`disallowedTools`, hooks, JSON
+schema output, `maxBudgetUsd`, an abort signal. Two findings shaped the
+adapter: `allowedTools` only pre-approves, so the hard restriction that keeps
+a read-only reviewer read-only is the CLI's own `--tools`; and the SDK yields
+the result message *before* it throws on a budget stop or a model error, so
+the adapter captures it during iteration and classifies failures with real
+cost rather than losing the call. No shell-out fallback was needed.
+
+**Landed in `engine/`** (~3,700 lines TS, the layout above minus `proofs.ts`,
+whose contents are M4 items): the adapter contract with a capability record;
+Claude (Agent SDK) and Codex (subprocess) adapters plus an in-process fake;
+worktree isolation and the commit path; verification-command detection,
+freezing and drift detection; the deterministic scanner; the BLOCKER lane with
+demotion and refutation; the repo-context pack; six roles; the stage machine
+with checkpoints and resume; the CLI with the 0/1/3/4 exit contract. Phase
+collapse is done (plan folds pre-check, requirements, design and steps into
+one call that still emits the four artifacts), drift detection is now the
+mechanical criteria-coverage check, and Phase 9's model call is gone.
+
+Everything in "dropped outright" is gone. Everything in "kept in spirit" is
+kept, plus three things the port improved on rather than copying:
+credential-file matching at any depth (the shell patterns were root-anchored
+and missed a monorepo's `apps/web/.env`); conflicting anchored verdicts
+resolved to the *blocking* one rather than the last on the page, which failed
+open; and findings tables read by their own header rather than by column
+position, which had let an uncited BLOCKER survive the gate meant to strip it.
+
+**Tests:** 179 offline (vitest, ~50 s) including 38 whole-run scenarios driven
+over real git repositories with only the model faked, the 129-case
+model-output corpus run against the fallback parsers, and an overhead guard.
+Eight live adapter tests run against the real provider under `PIPELINE_LIVE=1`.
+Measured engine overhead is **1.5 s** for a complete run, against 44–57 s.
+
+Three defects were found only by running the built binary rather than the test
+runner — a CommonJS `require` in ESM output that killed every real run, a
+malformed run id, and verification descriptors detected in the user's checkout
+but drift-checked in the worktree — and one hole was found by reviewing the
+engine against its own standard: nothing re-checked the candidate tree between
+the review and the commit.
+
 ## Milestone 4 — Deterministic proofs (M, no model calls)
 
 All advisory into Review unless stated; all recorded as evidence files.
