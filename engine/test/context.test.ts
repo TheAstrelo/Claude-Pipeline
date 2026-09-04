@@ -9,6 +9,8 @@ describe("test placement convention", () => {
     expect(described).toContain("src/routes/items.test.js");
     // The point of saying it: a test for scripts/release.js goes beside it.
     expect(described).toMatch(/mirror that relationship/);
+    // The convention must not become a reason to move code.
+    expect(described).toMatch(/Never move or duplicate code/);
   });
 
   it("recognizes a separate mirrored test tree", () => {

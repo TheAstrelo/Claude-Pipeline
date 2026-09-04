@@ -119,6 +119,9 @@ export function describeTestLayout(files: string[]): string | null {
         + (examples.length ? ` (for example \`${examples[0]}\`)` : "") + ".",
       "A new test belongs next to the file it covers — mirror that relationship,",
       "rather than copying the directory these examples happen to share.",
+      "Place the test to match the code. Never move or duplicate code to make it",
+      "match a test-placement convention, and do not add a test outside the area",
+      "the task names just because tests usually live there.",
     ].join(" ");
   }
   if (separate > colocated && separate >= 2) {
