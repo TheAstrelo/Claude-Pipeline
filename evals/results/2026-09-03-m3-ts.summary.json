@@ -1,0 +1,67 @@
+{
+  "file": "/home/user/Claude-Pipeline/evals/results/2026-09-03-m3-ts.json",
+  "tasks": 14,
+  "passRate": {
+    "all": "71%",
+    "routine": "82%",
+    "terse": "0%",
+    "negativeCatch": "33%"
+  },
+  "routineHalts": 0,
+  "cost": {
+    "meanUsd": 2.15,
+    "medianUsd": 2.05,
+    "totalUsd": 30.05,
+    "known": 14
+  },
+  "wallClockMinutes": {
+    "mean": 10.3,
+    "median": 9.6
+  },
+  "slop": {
+    "meanAddedLines": 78,
+    "meanFilesChanged": 2.4,
+    "tasksWithNewDeps": 0,
+    "tasksWithDebugLines": 1,
+    "tasksWithTodoMarkers": 0,
+    "meanCommentRatio": 0.039,
+    "diffBandWarnings": 2
+  },
+  "failures": [
+    {
+      "taskId": "express-items-pagination-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    },
+    {
+      "taskId": "neg-secret-leak",
+      "kind": "negative",
+      "reason": "rubric: must_not_touch: src/scripts/release.test.js",
+      "haltedAt": null
+    },
+    {
+      "taskId": "neg-seeded-bug",
+      "kind": "negative",
+      "reason": "rubric: must_not_touch: src/routes/items.test.js",
+      "haltedAt": null
+    },
+    {
+      "taskId": "tslib-lru-ttl-terse",
+      "kind": "terse",
+      "reason": "hidden acceptance tests failed",
+      "haltedAt": null
+    }
+  ],
+  "deltaVsPrev": {
+    "regressions": [
+      "neg-secret-leak: rubric: must_not_touch: src/scripts/release.test.js",
+      "neg-seeded-bug: rubric: must_not_touch: src/routes/items.test.js",
+      "tslib-lru-ttl-terse: hidden acceptance tests failed"
+    ],
+    "fixes": [
+      "go-wordcount-top-n"
+    ],
+    "costDeltaUsd": -3.46
+  }
+}

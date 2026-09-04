@@ -767,5 +767,131 @@
       "stdout": "econd argument, an options object { now?: () => number } supplying the clock (default Date.now); every time read must go through it. LRU eviction semantics are unchanged and all existing tests must keep passing. No dependencies.\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-tslib-lru-ttl-MgQPxc/state/worktrees/20260904005333-add-optional-per-entry-expiry-to-lrucach (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=npm run typecheck  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks clean; no model call\n  test: PASS\n  typecheck: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260904005333-add-optional-per-entry-expiry-to-lrucach\n  Evidence: /tmp/corpus-tslib-lru-ttl-MgQPxc/state/artifacts/20260904005333-add-optional-per-entry-expiry-to-lrucach\n  Branch:   pipeline/20260904005333-add-optional-per-entry-expiry-to-lrucach\n  Cost:     $2.39 over 5 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n",
       "stderr": ""
     }
+  },
+  {
+    "taskId": "tslib-lru-ttl-terse",
+    "kind": "terse",
+    "fixture": "ts-lib",
+    "engine": "ts",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-04T01:04:58.332Z",
+    "wallClockMs": 577658,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "REVIEW_ONLY",
+    "haltedAt": null,
+    "phases": {
+      "baseline": "DONE",
+      "plan": "DONE",
+      "critique": "DONE",
+      "build": "DONE",
+      "qa": "DONE",
+      "verify": "RUNNING",
+      "security": "RUNNING",
+      "review": "RUNNING"
+    },
+    "modelCalls": 5,
+    "costUsd": 1.930973,
+    "tokens": {
+      "input": 66,
+      "output": 42707,
+      "cached": 363226
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 1,
+      "tail": "537\n  type: 'test'\n  ...\n# Subtest: hides an expired entry from has, size and keys\nok 13 - hides an expired entry from has, size and keys\n  ---\n  duration_ms: 0.20159\n  type: 'test'\n  ...\n# Subtest: never expires entries without a ttl\nok 14 - never expires entries without a ttl\n  ---\n  duration_ms: 0.237922\n  type: 'test'\n  ...\n# Subtest: overwriting a key restarts its expiry window\nok 15 - overwriting a key restarts its expiry window\n  ---\n  duration_ms: 0.464186\n  type: 'test'\n  ...\n# Subtest: rejects a ttl that is not a positive finite number\nok 16 - rejects a ttl that is not a positive finite number\n  ---\n  duration_ms: 0.409416\n  type: 'test'\n  ...\n# Subtest: reclaims an expired slot instead of evicting a live entry\nok 17 - reclaims an expired slot instead of evicting a live entry\n  ---\n  duration_ms: 1.511531\n  type: 'test'\n  ...\n# Subtest: parses single units\nok 18 - parses single units\n  ---\n  duration_ms: 1.121309\n  type: 'test'\n  ...\n# Subtest: sums compound durations\nok 19 - sums compound durations\n  ---\n  duration_ms: 0.241622\n  type: 'test'\n  ...\n# Subtest: accepts decimal amounts\nok 20 - accepts decimal amounts\n  ---\n  duration_ms: 0.115017\n  type: 'test'\n  ...\n# Subtest: rejects malformed input\nok 21 - rejects malformed input\n  ---\n  duration_ms: 0.436533\n  type: 'test'\n  ...\n# Subtest: lower-cases and joins words with dashes\nok 22 - lower-cases and joins words with dashes\n  ---\n  duration_ms: 1.006382\n  type: 'test'\n  ...\n# Subtest: trims leading and trailing separators\nok 23 - trims leading and trailing separators\n  ---\n  duration_ms: 0.183536\n  type: 'test'\n  ...\n# Subtest: leaves an existing slug untouched\nok 24 - leaves an existing slug untouched\n  ---\n  duration_ms: 0.116659\n  type: 'test'\n  ...\n# Subtest: returns an empty slug for empty input\nok 25 - returns an empty slug for empty input\n  ---\n  duration_ms: 0.149547\n  type: 'test'\n  ...\n1..25\n# tests 25\n# suites 0\n# pass 19\n# fail 6\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 288.764293\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 102,
+      "removedLines": 11,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.029
+    },
+    "changedFiles": [
+      "src/lruCache.test.ts",
+      "src/lruCache.ts"
+    ],
+    "pass": false,
+    "reason": "hidden acceptance tests failed",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "\n  standard · quality=max · claude\n  Task: lru cache entries should be able to expire\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-tslib-lru-ttl-terse-8wO7B1/state/worktrees/20260904010459-lru-cache-entries-should-be-able-to-expi (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=npm run typecheck  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks clean; no model call\n  test: PASS\n  typecheck: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260904010459-lru-cache-entries-should-be-able-to-expi\n  Evidence: /tmp/corpus-tslib-lru-ttl-terse-8wO7B1/state/artifacts/20260904010459-lru-cache-entries-should-be-able-to-expi\n  Branch:   pipeline/20260904010459-lru-cache-entries-should-be-able-to-expi\n  Cost:     $1.93 over 5 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n",
+      "stderr": ""
+    }
+  },
+  {
+    "taskId": "tslib-slugify-unicode",
+    "kind": "routine",
+    "fixture": "ts-lib",
+    "engine": "ts",
+    "provider": "claude",
+    "profile": "standard",
+    "quality": "max",
+    "startedAt": "2026-09-04T01:14:37.704Z",
+    "wallClockMs": 701420,
+    "exitCode": 0,
+    "timedOut": false,
+    "status": "REVIEW_ONLY",
+    "haltedAt": null,
+    "phases": {
+      "baseline": "DONE",
+      "plan": "DONE",
+      "critique": "DONE",
+      "build": "DONE",
+      "qa": "DONE",
+      "verify": "RUNNING",
+      "security": "RUNNING",
+      "review": "RUNNING"
+    },
+    "modelCalls": 5,
+    "costUsd": 2.238592,
+    "tokens": {
+      "input": 76,
+      "output": 53853,
+      "cached": 405801
+    },
+    "hiddenTests": {
+      "ran": true,
+      "exitCode": 0,
+      "tail": " single entry and refreshes it\n  ---\n  duration_ms: 0.208682\n  type: 'test'\n  ...\n# Subtest: delete and clear remove entries\nok 9 - delete and clear remove entries\n  ---\n  duration_ms: 0.297298\n  type: 'test'\n  ...\n# Subtest: rejects a non-positive capacity\nok 10 - rejects a non-positive capacity\n  ---\n  duration_ms: 0.43403\n  type: 'test'\n  ...\n# Subtest: parses single units\nok 11 - parses single units\n  ---\n  duration_ms: 0.99906\n  type: 'test'\n  ...\n# Subtest: sums compound durations\nok 12 - sums compound durations\n  ---\n  duration_ms: 0.159565\n  type: 'test'\n  ...\n# Subtest: accepts decimal amounts\nok 13 - accepts decimal amounts\n  ---\n  duration_ms: 0.111865\n  type: 'test'\n  ...\n# Subtest: rejects malformed input\nok 14 - rejects malformed input\n  ---\n  duration_ms: 0.474253\n  type: 'test'\n  ...\n# Subtest: lower-cases and joins words with dashes\nok 15 - lower-cases and joins words with dashes\n  ---\n  duration_ms: 1.003136\n  type: 'test'\n  ...\n# Subtest: trims leading and trailing separators\nok 16 - trims leading and trailing separators\n  ---\n  duration_ms: 0.224555\n  type: 'test'\n  ...\n# Subtest: leaves an existing slug untouched\nok 17 - leaves an existing slug untouched\n  ---\n  duration_ms: 0.127631\n  type: 'test'\n  ...\n# Subtest: returns an empty slug for empty input\nok 18 - returns an empty slug for empty input\n  ---\n  duration_ms: 0.14592\n  type: 'test'\n  ...\n# Subtest: folds accented Latin letters to their base letter\nok 19 - folds accented Latin letters to their base letter\n  ---\n  duration_ms: 0.261321\n  type: 'test'\n  ...\n# Subtest: collapses runs of separators into a single dash\nok 20 - collapses runs of separators into a single dash\n  ---\n  duration_ms: 0.119089\n  type: 'test'\n  ...\n# Subtest: mixes accents and punctuation into a clean slug\nok 21 - mixes accents and punctuation into a clean slug\n  ---\n  duration_ms: 0.319517\n  type: 'test'\n  ...\n1..21\n# tests 21\n# suites 0\n# pass 21\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 293.289354\n\n"
+    },
+    "rubric": {
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    "slop": {
+      "addedLines": 25,
+      "removedLines": 4,
+      "filesChanged": 2,
+      "newFiles": 0,
+      "newDeps": [],
+      "debugLines": 0,
+      "todoMarkers": 0,
+      "commentRatio": 0.12
+    },
+    "changedFiles": [
+      "src/slugify.test.ts",
+      "src/slugify.ts"
+    ],
+    "pass": true,
+    "reason": "hidden tests green, rubric satisfied",
+    "artifactsDir": null,
+    "engineTail": {
+      "stdout": "ading and trailing dashes are still trimmed, the output stays lower-case a-z0-9 and dashes, and every existing test must keep passing. Use only the standard library (String.prototype.normalize) — no dependencies.\n\n  ! review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n  Worktree: /tmp/corpus-tslib-slugify-unicode-S53sI6/state/worktrees/20260904011439-improve-slugify-in-src-slugify-ts-1-acce (your checkout stays untouched)\n  Verification: test=npm test  build=none  typecheck=npm run typecheck  lint=none  docs=none\n  plan: claude-opus-5 (xhigh)\n  critique: claude-opus-5 (xhigh)\n  build: claude-opus-5 (xhigh)\n  Build touched 2 file(s)\n  Deterministic quality checks clean; no model call\n  test: PASS\n  typecheck: PASS\n  security: claude-opus-5 (xhigh)\n  review: claude-opus-5 (max)\n\n────────────────────────────────────────────────────────────────\n  REVIEW_ONLY: review complete; commit was not requested\n────────────────────────────────────────────────────────────────\n  Run:      20260904011439-improve-slugify-in-src-slugify-ts-1-acce\n  Evidence: /tmp/corpus-tslib-slugify-unicode-S53sI6/state/artifacts/20260904011439-improve-slugify-in-src-slugify-ts-1-acce\n  Branch:   pipeline/20260904011439-improve-slugify-in-src-slugify-ts-1-acce\n  Cost:     $2.24 over 5 model call(s)\n\n  Warnings:\n    - review: claude-fable-5-1 → claude-opus-5 (Claude Code returned an error result: You're out of usage credits. Switch to ano)\n",
+      "stderr": ""
+    }
   }
 ]
