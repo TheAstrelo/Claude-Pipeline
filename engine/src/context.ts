@@ -70,6 +70,9 @@ export function buildContextPack(options: {
     lines.push("```", "");
   }
 
+  const convention = describeTestLayout(files);
+  if (convention) lines.push("## Where tests go", "", convention, "");
+
   const history = recentHistory(ctx, 20).trim();
   if (history) lines.push("## Recent history", "", "```", history.slice(0, 6000), "```", "");
 
@@ -82,6 +85,56 @@ export function buildContextPack(options: {
   }
 
   return { markdown: lines.join("\n"), documentsRoutes: detectRouteDocs(root, ctx, files), verificationNote };
+}
+
+/**
+ * Where this project puts a test relative to the code it covers.
+ *
+ * Stating this is the difference between "tests live under src/" and "a test
+ * sits beside the file it covers" — a model that reads the first from a list
+ * of example paths will put a test for `scripts/release.js` into `src/`, which
+ * is the wrong place in a colocating project.
+ */
+export function describeTestLayout(files: string[]): string | null {
+  const testFiles = files.filter(isTestPath);
+  if (testFiles.length < 2) return null;
+
+  const sourceDirs = new Set(files.filter(f => !isTestPath(f)).map(dirOf));
+  let colocated = 0;
+  let separate = 0;
+  const examples: string[] = [];
+
+  for (const test of testFiles) {
+    const dir = dirOf(test);
+    if (/(^|\/)(tests?|__tests__|spec|specs)(\/|$)/i.test(dir)) { separate++; continue; }
+    if (sourceDirs.has(dir)) {
+      colocated++;
+      if (examples.length < 2) examples.push(test);
+    }
+  }
+
+  if (colocated > separate && colocated >= 2) {
+    return [
+      "Tests sit **beside the file they cover**, in the same directory"
+        + (examples.length ? ` (for example \`${examples[0]}\`)` : "") + ".",
+      "A new test belongs next to the file it covers — mirror that relationship,",
+      "rather than copying the directory these examples happen to share.",
+    ].join(" ");
+  }
+  if (separate > colocated && separate >= 2) {
+    const dir = dirOf(testFiles.find(f => /(^|\/)(tests?|__tests__|spec|specs)(\/|$)/i.test(dirOf(f))) ?? "");
+    return `Tests live in a separate tree (\`${dir}\`) that mirrors the source layout. Put a new test at the matching path there.`;
+  }
+  return null;
+}
+
+function isTestPath(file: string): boolean {
+  return /\.(test|spec)\.[A-Za-z0-9]+$/i.test(file) || /_test\.(go|py|rb)$/i.test(file) || /(^|\/)test_[^/]+\.py$/i.test(file);
+}
+
+function dirOf(file: string): string {
+  const index = file.lastIndexOf("/");
+  return index === -1 ? "" : file.slice(0, index);
 }
 
 function readManifest(root: string): string | null {
