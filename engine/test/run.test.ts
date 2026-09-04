@@ -602,3 +602,54 @@ describe("the commit boundary", () => {
     expect(sh(root, "git", ["rev-list", "--count", "HEAD"]).trim()).toBe("1");
   });
 });
+
+describe("a repository with no test command", () => {
+  function untested(): string {
+    const root = makeRepo({ "README.md": "# a docs-only project\n", "docs/intro.md": "hello\n" });
+    roots.push(root);
+    return root;
+  }
+
+  it("completes review-only rather than committing on no evidence", async () => {
+    const root = untested();
+    const { result } = await runWith(root, request => {
+      if (request.label === "build") {
+        writeFileSync(join(request.cwd, "docs/guide.md"), "# guide\n");
+        return { structured: { verdict: "SUCCESS", filesChanged: ["docs/guide.md"], notes: "", blockedReason: null } };
+      }
+      return goodHandler()(request);
+    });
+    expect(result.status).toBe("REVIEW_ONLY");
+    expect(result.warnings.join(" ")).toMatch(/no test command was detected/);
+    expect(sh(root, "git", ["rev-list", "--count", "HEAD"]).trim()).toBe("1");
+  });
+
+  it("commits under the explicit waiver, which is recorded", async () => {
+    const root = untested();
+    const { result } = await runWith(root, request => {
+      if (request.label === "build") {
+        writeFileSync(join(request.cwd, "docs/guide.md"), "# guide\n");
+        return { structured: { verdict: "SUCCESS", filesChanged: ["docs/guide.md"], notes: "", blockedReason: null } };
+      }
+      return goodHandler()(request);
+    }, { allowUntestedCommit: true });
+    expect(result.status).toBe("COMPLETED");
+    expect(sh(root, "git", ["show", `${result.commit}:docs/guide.md`])).toContain("guide");
+    const runJson = JSON.parse(readFileSync(join(result.artifactsDir, "checkpoint.json"), "utf8")) as { configHash: string };
+    expect(runJson.configHash).toBeTruthy();
+  });
+
+  it("plans without inventing a test framework", async () => {
+    const root = untested();
+    const { adapter } = await runWith(root, request => {
+      if (request.label === "build") {
+        writeFileSync(join(request.cwd, "docs/guide.md"), "# guide\n");
+        return { structured: { verdict: "SUCCESS", filesChanged: [], notes: "", blockedReason: null } };
+      }
+      return goodHandler()(request);
+    });
+    const planPrompt = adapter.calls.find(c => c.label === "plan")!.prompt;
+    expect(planPrompt).toContain("No test command was detected");
+    expect(planPrompt).not.toContain("Acceptance-first");
+  });
+});
